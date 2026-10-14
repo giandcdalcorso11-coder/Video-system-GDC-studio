@@ -7,14 +7,12 @@
 <style>
   :root {
     --bg: #f3f4f6; --panel: #ffffff; --panel-2: #eef0f3; --text: #14161a; --muted: #5f6672;
-    --line: #d9dde3; --rec: #d92d20; --ok: #12875a; --warn: #b7791f; --accent: #2457d6;
-    --shadow: 0 1px 2px rgba(0,0,0,.06);
+    --line: #d9dde3; --rec: #d92d20; --ok: #12875a; --warn: #b7791f; --accent: #2457d6; --shadow: 0 1px 2px rgba(0,0,0,.06);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #0f1114; --panel: #181b20; --panel-2: #20242b; --text: #eceef2; --muted: #98a0ad;
-      --line: #2b3038; --rec: #ff5a4d; --ok: #3ccf91; --warn: #f2b84b; --accent: #7aa2ff;
-      --shadow: none;
+      --line: #2b3038; --rec: #ff5a4d; --ok: #3ccf91; --warn: #f2b84b; --accent: #7aa2ff; --shadow: none;
     }
   }
   :root[data-theme="dark"] {
@@ -22,72 +20,76 @@
     --line: #2b3038; --rec: #ff5a4d; --ok: #3ccf91; --warn: #f2b84b; --accent: #7aa2ff; --shadow: none;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
-  header.top {
-    display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 16px;
-  }
-  h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+  header.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  h1 { font-size: 17px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted); font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }
   .sub { color: var(--muted); font-size: 13px; }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px;
-    font-size: 12px; font-weight: 600; letter-spacing: .4px; background: var(--panel-2); color: var(--muted);
-    border: 1px solid var(--line);
-  }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; letter-spacing: .4px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-  .pill.rec { color: var(--rec); border-color: var(--rec); }
-  .pill.rec .dot { background: var(--rec); animation: pulse 1s infinite; }
-  .pill.idle { color: var(--ok); border-color: var(--ok); }
-  .pill.idle .dot { background: var(--ok); }
+  .pill.rec { color: var(--rec); border-color: var(--rec); } .pill.rec .dot { background: var(--rec); animation: pulse 1s infinite; }
+  .pill.idle { color: var(--ok); border-color: var(--ok); } .pill.idle .dot { background: var(--ok); }
   @keyframes pulse { 50% { opacity: .25; } }
-  @media (prefers-reduced-motion: reduce) { .pill.rec .dot { animation: none; } }
-  button {
-    font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
-    border-radius: 10px; padding: 9px 14px; cursor: pointer; min-height: 40px;
-  }
+  @media (prefers-reduced-motion: reduce) { .pill.rec .dot, .recbadge i { animation: none !important; } }
+  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; cursor: pointer; min-height: 40px; }
   button:hover:not(:disabled) { border-color: var(--muted); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button.primary { background: var(--rec); border-color: var(--rec); color: #fff; font-weight: 700; }
   button.ghost { background: transparent; }
   .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 20px; min-width: 76px; text-align: right; }
-  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .tile small { display: block; color: var(--muted); font-size: 12px; }
+  .tile b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
   .card.is-rec { border-color: var(--rec); }
+  .card.click { cursor: pointer; } .card.click:hover { border-color: var(--muted); }
   .card-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; }
   .card-h b { font-size: 15px; }
-  .view { position: relative; background: #000; width: min(100%, 340px); margin: 0 auto; aspect-ratio: 9 / 16; max-height: 62vh; }
+  .card-b { display: flex; gap: 14px; padding: 0 14px 12px; }
+  .info { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .kv small { display: block; color: var(--muted); font-size: 11px; }
+  .kv span { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card-f { display: flex; gap: 8px; padding: 0 14px 14px; flex-wrap: wrap; }
+  .card-f button { flex: 1; }
+  .add { display: flex; align-items: center; justify-content: center; min-height: 160px; border: 2px dashed var(--line); background: transparent; color: var(--muted); border-radius: 14px; cursor: pointer; font: inherit; }
+  .view { position: relative; background: #000; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 8px; }
+  .view.mini { width: 104px; flex: none; }
+  .view.big { width: min(100%, 340px); margin: 0 auto; max-height: 62vh; }
   .view canvas, .view video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .view .off {
-    position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center;
-    color: #aab; background: rgba(0,0,0,.72); padding: 20px; font-size: 14px;
-  }
-  .card.is-off .view .off { display: flex; }
-  .tag { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
-  .recbadge { position: absolute; top: 8px; right: 8px; display: none; align-items: center; gap: 6px; background: rgba(0,0,0,.6); color: #fff; font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 6px; }
-  .recbadge i { width: 9px; height: 9px; border-radius: 50%; background: #ff4d3d; animation: pulse 1s infinite; }
-  .card.is-rec .recbadge { display: inline-flex; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 14px 4px; }
-  .stat { background: var(--panel-2); border-radius: 10px; padding: 8px 10px; }
-  .stat small { display: block; color: var(--muted); font-size: 11px; }
-  .stat span { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .ctl { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 12px 14px 14px; flex-wrap: wrap; }
+  .view .off { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; color: #aab; background: rgba(0,0,0,.72); padding: 10px; font-size: 12px; }
+  .is-off .view .off { display: flex; }
+  .tag { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 5px; }
+  .view.mini .tag { display: none; }
+  .card-f .ghost { flex: 0 0 auto; }
+  .recbadge { position: absolute; top: 6px; right: 6px; display: none; align-items: center; gap: 5px; background: rgba(0,0,0,.6); color: #fff; font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 5px; }
+  .recbadge i { width: 8px; height: 8px; border-radius: 50%; background: #ff4d3d; animation: pulse 1s infinite; }
+  .is-rec .recbadge { display: inline-flex; }
+  .bat { display: flex; align-items: center; gap: 8px; }
+  .bar { flex: 1; height: 10px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; min-width: 60px; }
+  .bar i { display: block; height: 100%; background: var(--ok); transition: width .5s; }
+  .bar.mid i { background: var(--warn); } .bar.low i { background: var(--rec); }
+  .bat b { font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
+  .warn { color: var(--rec); font-size: 12px; font-weight: 600; }
+  .back { display: inline-block; margin-bottom: 12px; color: var(--accent); text-decoration: none; font-weight: 600; }
+  .detail { display: grid; gap: 16px; grid-template-columns: minmax(280px, 380px) 1fr; align-items: start; }
+  @media (max-width: 760px) { .detail { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: var(--shadow); }
+  .panel + .panel { margin-top: 16px; }
+  .kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .ctl { display: flex; gap: 14px; align-items: center; justify-content: space-between; margin-top: 12px; flex-wrap: wrap; }
+  .btns { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; }
   .pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; }
-  .pad button { padding: 0; min-height: 44px; font-size: 18px; }
-  .pad .home { font-size: 13px; }
-  .pos { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-  .btns { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 150px; }
-  .log { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
-  .log h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; letter-spacing: .4px; text-transform: uppercase; }
-  .log ol { list-style: none; margin: 0; padding: 0; max-height: 170px; overflow: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .log li { padding: 3px 0; border-bottom: 1px dashed var(--line); }
-  .log li time { color: var(--muted); margin-right: 8px; }
+  .pad button { padding: 0; min-height: 44px; font-size: 18px; } .pad .home { font-size: 13px; }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  input[type=text] { display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 40px; }
+  ol.list { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+  ol.list li { padding: 4px 0; border-bottom: 1px dashed var(--line); } ol.list li time { color: var(--muted); margin-right: 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
   footer { color: var(--muted); font-size: 12px; padding: 14px 4px; }
   @media (max-width: 480px) { .wrap { padding: 12px; } .timer { font-size: 18px; } }
 </style>
@@ -96,240 +98,349 @@
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>GDC Multicam</h1>
-      <div class="sub">Dashboard riprese · <span id="mode">modalità simulazione</span></div>
+      <h1><a href="#/" style="color:inherit;text-decoration:none">GDC Multicam</a></h1>
+      <div class="sub">Dashboard riprese · modalità simulazione</div>
     </div>
     <div class="row">
-      <span class="pill" id="globalPill"><span class="dot"></span><span id="globalTxt">FERMO</span></span>
-      <span class="timer" id="globalTimer" aria-live="off">00:00</span>
+      <span class="pill" id="globalPill"><span class="dot"></span><span id="globalTxt">NESSUNA CAMERA</span></span>
+      <span class="timer" id="globalTimer">00:00</span>
       <button class="primary" id="recAll" title="Scorciatoia: tasto R">● REC tutte</button>
       <button id="stopAll" disabled>■ STOP tutte</button>
     </div>
   </header>
-
-  <main class="grid" id="cams"></main>
-
-  <section class="log" aria-label="Registro eventi">
-    <h2>Registro</h2>
-    <ol id="log"></ol>
-  </section>
-  <footer>
-    Prototipo: stream, stato e movimenti sono simulati. I comandi passano da un livello di trasporto
-    (<code>transport</code>) che sostituiremo con la connessione reale alle camere.
-  </footer>
+  <main id="view"></main>
+  <footer>Prototipo: stream, stato, batteria e movimenti sono simulati. I comandi passano da un livello di trasporto (<code>transport</code>) da sostituire con la connessione reale.</footer>
 </div>
 
 <script>
 "use strict";
-/* ===== Configurazione camere ===== */
-const CAMERAS = [
-  { id: "A", name: "CAM A", device: "iPhone XR" },
-  { id: "B", name: "CAM B", device: "Secondo telefono" },
+/* ===== Utilità ===== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtTime = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+const stamp = () => new Date().toLocaleTimeString("it-IT");
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage non disponibile */ } },
+};
+
+/* ===== Camere (nome dispositivo + nome camera, rinominabili) ===== */
+const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
+let cameras = store.get("gdc.cameras", null) || [
+  { id: "cam1", device: "iPhone XR", name: "cam1", os: "iOS 16.3.1", totalGb: 128, freeGb: 30.6 },
 ];
-const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5;
+const saveCams = () => store.set("gdc.cameras", cameras);
+const camById = (id) => cameras.find((c) => c.id === id);
+const camTitle = (c) => `${c.device} · ${c.name}`;
 
 /* ===== Trasporto =====
-   Interfaccia: transport.send(camId, command) e transport.onState(callback(camId, partialState)).
-   Comandi: connect | disconnect | rec_start | rec_stop | move {pan,tilt} | home
-   Il MockTransport simula le camere. Più avanti: WebSocketTransport verso l'hub/ESP32. */
+   Interfaccia: transport.send(camId, {cmd,...}) e transport.onState(cb(camId, stato)).
+   Comandi: connect | disconnect | rec_start | rec_stop | move {pan,tilt} | home | charge {on}
+   Il MockTransport simula le camere; sarà sostituito da una connessione reale (WebSocket). */
 class MockTransport {
   constructor() { this.cb = () => {}; this.s = {}; }
   onState(cb) { this.cb = cb; }
-  init(cams) {
-    cams.forEach((c, i) => {
-      this.s[c.id] = { online: false, rec: false, recStart: 0, battery: 100 - i * 17, freeGb: 48 - i * 21, pan: 0, tilt: 0 };
-    });
-    setTimeout(() => this.send("A", { cmd: "connect" }), 600);
-    setInterval(() => this.tick(), 1000);
+  add(cam, connectAfter) {
+    this.s[cam.id] = { online: false, rec: false, recStart: 0, battery: 78, charging: false, freeGb: cam.freeGb, totalGb: cam.totalGb,
+      pan: 0, tilt: 0, rssi: -58, latency: 24, res: "1080p · 30 fps", orient: "Verticale 9:16", clips: [], n: 0 };
+    if (connectAfter != null) setTimeout(() => this.send(cam.id, { cmd: "connect" }), connectAfter);
+    this.push(cam.id);
   }
-  push(id) { this.cb(id, { ...this.s[id] }); }
+  remove(id) { delete this.s[id]; }
+  start() { setInterval(() => this.tick(), 1000); }
+  push(id) { if (this.s[id]) this.cb(id, this.s[id]); }
   tick() {
     for (const id in this.s) {
-      const st = this.s[id];
-      if (!st.online) continue;
-      if (st.rec) { st.freeGb = Math.max(0, +(st.freeGb - 0.04).toFixed(2)); if (Math.random() < .2) st.battery = Math.max(1, st.battery - 1); }
+      const st = this.s[id]; if (!st.online) continue;
+      if (st.rec) st.freeGb = Math.max(0, +(st.freeGb - 0.01).toFixed(3));
+      st.battery = Math.min(100, Math.max(1, st.battery + (st.charging ? 0.15 : st.rec ? -0.12 : -0.04)));
+      st.rssi = Math.max(-85, Math.min(-40, st.rssi + (Math.random() - 0.5) * 3));
+      st.latency = Math.max(8, Math.round(st.latency + (Math.random() - 0.5) * 6));
       this.push(id);
     }
   }
   send(id, m) {
-    const st = this.s[id]; if (!st) return;
+    const st = this.s[id], cam = camById(id); if (!st) return;
     const clamp = (v, l) => Math.max(-l, Math.min(l, v));
     switch (m.cmd) {
       case "connect": st.online = true; break;
-      case "disconnect": st.online = false; st.rec = false; break;
+      case "disconnect": if (st.rec) this.stopRec(st, cam); st.online = false; break;
       case "rec_start": if (st.online && !st.rec) { st.rec = true; st.recStart = Date.now(); } break;
-      case "rec_stop": if (st.rec) st.rec = false; break;
+      case "rec_stop": if (st.rec) this.stopRec(st, cam); break;
       case "move": if (st.online) { st.pan = clamp(st.pan + (m.pan || 0), PAN_LIMIT); st.tilt = clamp(st.tilt + (m.tilt || 0), TILT_LIMIT); } break;
       case "home": st.pan = 0; st.tilt = 0; break;
+      case "charge": st.charging = !!m.on; break;
     }
     this.push(id);
   }
+  stopRec(st, cam) {
+    const ms = Date.now() - st.recStart; st.rec = false; st.n++;
+    st.clips.unshift({ file: `${cam.name.toUpperCase().replace(/\s+/g, "_")}_${String(st.n).padStart(3, "0")}`, dur: ms, mb: Math.round(ms / 60000 * MB_PER_MIN) });
+  }
 }
 const transport = new MockTransport();
+const state = {};
+const logs = []; // {t, id, msg}
+function log(id, msg) { logs.unshift({ t: stamp(), id, msg }); if (logs.length > 200) logs.pop(); renderLogs(); }
 
-/* ===== Stato UI ===== */
-const state = {}; // id -> ultimo stato ricevuto
-const $ = (s, r = document) => r.querySelector(s);
-const fmtTime = (ms) => { const t = Math.floor(ms / 1000); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
-const stamp = () => new Date().toLocaleTimeString("it-IT");
-
-function log(msg) {
-  const li = document.createElement("li");
-  li.innerHTML = "<time>" + stamp() + "</time>";
-  li.append(msg);
-  const ol = $("#log"); ol.prepend(li);
-  while (ol.children.length > 60) ol.lastChild.remove();
-}
-
-/* ===== Costruzione card ===== */
-const cards = {};
-function buildCard(cam) {
-  const el = document.createElement("article");
-  el.className = "card is-off";
-  el.innerHTML = `
-    <div class="card-h">
-      <div><b>${cam.name}</b> <span class="sub">${cam.device}</span></div>
-      <span class="pill" data-k="pill"><span class="dot"></span><span data-k="pillTxt">OFFLINE</span></span>
-    </div>
-    <div class="view">
-      <canvas data-k="canvas" width="360" height="640"></canvas>
-      <video data-k="video" muted playsinline hidden></video>
-      <span class="tag">ANTEPRIMA SIMULATA</span>
-      <span class="recbadge"><i></i><span data-k="badgeTime">00:00</span></span>
-      <div class="off">Camera non connessa.<br>Apri la pagina camera sul telefono per collegarla.</div>
-    </div>
-    <div class="stats">
-      <div class="stat"><small>Batteria</small><span data-k="bat">—</span></div>
-      <div class="stat"><small>Spazio libero</small><span data-k="free">—</span></div>
-      <div class="stat"><small>Pan / Tilt</small><span data-k="pos">—</span></div>
-    </div>
-    <div class="ctl">
-      <div class="btns">
-        <button class="primary" data-k="rec">● REC</button>
-        <button data-k="stop" disabled>■ STOP</button>
-        <button class="ghost" data-k="conn">Connetti (sim)</button>
-        <button class="ghost" data-k="web">Usa webcam di questo PC</button>
-      </div>
-      <div>
-        <div class="pad" role="group" aria-label="Movimento ${cam.name} (segnaposto)">
-          <span></span><button data-m="0,${STEP}" aria-label="Su">▲</button><span></span>
-          <button data-m="-${STEP},0" aria-label="Sinistra">◀</button><button class="home" data-k="home">⌂</button><button data-m="${STEP},0" aria-label="Destra">▶</button>
-          <span></span><button data-m="0,-${STEP}" aria-label="Giù">▼</button><span></span>
-        </div>
-        <div class="pos" style="text-align:center;margin-top:4px">movimenti: segnaposto</div>
-      </div>
-    </div>`;
-  const k = (n) => $(`[data-k="${n}"]`, el);
-  const ui = { el, canvas: k("canvas"), video: k("video"), pill: k("pill"), pillTxt: k("pillTxt"),
-    bat: k("bat"), free: k("free"), pos: k("pos"), rec: k("rec"), stop: k("stop"), conn: k("conn"), badgeTime: k("badgeTime"), web: k("web") };
-  ui.rec.onclick = () => command(cam.id, { cmd: "rec_start" });
-  ui.stop.onclick = () => command(cam.id, { cmd: "rec_stop" });
-  ui.conn.onclick = () => command(cam.id, { cmd: state[cam.id]?.online ? "disconnect" : "connect" });
-  k("home").onclick = () => command(cam.id, { cmd: "home" });
-  el.querySelectorAll("[data-m]").forEach((b) => b.onclick = () => {
-    const [pan, tilt] = b.dataset.m.split(",").map(Number);
-    command(cam.id, { cmd: "move", pan, tilt });
-  });
-  ui.web.onclick = () => toggleWebcam(cam, ui);
-  cards[cam.id] = ui;
-  $("#cams").append(el);
-}
-
-async function toggleWebcam(cam, ui) {
-  if (ui.video.srcObject) {
-    ui.video.srcObject.getTracks().forEach((t) => t.stop());
-    ui.video.srcObject = null; ui.video.hidden = true; ui.canvas.hidden = false;
-    ui.web.textContent = "Usa webcam di questo PC"; return;
-  }
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: true });
-    ui.video.srcObject = s; await ui.video.play(); ui.video.hidden = false; ui.canvas.hidden = true;
-    ui.web.textContent = "Torna all'anteprima simulata";
-    $(".tag", ui.el).textContent = "WEBCAM LOCALE (TEST)";
-  } catch (e) { log(cam.name + ": webcam non disponibile (" + (e.name || "errore") + ")"); }
-}
-
-/* ===== Comandi e aggiornamenti ===== */
 function command(id, m) {
-  const cam = CAMERAS.find((c) => c.id === id);
-  if (m.cmd === "rec_start") log(cam.name + ": REC avviato");
-  if (m.cmd === "rec_stop") log(cam.name + ": REC fermato");
-  if (m.cmd === "connect") log(cam.name + ": connessa (simulazione)");
-  if (m.cmd === "disconnect") log(cam.name + ": disconnessa");
+  const c = camById(id); if (!c) return;
+  const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)" }[m.cmd];
+  if (say) log(id, `${camTitle(c)}: ${say}`);
   transport.send(id, m);
 }
+transport.onState((id, st) => { state[id] = st; refresh(); });
 
-transport.onState((id, st) => { state[id] = st; render(id); renderGlobal(); });
-
-function render(id) {
-  const st = state[id], ui = cards[id]; if (!st) return;
-  ui.el.classList.toggle("is-off", !st.online);
-  ui.el.classList.toggle("is-rec", st.rec);
-  ui.pill.className = "pill " + (!st.online ? "" : st.rec ? "rec" : "idle");
-  ui.pillTxt.textContent = !st.online ? "OFFLINE" : st.rec ? "IN REC" : "PRONTA";
-  ui.bat.textContent = st.online ? st.battery + "%" : "—";
-  ui.free.textContent = st.online ? st.freeGb.toFixed(1) + " GB" : "—";
-  ui.pos.textContent = st.online ? st.pan + "° / " + st.tilt + "°" : "—";
-  ui.rec.disabled = !st.online || st.rec;
-  ui.stop.disabled = !st.rec;
-  ui.conn.textContent = st.online ? "Disconnetti (sim)" : "Connetti (sim)";
-}
-
-function renderGlobal() {
-  const all = Object.values(state);
+/* ===== Binding dei dati ai nodi (data-bind + data-cam) ===== */
+const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
+const BIND = {
+  title: (st, c, el) => { el.textContent = camTitle(c); },
+  pill: (st, c, el) => { el.className = "pill " + (!st.online ? "" : st.rec ? "rec" : "idle"); el.innerHTML = `<span class="dot"></span>${!st.online ? "OFFLINE" : st.rec ? "IN REC" : "PRONTA"}`; },
+  card: (st, c, el) => { el.classList.toggle("is-off", !st.online); el.classList.toggle("is-rec", st.rec); },
+  batTxt: (st, c, el) => { el.textContent = st.online ? Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "") : "—"; },
+  batBar: (st, c, el) => { el.className = "bar " + (st.online ? batClass(st.battery) : ""); $("i", el).style.width = (st.online ? st.battery : 0) + "%"; },
+  batWarn: (st, c, el) => { el.textContent = st.online && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
+  batState: (st, c, el) => { el.textContent = !st.online ? "—" : st.charging ? "In carica" : "A batteria"; },
+  free: (st, c, el) => { el.textContent = st.online ? st.freeGb.toFixed(1) + " GB" : "—"; },
+  freeLong: (st, c, el) => { el.textContent = st.online ? `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB` : "—"; },
+  freeEst: (st, c, el) => { el.textContent = st.online ? `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)` : "—"; },
+  timer: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "—"; },
+  badge: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "00:00"; },
+  conn: (st, c, el) => { el.textContent = st.online ? `Wi-Fi ${Math.round(st.rssi)} dBm · ${st.latency} ms` : "—"; },
+  pos: (st, c, el) => { el.textContent = st.online ? `${st.pan}° / ${st.tilt}°` : "—"; },
+  res: (st, c, el) => { el.textContent = st.res; },
+  orient: (st, c, el) => { el.textContent = st.orient; },
+  recBtn: (st, c, el) => { el.disabled = !st.online || st.rec; },
+  stopBtn: (st, c, el) => { el.disabled = !st.rec; },
+  connBtn: (st, c, el) => { el.textContent = st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
+  chargeBtn: (st, c, el) => { el.disabled = !st.online; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
+  clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${fmtTime(k.dur)} · ~${k.mb} MB</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
+};
+function refresh() {
+  $$("[data-bind]").forEach((el) => {
+    const id = el.dataset.cam, st = state[id], c = camById(id), fn = BIND[el.dataset.bind];
+    if (st && c && fn) fn(st, c, el);
+  });
+  const all = cameras.map((c) => state[c.id]).filter(Boolean);
   const online = all.filter((s) => s.online), recs = all.filter((s) => s.rec);
   $("#recAll").disabled = !online.length || recs.length === online.length;
   $("#stopAll").disabled = !recs.length;
-  const pill = $("#globalPill");
-  pill.className = "pill " + (recs.length ? "rec" : online.length ? "idle" : "");
-  $("#globalTxt").textContent = recs.length ? `IN REC (${recs.length}/${online.length})` : online.length ? `PRONTE (${online.length}/${CAMERAS.length})` : "NESSUNA CAMERA";
+  $("#globalPill").className = "pill " + (recs.length ? "rec" : online.length ? "idle" : "");
+  $("#globalTxt").textContent = recs.length ? `IN REC (${recs.length}/${online.length})` : online.length ? `PRONTE (${online.length}/${cameras.length})` : "NESSUNA CAMERA";
+  const sum = $("#sum");
+  if (sum) {
+    $("#sOnline").textContent = `${online.length}/${cameras.length}`;
+    $("#sRec").textContent = recs.length;
+    $("#sBat").textContent = online.length ? Math.round(Math.min(...online.map((s) => s.battery))) + "%" : "—";
+    $("#sFree").textContent = online.length ? Math.min(...online.map((s) => s.freeGb)).toFixed(1) + " GB" : "—";
+  }
+}
+function renderLogs() {
+  $$("[data-log]").forEach((ol) => {
+    const id = ol.dataset.log, rows = logs.filter((l) => !id || l.id === id).slice(0, 40);
+    ol.innerHTML = rows.length ? rows.map((l) => `<li><time>${l.t}</time>${esc(l.msg)}</li>`).join("") : '<li class="muted">Nessun evento</li>';
+  });
 }
 
-$("#recAll").onclick = () => CAMERAS.forEach((c) => state[c.id]?.online && !state[c.id].rec && command(c.id, { cmd: "rec_start" }));
-$("#stopAll").onclick = () => CAMERAS.forEach((c) => state[c.id]?.rec && command(c.id, { cmd: "rec_stop" }));
+/* ===== Viste ===== */
+const previewHtml = (id, cls) => `
+  <div class="view ${cls}" data-cam="${id}">
+    <canvas data-prev="${id}" width="360" height="640"></canvas>
+    <video data-vid="${id}" muted playsinline hidden></video>
+    <span class="tag" data-tag="${id}">SIMULATA</span>
+    <span class="recbadge"><i></i><span data-bind="badge" data-cam="${id}">00:00</span></span>
+    <div class="off">Camera non connessa</div>
+  </div>`;
+
+function showHome() {
+  $("#view").innerHTML = `
+    <section class="tiles" id="sum" aria-label="Riepilogo">
+      <div class="tile"><small>Camere online</small><b id="sOnline">—</b></div>
+      <div class="tile"><small>In registrazione</small><b id="sRec">0</b></div>
+      <div class="tile"><small>Batteria minima</small><b id="sBat">—</b></div>
+      <div class="tile"><small>Spazio minimo</small><b id="sFree">—</b></div>
+    </section>
+    <section class="grid" id="homeGrid">
+      ${cameras.map((c) => `
+      <article class="card click" data-cam="${c.id}" data-bind="card" data-go="${c.id}">
+        <div class="card-h"><b data-bind="title" data-cam="${c.id}"></b><span class="pill" data-bind="pill" data-cam="${c.id}"></span></div>
+        <div class="card-b">
+          ${previewHtml(c.id, "mini")}
+          <div class="info">
+            <div class="kv"><small>Batteria</small>
+              <div class="bat"><div class="bar" data-bind="batBar" data-cam="${c.id}"><i></i></div><b data-bind="batTxt" data-cam="${c.id}"></b></div>
+              <div class="warn" data-bind="batWarn" data-cam="${c.id}"></div></div>
+            <div class="kv"><small>Spazio libero</small><span data-bind="free" data-cam="${c.id}"></span></div>
+            <div class="kv"><small>Registrazione</small><span data-bind="timer" data-cam="${c.id}"></span></div>
+          </div>
+        </div>
+        <div class="card-f">
+          <button class="primary" data-bind="recBtn" data-cam="${c.id}" data-act="rec_start">● REC</button>
+          <button data-bind="stopBtn" data-cam="${c.id}" data-act="rec_stop">■ STOP</button>
+          <button class="ghost" data-go="${c.id}">Dettagli</button>
+        </div>
+      </article>`).join("")}
+      <button class="add" id="addCam">+ Aggiungi camera (simulata)</button>
+    </section>
+    <section class="panel" style="margin-top:16px"><h2>Registro</h2><ol class="list" data-log=""></ol></section>`;
+  $("#view").onclick = (e) => {
+    const act = e.target.closest("[data-act]");
+    if (act) { command(act.dataset.cam, { cmd: act.dataset.act }); return; }
+    const go = e.target.closest("[data-go]");
+    if (go) location.hash = "#/cam/" + go.dataset.go;
+    if (e.target.closest("#addCam")) addCamera();
+  };
+  renderLogs(); refresh();
+}
+
+function showDetail(id) {
+  const c = camById(id);
+  $("#view").innerHTML = `
+    <a class="back" href="#/">‹ Tutte le camere</a>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h1 style="font-size:20px" data-bind="title" data-cam="${id}"></h1><span class="pill" data-bind="pill" data-cam="${id}"></span>
+    </div>
+    <div class="detail">
+      <div>
+        <div class="panel" data-bind="card" data-cam="${id}">
+          ${previewHtml(id, "big")}
+          <div class="ctl">
+            <div class="btns">
+              <button class="primary" data-bind="recBtn" data-cam="${id}" data-act="rec_start">● REC</button>
+              <button data-bind="stopBtn" data-cam="${id}" data-act="rec_stop">■ STOP</button>
+              <button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>
+            </div>
+            <div>
+              <div class="pad" role="group" aria-label="Movimento (segnaposto)">
+                <span></span><button data-m="0,${STEP}" aria-label="Su">▲</button><span></span>
+                <button data-m="-${STEP},0" aria-label="Sinistra">◀</button><button class="home" data-act="home">⌂</button><button data-m="${STEP},0" aria-label="Destra">▶</button>
+                <span></span><button data-m="0,-${STEP}" aria-label="Giù">▼</button><span></span>
+              </div>
+              <div class="muted" style="text-align:center;margin-top:4px">movimenti: segnaposto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel"><h2>Stato</h2>
+          <div class="kvs">
+            <div class="kv"><small>Registrazione in corso</small><span data-bind="timer" data-cam="${id}"></span></div>
+            <div class="kv"><small>Connessione</small><span data-bind="conn" data-cam="${id}"></span></div>
+            <div class="kv"><small>Pan / Tilt</small><span data-bind="pos" data-cam="${id}"></span></div>
+          </div></div>
+        <div class="panel"><h2>Batteria</h2>
+          <div class="bat"><div class="bar" data-bind="batBar" data-cam="${id}"><i></i></div><b data-bind="batTxt" data-cam="${id}"></b></div>
+          <div class="row" style="margin-top:8px;justify-content:space-between"><span class="muted" data-bind="batState" data-cam="${id}"></span><span class="warn" data-bind="batWarn" data-cam="${id}"></span>
+            <button class="ghost" data-bind="chargeBtn" data-cam="${id}" data-act="charge"></button></div></div>
+        <div class="panel"><h2>Spazio</h2>
+          <div class="kv"><span data-bind="freeLong" data-cam="${id}"></span></div>
+          <div class="muted" data-bind="freeEst" data-cam="${id}"></div></div>
+        <div class="panel"><h2>Ripresa</h2>
+          <div class="kvs">
+            <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
+            <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
+          </div><div class="muted" style="margin-top:6px">Le impostazioni saranno modificabili quando la camera sarà reale.</div></div>
+        <div class="panel"><h2>Impostazioni camera</h2>
+          <label class="f">Dispositivo<input type="text" id="fDev" value="${esc(c.device)}" maxlength="40"></label>
+          <label class="f">Nome camera<input type="text" id="fName" value="${esc(c.name)}" maxlength="30"></label>
+          <div class="muted">Sistema: ${esc(c.os)}</div>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost" data-bind="connBtn" data-cam="${id}" data-act="toggleConn"></button>
+            <button class="ghost" id="rmCam">Rimuovi camera</button>
+          </div></div>
+        <div class="panel"><h2>Clip della sessione</h2><ol class="list" data-bind="clips" data-cam="${id}"></ol></div>
+        <div class="panel"><h2>Registro camera</h2><ol class="list" data-log="${id}"></ol></div>
+      </div>
+    </div>`;
+  const v = $("#view");
+  v.onclick = async (e) => {
+    const m = e.target.closest("[data-m]");
+    if (m) { const [pan, tilt] = m.dataset.m.split(",").map(Number); command(id, { cmd: "move", pan, tilt }); return; }
+    const a = e.target.closest("[data-act]"); if (!a) return;
+    const act = a.dataset.act;
+    if (act === "toggleConn") command(id, { cmd: state[id].online ? "disconnect" : "connect" });
+    else if (act === "charge") command(id, { cmd: "charge", on: !state[id].charging });
+    else if (act === "webcam") toggleWebcam(id, a);
+    else command(id, { cmd: act });
+  };
+  const rename = () => {
+    c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
+    saveCams(); refresh();
+  };
+  $("#fDev").onchange = rename; $("#fName").onchange = rename;
+  $("#rmCam").onclick = () => {
+    if (!confirm(`Rimuovere ${camTitle(c)} dalla dashboard?`)) return;
+    transport.remove(id); delete state[id]; cameras = cameras.filter((x) => x.id !== id); saveCams(); location.hash = "#/";
+  };
+  renderLogs(); refresh();
+}
+
+async function toggleWebcam(id, btn) {
+  const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`);
+  if (vid.srcObject) {
+    vid.srcObject.getTracks().forEach((t) => t.stop()); vid.srcObject = null; vid.hidden = true; can.hidden = false;
+    tag.textContent = "SIMULATA"; btn.textContent = "Usa webcam di questo PC (test)"; return;
+  }
+  try {
+    vid.srcObject = await navigator.mediaDevices.getUserMedia({ video: true });
+    await vid.play(); vid.hidden = false; can.hidden = true; tag.textContent = "WEBCAM PC (TEST)"; btn.textContent = "Torna all'anteprima simulata";
+  } catch (e) { log(id, "Webcam non disponibile (" + (e.name || "errore") + ")"); }
+}
+
+function addCamera() {
+  const n = cameras.length + 1; let id = "cam" + n; while (camById(id)) id += "x";
+  const cam = { id, device: "Nuovo telefono", name: "cam" + n, os: "—", totalGb: 64, freeGb: 20 };
+  cameras.push(cam); saveCams(); transport.add(cam, 500); log(id, `${camTitle(cam)}: aggiunta (simulazione)`); showHome();
+}
+
+/* ===== Router ===== */
+function route() {
+  const m = location.hash.match(/^#\/cam\/(.+)$/);
+  if (m && camById(m[1])) showDetail(m[1]); else showHome();
+  window.scrollTo(0, 0);
+}
+addEventListener("hashchange", route);
+
+/* ===== REC globale + scorciatoia ===== */
+$("#recAll").onclick = () => cameras.forEach((c) => state[c.id]?.online && !state[c.id].rec && command(c.id, { cmd: "rec_start" }));
+$("#stopAll").onclick = () => cameras.forEach((c) => state[c.id]?.rec && command(c.id, { cmd: "rec_stop" }));
 document.addEventListener("keydown", (e) => {
   if (e.target.closest("input,textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key.toLowerCase() === "r") { const b = $("#recAll").disabled ? $("#stopAll") : $("#recAll"); if (!b.disabled) b.click(); }
 });
-
-/* Timer (REC più lungo in corso) */
 setInterval(() => {
-  const now = Date.now();
-  const recs = Object.values(state).filter((s) => s.rec);
-  $("#globalTimer").textContent = recs.length ? fmtTime(now - Math.min(...recs.map((s) => s.recStart))) : "00:00";
-  for (const id in cards) cards[id].badgeTime.textContent = state[id]?.rec ? fmtTime(now - state[id].recStart) : "00:00";
+  const recs = cameras.map((c) => state[c.id]).filter((s) => s && s.rec);
+  $("#globalTimer").textContent = recs.length ? fmtTime(Date.now() - Math.min(...recs.map((s) => s.recStart))) : "00:00";
+  $$('[data-bind="timer"],[data-bind="badge"]').forEach((el) => BIND[el.dataset.bind](state[el.dataset.cam] || {}, null, el));
 }, 250);
 
 /* ===== Anteprima simulata (reagisce a pan/tilt) ===== */
 function drawPreview(t) {
-  for (const cam of CAMERAS) {
-    const ui = cards[cam.id], c = ui.canvas; if (c.hidden) continue;
-    const g = c.getContext("2d"), W = c.width, H = c.height, st = state[cam.id] || { pan: 0, tilt: 0 };
-    const ox = (st.pan / PAN_LIMIT) * -120, oy = (st.tilt / TILT_LIMIT) * 120;
-    const hue = cam.id === "A" ? 215 : 160;
+  $$("canvas[data-prev]").forEach((cv) => {
+    if (cv.hidden) return;
+    const id = cv.dataset.prev, st = state[id] || { pan: 0, tilt: 0 }, g = cv.getContext("2d"), W = cv.width, H = cv.height;
+    const ox = (st.pan / PAN_LIMIT) * -120, oy = (st.tilt / TILT_LIMIT) * 120, hue = 200 + (cameras.findIndex((c) => c.id === id) % 4) * 45;
     const grad = g.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, `hsl(${hue} 35% 22%)`); grad.addColorStop(1, `hsl(${hue + 30} 30% 10%)`);
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
     g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 1;
     for (let x = -60; x < W + 60; x += 60) { g.beginPath(); g.moveTo(x + (ox % 60), 0); g.lineTo(x + (ox % 60), H); g.stroke(); }
     for (let y = -60; y < H + 60; y += 60) { g.beginPath(); g.moveTo(0, y + (oy % 60)); g.lineTo(W, y + (oy % 60)); g.stroke(); }
-    const bx = W / 2 + ox + Math.sin(t / 900) * 40, by = H / 2 + oy + Math.cos(t / 1300) * 30;
-    g.fillStyle = `hsl(${hue + 120} 70% 62%)`; g.beginPath(); g.arc(bx, by, 34, 0, 7); g.fill();
-    g.strokeStyle = "rgba(255,255,255,.35)"; g.setLineDash([6, 6]);
-    g.strokeRect(W * .1, H * .08, W * .8, H * .84); g.setLineDash([]);
-    g.fillStyle = "rgba(255,255,255,.85)"; g.font = "600 15px sans-serif";
-    g.fillText(cam.name + " · 9:16", 14, H - 34); g.font = "13px monospace";
-    g.fillText(new Date().toLocaleTimeString("it-IT"), 14, H - 14);
-  }
+    g.fillStyle = `hsl(${hue + 120} 70% 62%)`; g.beginPath(); g.arc(W / 2 + ox + Math.sin(t / 900) * 40, H / 2 + oy + Math.cos(t / 1300) * 30, 34, 0, 7); g.fill();
+    g.strokeStyle = "rgba(255,255,255,.35)"; g.setLineDash([6, 6]); g.strokeRect(W * .1, H * .08, W * .8, H * .84); g.setLineDash([]);
+    g.fillStyle = "rgba(255,255,255,.85)"; g.font = "600 15px sans-serif"; g.fillText("9:16", 14, H - 34);
+    g.font = "13px monospace"; g.fillText(new Date().toLocaleTimeString("it-IT"), 14, H - 14);
+  });
   requestAnimationFrame(drawPreview);
 }
 
 /* ===== Avvio ===== */
-CAMERAS.forEach(buildCard);
-transport.init(CAMERAS);
-renderGlobal();
+cameras.forEach((c, i) => transport.add(c, i === 0 ? 600 : null));
+transport.start();
+route();
 requestAnimationFrame(drawPreview);
-log("Dashboard avviata (simulazione)");
+log("", "Dashboard avviata (simulazione)");
 </script>
 </body>
 </html>
