@@ -12,3 +12,8 @@ start/stop REC da remoto, dashboard di controllo. Il montaggio resta su DaVinci 
 - Stato di ogni camera (offline / pronta / in REC), anteprima, REC singolo e globale.
 - Movimento pan/tilt (segnaposto, servo in una fase successiva).
 - ESP32 come cervello/telecomando (Bluetooth verso i telefoni, servo).
+
+## Test sull'iPhone XR
+`docs/camera-test.html` — pagina di prova da aprire in Safari sul telefono (fotocamera, risoluzioni, fps,
+formati di registrazione, blocco schermo, batteria). Pubblicabile con GitHub Pages dalla cartella `/docs`
+(serve HTTPS per usare la fotocamera).

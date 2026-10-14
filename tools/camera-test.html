@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test fotocamera</title>
+<style>
+  :root { --bg:#f3f4f6; --panel:#fff; --panel-2:#eef0f3; --text:#14161a; --muted:#5f6672; --line:#d9dde3; --ok:#12875a; --bad:#d92d20; --accent:#2457d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1114; --panel:#181b20; --panel-2:#20242b; --text:#eceef2; --muted:#98a0ad; --line:#2b3038; --ok:#3ccf91; --bad:#ff5a4d; --accent:#7aa2ff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:12px max(12px, env(safe-area-inset-left)) 40px; }
+  main { max-width: 640px; margin: 0 auto; display: grid; gap: 12px; }
+  h1 { font-size: 19px; margin: 4px 0 0; } h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-height: 44px; margin: 0 6px 6px 0; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .45; }
+  video { width: 100%; max-height: 52vh; background: #000; border-radius: 10px; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 4px 0; border-bottom: 1px dashed var(--line); vertical-align: top; } td:first-child { color: var(--muted); width: 46%; padding-right: 8px; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--panel-2); border-radius: 10px; padding: 10px; margin: 0; }
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 8px 0; } select { font: inherit; padding: 8px; border-radius: 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Test fotocamera</h1>
+  <p class="muted" style="margin:0">Apri questa pagina in Safari sul telefono da testare. Esegui i passaggi in ordine e manda lo screenshot del Report in fondo.</p>
+
+  <section class="panel"><h2>1 · Ambiente</h2><table id="env"></table></section>
+
+  <section class="panel"><h2>2 · Fotocamera</h2>
+    <label>Obiettivo <select id="facing"><option value="environment">Posteriore</option><option value="user">Frontale</option></select></label>
+    <label>Qualità <select id="res"><option value="1920x1080">1080p</option><option value="1280x720">720p</option><option value="3840x2160">4K</option></select></label>
+    <label><input type="checkbox" id="audio"> Audio</label><br>
+    <button class="primary" id="start">Avvia fotocamera</button><button id="stop" disabled>Ferma</button>
+    <video id="vid" muted playsinline></video>
+    <table id="cam" style="margin-top:8px"></table>
+  </section>
+
+  <section class="panel"><h2>3 · Risoluzioni e fps reali</h2>
+    <button id="probe" disabled>Prova le risoluzioni</button>
+    <table id="probeOut"></table>
+  </section>
+
+  <section class="panel"><h2>4 · Formati di registrazione</h2><table id="mimes"></table></section>
+
+  <section class="panel"><h2>5 · Registra 10 secondi</h2>
+    <button id="rec" disabled>● Registra 10 s</button><button id="share" disabled>Salva / Condividi</button>
+    <div id="recInfo" class="muted"></div>
+    <video id="play" controls playsinline hidden style="margin-top:8px"></video>
+  </section>
+
+  <section class="panel"><h2>6 · Schermo acceso e batteria</h2>
+    <button id="wake">Prova blocco schermo</button><table id="misc"></table>
+  </section>
+
+  <section class="panel"><h2>Report (fai uno screenshot)</h2><pre id="report">Esegui i passaggi sopra.</pre>
+    <button id="copy" style="margin-top:8px">Copia report</button></section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const R = {}; // risultati per il report
+const ok = (t) => `<span class="ok">${t}</span>`, bad = (t) => `<span class="bad">${t}</span>`;
+const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
+const yn = (v) => (v ? ok("sì") : bad("no"));
+let stream = null, lastBlob = null;
+
+function updateReport() {
+  $("report").textContent = Object.entries(R).map(([k, v]) => `${k}: ${v}`).join("\n");
+}
+function set(k, v) { R[k] = v; updateReport(); }
+
+/* 1 · Ambiente */
+(function env() {
+  const ua = navigator.userAgent, m = ua.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/);
+  const ios = m ? `${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : "non rilevata";
+  const rows = [
+    ["iOS (da browser)", ios], ["Connessione sicura (HTTPS)", yn(window.isSecureContext)],
+    ["Accesso alla fotocamera", yn(!!navigator.mediaDevices?.getUserMedia)], ["Registrazione (MediaRecorder)", yn("MediaRecorder" in window)],
+    ["Blocco schermo (Wake Lock)", yn("wakeLock" in navigator)], ["Livello batteria", yn("getBattery" in navigator)],
+    ["Schermo", `${screen.width}×${screen.height} @${devicePixelRatio}x`],
+  ];
+  $("env").innerHTML = rows.map((r) => row(r[0], r[1])).join("");
+  set("iOS", ios); set("HTTPS", window.isSecureContext); set("getUserMedia", !!navigator.mediaDevices?.getUserMedia);
+  set("MediaRecorder", "MediaRecorder" in window); set("WakeLock", "wakeLock" in navigator); set("Batteria API", "getBattery" in navigator);
+})();
+
+/* 4 · Formati */
+(function mimes() {
+  const list = ["video/mp4", "video/mp4;codecs=avc1", "video/mp4;codecs=hvc1", "video/mp4;codecs=avc1,mp4a.40.2", "video/webm", "video/webm;codecs=vp8", "video/webm;codecs=vp9"];
+  const sup = "MediaRecorder" in window ? list.filter((t) => MediaRecorder.isTypeSupported(t)) : [];
+  $("mimes").innerHTML = list.map((t) => row(t, "MediaRecorder" in window ? yn(sup.includes(t)) : bad("n/d"))).join("");
+  set("Formati supportati", sup.join(" | ") || "nessuno");
+})();
+
+const getRes = () => $("res").value.split("x").map(Number);
+async function open(facing, w, h, audio) {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } }, audio });
+  const v = $("vid"); v.srcObject = stream; await v.play();
+  const s = stream.getVideoTracks()[0].getSettings();
+  return s;
+}
+function measureFps(ms = 2500) {
+  return new Promise((res) => {
+    const v = $("vid"); if (!v.requestVideoFrameCallback) return res(null);
+    let n = 0, t0 = performance.now();
+    const cb = () => { n++; if (performance.now() - t0 < ms) v.requestVideoFrameCallback(cb); else res(+(n / ((performance.now() - t0) / 1000)).toFixed(1)); };
+    v.requestVideoFrameCallback(cb);
+  });
+}
+
+/* 2 · Fotocamera */
+$("start").onclick = async () => {
+  try {
+    const [w, h] = getRes(), s = await open($("facing").value, w, h, $("audio").checked);
+    const fps = await measureFps();
+    const t = stream.getVideoTracks()[0];
+    $("cam").innerHTML = row("Risoluzione ottenuta", `${s.width}×${s.height}`) + row("fps dichiarati", s.frameRate ?? "n/d") + row("fps misurati", fps ?? "n/d") + row("Obiettivo", t.label || "n/d");
+    set("Camera", `${s.width}x${s.height} dich.${s.frameRate ?? "?"}fps mis.${fps ?? "?"}fps (${t.label || "?"})`);
+    $("stop").disabled = false; $("probe").disabled = false; $("rec").disabled = !("MediaRecorder" in window);
+  } catch (e) { $("cam").innerHTML = row("Errore", bad(`${e.name}: ${e.message}`)); set("Camera", `ERRORE ${e.name}`); }
+};
+$("stop").onclick = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("stop").disabled = true; $("rec").disabled = true; };
+
+/* 3 · Risoluzioni */
+$("probe").onclick = async () => {
+  $("probe").disabled = true; const out = []; $("probeOut").innerHTML = "";
+  for (const [w, h] of [[1280, 720], [1920, 1080], [3840, 2160]]) {
+    try { const s = await open($("facing").value, w, h, false); const fps = await measureFps(1800); out.push(`${w}x${h} -> ${s.width}x${s.height} @${fps ?? s.frameRate ?? "?"}`); $("probeOut").innerHTML += row(`${w}×${h}`, `${s.width}×${s.height} · ${fps ?? s.frameRate ?? "?"} fps`); }
+    catch (e) { out.push(`${w}x${h} -> errore ${e.name}`); $("probeOut").innerHTML += row(`${w}×${h}`, bad(e.name)); }
+  }
+  set("Prove risoluzione", out.join(" ; ")); $("probe").disabled = false;
+};
+
+/* 5 · Registrazione */
+$("rec").onclick = () => {
+  const pref = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+  const chunks = []; let mr;
+  try { mr = new MediaRecorder(stream, pref ? { mimeType: pref } : undefined); } catch (e) { $("recInfo").innerHTML = bad(`${e.name}: ${e.message}`); return; }
+  $("rec").disabled = true; let left = 10; const t0 = Date.now();
+  const tick = setInterval(() => { left--; $("recInfo").textContent = `Registrazione… ${left} s`; }, 1000); $("recInfo").textContent = "Registrazione… 10 s";
+  mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  mr.onstop = () => {
+    clearInterval(tick); lastBlob = new Blob(chunks, { type: mr.mimeType || pref || "video/mp4" });
+    const sec = (Date.now() - t0) / 1000, mb = lastBlob.size / 1048576, p = $("play");
+    p.src = URL.createObjectURL(lastBlob); p.hidden = false; $("share").disabled = false; $("rec").disabled = false;
+    $("recInfo").innerHTML = `Formato <b>${mr.mimeType}</b> · ${mb.toFixed(1)} MB · ~${((lastBlob.size * 8) / sec / 1e6).toFixed(1)} Mbps`;
+    set("Registrazione", `${mr.mimeType} ${mb.toFixed(1)}MB ${((lastBlob.size * 8) / sec / 1e6).toFixed(1)}Mbps su ${sec.toFixed(0)}s`);
+  };
+  mr.onerror = (e) => { $("recInfo").innerHTML = bad("Errore di registrazione"); set("Registrazione", "ERRORE"); };
+  mr.start(1000); setTimeout(() => mr.state !== "inactive" && mr.stop(), 10000);
+};
+$("share").onclick = async () => {
+  const ext = lastBlob.type.includes("mp4") ? "mp4" : "webm", file = new File([lastBlob], `test.${ext}`, { type: lastBlob.type });
+  try { if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(lastBlob); a.download = file.name; a.click(); } }
+  catch (e) { $("recInfo").innerHTML += `<br>${bad(e.name)}`; }
+};
+
+/* 6 · Wake lock e batteria */
+$("wake").onclick = async () => {
+  const rows = [];
+  if ("wakeLock" in navigator) { try { const l = await navigator.wakeLock.request("screen"); rows.push(row("Wake Lock", ok("ottenuto"))); set("WakeLock test", "ok"); await l.release(); } catch (e) { rows.push(row("Wake Lock", bad(e.name))); set("WakeLock test", e.name); } }
+  else { rows.push(row("Wake Lock", bad("non disponibile (usa Blocco automatico = Mai)"))); set("WakeLock test", "non disponibile"); }
+  if ("getBattery" in navigator) { try { const b = await navigator.getBattery(); rows.push(row("Batteria", `${Math.round(b.level * 100)}%${b.charging ? " in carica" : ""}`)); set("Batteria", Math.round(b.level * 100) + "%"); } catch (e) { rows.push(row("Batteria", bad(e.name))); } }
+  else { rows.push(row("Batteria", bad("non disponibile nel browser"))); set("Batteria", "non disponibile"); }
+  $("misc").innerHTML = rows.join("");
+};
+
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText($("report").textContent); $("copy").textContent = "Copiato"; } catch { const r = document.createRange(); r.selectNodeContents($("report")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
+</script>
+</body>
+</html>
