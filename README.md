@@ -4,7 +4,7 @@ Sistema multicamera per riprese di progetti (reel verticali 9:16): più punti di
 start/stop REC da remoto, dashboard di controllo. Il montaggio resta su DaVinci Resolve.
 
 ## Stato
-- `dashboard/index.html` — dashboard (home con tutte le camere + pagina dettaglio per camera, rinominabili; camere **simulate**). Si apre con un doppio clic.
+- `docs/dashboard.html` — dashboard (home con tutte le camere + pagina dettaglio per camera, rinominabili; camere **simulate**). Online con GitHub Pages: `/dashboard.html`.
 - `docs/ARCHITETTURA.md` — come comunicano dashboard, telefoni ed ESP32.
 
 ## Obiettivi
