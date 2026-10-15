@@ -76,7 +76,7 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r3";
+const PAGE_VERSION = "camera r4";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -127,10 +127,10 @@ const bat = { level: null, charging: null };
 
 /* ===== Archivio locale: pezzi della registrazione e registrazioni (IndexedDB, con riapertura automatica) ===== */
 const db = (() => {
-  let h = null; const mem = { chunks: new Map(), sessions: new Map() };
+  let h = null; const mem = { chunks: new Map(), sessions: new Map(), frames: new Map() };
   const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => {
-    const r = indexedDB.open("gdc-camera", 1);
-    r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("sessions", { keyPath: "id" }); };
+    const r = indexedDB.open("gdc-camera", 2);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("chunks")) d.createObjectStore("chunks"); if (!d.objectStoreNames.contains("sessions")) d.createObjectStore("sessions", { keyPath: "id" }); if (!d.objectStoreNames.contains("frames")) d.createObjectStore("frames"); };
     r.onsuccess = () => { h = r.result; h.onclose = () => { dbg("warn", "IndexedDB: connessione chiusa dal browser"); h = null; }; h.onversionchange = () => { dbg("warn", "IndexedDB: versionchange"); try { h.close(); } catch { /* ok */ } h = null; }; res(h); };
     r.onerror = () => rej(r.error); r.onblocked = () => dbg("warn", "IndexedDB: apertura bloccata");
   });
@@ -152,15 +152,20 @@ const db = (() => {
       try { await run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(new Blob(["x"]), "_test"); await done(t); const t2 = d.transaction("chunks", "readwrite"); t2.objectStore("chunks").delete("_test"); await done(t2); }); dbg("info", `archivio IndexedDB ok (${Math.round(performance.now() - t0)} ms)`); storageMode = "indexeddb"; return true; }
       catch (e) { dbg("error", `archivio IndexedDB NON utilizzabile: ${e.name}: ${e.message}`); storageMode = "memoria"; return false; }
     },
+    putFrame: (k, b) => storageMode === "memoria" ? Promise.resolve(void mem.frames.set(k, b)) : run(async (d) => { const t = d.transaction("frames", "readwrite"); t.objectStore("frames").put(b, k); await done(t); }),
+    frameKeys: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.frames.keys()].filter((k) => k.startsWith(sid + ":")).sort()) : run((d) => rq(d.transaction("frames").objectStore("frames").getAllKeys(range(sid)))),
+    getFrame: (k) => storageMode === "memoria" ? Promise.resolve(mem.frames.get(k)) : run((d) => rq(d.transaction("frames").objectStore("frames").get(k))),
+    delFrameKeys: (keys) => storageMode === "memoria" ? Promise.resolve(keys.forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"), st = t.objectStore("frames"); keys.forEach((k) => st.delete(k)); await done(t); }),
+    delFrames: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.frames.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"); t.objectStore("frames").delete(range(sid)); await done(t); }),
     putChunk: (k, b) => storageMode === "memoria" ? Promise.resolve(void mem.chunks.set(k, b)) : run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(b, k); await done(t); }),
     putSession: (o) => storageMode === "memoria" ? Promise.resolve(void mem.sessions.set(o.id, o)) : run(async (d) => { const t = d.transaction("sessions", "readwrite"); t.objectStore("sessions").put(o); await done(t); }),
     sessions: () => storageMode === "memoria" ? Promise.resolve([...mem.sessions.values()]) : run((d) => rq(d.transaction("sessions").objectStore("sessions").getAll())),
     chunks: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.chunks.entries()].filter(([k]) => k.startsWith(sid + ":")).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((x) => x[1])) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAll(range(sid)))),
-    delSession: (sid) => storageMode === "memoria" ? Promise.resolve((mem.sessions.delete(sid), [...mem.chunks.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.chunks.delete(k)))) : run(async (d) => { const t = d.transaction(["chunks", "sessions"], "readwrite"); t.objectStore("chunks").delete(range(sid)); t.objectStore("sessions").delete(sid); await done(t); }),
+    delSession: (sid) => storageMode === "memoria" ? Promise.resolve((mem.sessions.delete(sid), [...mem.chunks.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.chunks.delete(k)))) : run(async (d) => { const t = d.transaction(["chunks", "sessions", "frames"], "readwrite"); t.objectStore("chunks").delete(range(sid)); t.objectStore("frames").delete(range(sid)); t.objectStore("sessions").delete(sid); await done(t); }),
   };
 })();
 let sessions = [];
-const bufBytes = () => sessions.filter((s) => s.status !== "inviata").reduce((a, s) => a + (s.bytes || 0), 0) + (recording && !sessions.some((s) => s.id === recording.sid) ? recording.bytes : 0);
+const bufBytes = () => sessions.filter((s) => s.status !== "inviata").reduce((a, s) => a + (s.bytes || 0), 0) + (recording && !sessions.some((s) => s.id === recording.sid) ? recording.bytes : 0) + (tl ? tl.bytes : 0);
 async function loadSessions() {
   try { sessions = (await db.sessions()).sort((a, b) => b.start - a.start); if (lastErr.startsWith("Archivio")) lastErr = ""; dbg("info", `registrazioni nell'archivio: ${sessions.length}`); }
   catch (e) { lastErr = "Archivio non disponibile: " + e.name; dbg("error", `lettura archivio fallita: ${e.name}: ${e.message}`); }
@@ -178,7 +183,7 @@ async function openCam() {
     try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); lastErr = "Microfono non disponibile: registro senza audio"; }
     catch (e2) { lastErr = "Camera non disponibile: " + e2.name; dbg("error", `camera non disponibile: ${e2.name}: ${e2.message}`); stream = null; publish(); throw e2; }
   }
-  stream.getTracks().forEach((t) => { t.onended = () => { dbg("error", `traccia ${t.kind} terminata (camera interrotta?)`); if (t.kind === "video") { lastErr = "Camera interrotta dal sistema"; if (recording) stopRec(); stream = null; $("camStop").disabled = true; publish(); } }; t.onmute = () => dbg("warn", `traccia ${t.kind} silenziata dal sistema`); t.onunmute = () => dbg("info", `traccia ${t.kind} riattivata`); });
+  stream.getTracks().forEach((t) => { t.onended = () => { dbg("error", `traccia ${t.kind} terminata (camera interrotta?)`); if (t.kind === "video") { lastErr = "Camera interrotta dal sistema"; if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream = null; $("camStop").disabled = true; publish(); } }; t.onmute = () => dbg("warn", `traccia ${t.kind} silenziata dal sistema`); t.onunmute = () => dbg("info", `traccia ${t.kind} riattivata`); });
   const v = $("vid"); v.srcObject = stream; await v.play().catch((e) => dbg("warn", `play anteprima locale: ${e.name}`));
   const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];
   dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
@@ -191,11 +196,12 @@ async function autoOpen(why) {
   catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }
   opening = false;
 }
-function stopCam() { dbg("info", "ferma camera"); if (recording) stopRec(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+function stopCam() { dbg("info", "ferma camera"); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
 
 /* ===== Registrazione: i pezzi vanno subito su disco ===== */
 async function startRec() {
   if (recording) { dbg("warn", "rec_start ignorato: già in registrazione"); return; }
+  if (tl) { lastErr = "Time-lapse in corso: fermalo prima di registrare"; dbg("warn", "rec_start rifiutato: time-lapse in corso"); publish(); return; }
   if (!stream) { dbg("info", "rec_start senza camera: provo ad aprirla"); try { await openCam(); } catch { return; } }
   const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
   const sid = "s" + Date.now().toString(36), start = Date.now();
@@ -221,6 +227,74 @@ async function startRec() {
 }
 function stopRec() { if (!recording || recording.stopping) return; recording.stopping = true; dbg("info", "richiesto stop registrazione"); try { recording.mr.stop(); } catch (e) { dbg("warn", `stop: ${e.message}`); } publish(); }
 
+
+/* ===== Time-lapse: le immagini (JPEG) vanno su disco, poi si compongono in un video ===== */
+const tlCanvas = document.createElement("canvas");
+let tl = null; // {sid, mode, int, fps, q, start, seq, keys, bytes, k, busy, skipped, errs, stage, progress, timer, next}
+const autoK = (sec) => (sec < 600 ? 0 : Math.floor(Math.log2(sec / 600)) + 1); // come l'app Fotocamera: 2 imm/s, poi intervallo raddoppiato a 10, 20, 40... min
+const tlInterval = () => (!tl ? 0 : tl.mode === "auto" ? 0.5 * 2 ** tl.k : tl.int);
+function tlState() { return tl ? { stage: tl.stage, mode: tl.mode, frames: tl.keys.length, skipped: tl.skipped, errs: tl.errs, intS: tlInterval(), fps: tl.fps, elapsedMs: Date.now() - tl.start, progress: tl.progress, MB: Math.round(tl.bytes / 1048576) } : null; }
+const loadBmp = async (b) => { if (window.createImageBitmap) return createImageBitmap(b); const i = new Image(); i.src = URL.createObjectURL(b); await i.decode(); return i; };
+async function tlStart(o) {
+  if (tl) { dbg("warn", "time-lapse già in corso"); return false; }
+  if (recording) { lastErr = "Registrazione in corso: fermala prima del time-lapse"; dbg("warn", "tl_start rifiutato: REC in corso"); publish(); return false; }
+  if (!stream) { try { await openCam(); } catch { return false; } }
+  const sid = "t" + Date.now().toString(36);
+  tl = { sid, mode: o.mode === "man" ? "man" : "auto", int: Number(o.int) || 5, fps: Number(o.fps) || 30, q: Number(o.q) || 0.92, start: Date.now(), seq: 0, keys: [], bytes: 0, k: 0, busy: false, skipped: 0, errs: 0, stage: "shooting", progress: 0, timer: 0, next: Date.now() };
+  lastErr = ""; dbg("info", `time-lapse avviato ${sid}`, { modalita: tl.mode, intervallo_s: tl.int, fps: tl.fps, qualitaJpeg: tl.q, camera: `${$("vid").videoWidth}x${$("vid").videoHeight}`, archivio: storageMode });
+  const loop = async () => {
+    if (!tl || tl.stage !== "shooting") return;
+    const el = (Date.now() - tl.start) / 1000;
+    if (tl.mode === "auto" && autoK(el) > tl.k) { tl.k = autoK(el); await tlThin(); }
+    const int = tlInterval() * 1000; await tlCapture(); if (!tl || tl.stage !== "shooting") return;
+    tl.next = Math.max(tl.next + int, Date.now()); tl.timer = setTimeout(loop, tl.next - Date.now());
+  };
+  tl.timer = setTimeout(loop, 0); tl.statT = setInterval(() => { if (tl) dbg("info", `time-lapse: ${tl.keys.length} immagini, ${(tl.bytes / 1048576).toFixed(1)} MB, intervallo ${tlInterval()} s, saltate ${tl.skipped}, errori ${tl.errs}, buffer ${Math.round(bufBytes() / 1048576)} MB`); }, 15000);
+  publish(); return true;
+}
+async function tlCapture() {
+  const t = tl; if (t.busy) { t.skipped++; return; } t.busy = true; const t0 = performance.now();
+  try {
+    const v = $("vid"); if (!v.videoWidth) throw new Error("video non pronto");
+    tlCanvas.width = v.videoWidth; tlCanvas.height = v.videoHeight; tlCanvas.getContext("2d").drawImage(v, 0, 0);
+    const blob = await new Promise((r) => tlCanvas.toBlob(r, "image/jpeg", t.q)); if (!blob) throw new Error("immagine vuota");
+    const k = `${t.sid}:${String(++t.seq).padStart(6, "0")}`; await db.putFrame(k, blob); t.keys.push(k); t.bytes += blob.size;
+    if (t.keys.length % 50 === 1) dbg("trace", `time-lapse: immagine ${t.seq} ${(blob.size / 1024).toFixed(0)} KB in ${Math.round(performance.now() - t0)} ms`);
+    if (bufBytes() > MAX_BUF && t.stage === "shooting") { lastErr = "Buffer pieno: time-lapse fermato"; dbg("error", "buffer pieno: fermo il time-lapse"); tlStop(); }
+  } catch (e) { t.errs++; lastErr = "Time-lapse: cattura fallita (" + (e.name || "errore") + ")"; dbg("error", `time-lapse: cattura fallita ${e.name}: ${e.message}`); }
+  t.busy = false; publish();
+}
+async function tlThin() {
+  const del = tl.keys.filter((_, i) => i % 2); tl.keys = tl.keys.filter((_, i) => i % 2 === 0); tl.bytes = tl.bytes / 2;
+  try { await db.delFrameKeys(del); } catch (e) { dbg("error", `time-lapse: scarto immagini fallito ${e.name}: ${e.message}`); }
+  dbg("info", `time-lapse: intervallo raddoppiato (livello ${tl.k}, ora ${tlInterval()} s), scartate ${del.length} immagini`);
+}
+async function tlStop() {
+  if (!tl || tl.stage !== "shooting") return; clearTimeout(tl.timer); clearInterval(tl.statT); tl.stage = "rendering"; dbg("info", `time-lapse fermato: ${tl.keys.length} immagini in ${Math.round((Date.now() - tl.start) / 1000)} s`, { saltate: tl.skipped, errori: tl.errs });
+  const t = tl; publish();
+  try { await tlRender(t.sid, t.keys.slice(), t.fps, t.start); } catch (e) { lastErr = "Creazione del video fallita: " + (e.name || "errore"); dbg("error", `time-lapse: creazione video fallita ${e.name}: ${e.message}`); }
+  if (tl === t) tl = null; await loadSessions(); publish();
+}
+async function tlRender(sid, keys, fps, startTs, silent) {
+  if (!keys.length) throw new Error("nessuna immagine");
+  const t = tl && tl.sid === sid ? tl : null, g = tlCanvas.getContext("2d"), t0 = performance.now();
+  const first = await loadBmp(await db.getFrame(keys[0])); tlCanvas.width = first.width; tlCanvas.height = first.height; g.drawImage(first, 0, 0);
+  const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((x) => MediaRecorder.isTypeSupported(x)), vsid = silent ? sid + "v" : sid;
+  const mr = new MediaRecorder(tlCanvas.captureStream(fps), { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 20000000 });
+  let seq = 0, bytes = 0, pending = 0, errs = 0; dbg("info", `time-lapse: creo il video da ${keys.length} immagini a ${fps} fps`, { mime: mr.mimeType, dimensioni: `${tlCanvas.width}x${tlCanvas.height}`, durataAttesa_s: +(keys.length / fps).toFixed(1) });
+  mr.ondataavailable = (e) => { if (!e.data.size) return; const k = `${vsid}:${String(++seq).padStart(6, "0")}`; bytes += e.data.size; pending++; db.putChunk(k, e.data).catch((x) => { errs++; dbg("error", `scrittura pezzo video fallita: ${x.name}`); }).finally(() => pending--); };
+  mr.onerror = (e) => dbg("error", `MediaRecorder (time-lapse): ${e.error?.name || ""} ${e.error?.message || ""}`);
+  const stopped = new Promise((r) => (mr.onstop = r)); mr.start(1000);
+  for (let i = 0; i < keys.length; i++) {
+    const bmp = await loadBmp(await db.getFrame(keys[i])); g.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+    if (t) t.progress = (i + 1) / keys.length; if (i % 5 === 0 || i === keys.length - 1) publish(); await sleep(1000 / fps);
+  }
+  await sleep(700); try { mr.requestData(); } catch { /* ok */ } await sleep(150); mr.stop(); await stopped; while (pending > 0) await sleep(50);
+  const ok = bytes > 0 && !errs, s = { id: vsid, start: startTs, end: Date.now(), dur: Math.round((keys.length / fps) * 1000), bytes, chunks: seq, mime: mr.mimeType || mime, res: `${tlCanvas.width}x${tlCanvas.height}`, bps: 20000000, status: ok ? "pronta" : "video non creato", kind: "timelapse", frames: keys.length, fps, src: sid };
+  await db.putSession(s); dbg(ok ? "info" : "error", `time-lapse: video ${ok ? "pronto" : "NON creato correttamente"}`, { MB: +(bytes / 1048576).toFixed(1), pezzi: seq, errori: errs, tempoCreazione_s: Math.round((performance.now() - t0) / 1000) });
+  if (ok) { await db.delFrames(sid).catch((e) => dbg("warn", `pulizia immagini: ${e.name}`)); } else { lastErr = "Creazione del video non riuscita: le immagini restano sul telefono"; }
+}
+
 /* ===== Schermo nero ===== */
 function setStandby(on) {
   standby = !!on; const b = $("blackout"); b.classList.toggle("on", standby); b.style.display = standby ? "block" : "none";
@@ -234,24 +308,29 @@ const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return Stri
 function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
-    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, storage: storageMode,
-    vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status })), ts: Date.now() };
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, storage: storageMode, tl: tlState(),
+    vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
   const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
+  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
 }
 function renderClips() {
   const el = $("clips"); $("clipPanel").hidden = !sessions.length;
-  el.innerHTML = sessions.map((s) => `<li><b>${cfg.name}_${s.id}</b><br><span class="muted">${new Date(s.start).toLocaleString("it-IT")} · ${fmtT(s.dur)} · ${(s.bytes / 1048576).toFixed(0)} MB · ${s.res} · ${s.status}</span><br><button data-save="${s.id}">Salva in Foto / File</button><button data-del="${s.id}">Elimina</button></li>`).join("");
+  el.innerHTML = sessions.map((s) => `<li><b>${cfg.name}_${s.id}</b><br><span class="muted">${new Date(s.start).toLocaleString("it-IT")} · ${fmtT(s.dur)} · ${(s.bytes / 1048576).toFixed(0)} MB · ${s.res} · ${s.status}</span><br>${s.kind === "timelapse" ? `<span class="muted">time-lapse · ${s.frames} immagini a ${s.fps} fps</span><br>` : ""}${s.status === "video non creato" ? `<button data-redo="${s.id}">Ricrea il video</button>` : `<button data-save="${s.id}">Salva in Foto / File</button>`}<button data-del="${s.id}">Elimina</button></li>`).join("");
   $("clipNote").textContent = sessions.length ? "Le registrazioni restano qui finché non vengono trasferite o eliminate. Safari può cancellare i dati dopo 7 giorni senza uso." : "";
 }
 $("clips").onclick = async (e) => {
-  const sv = e.target.closest("[data-save]"), dl = e.target.closest("[data-del]");
+  const sv = e.target.closest("[data-save]"), dl = e.target.closest("[data-del]"), rd = e.target.closest("[data-redo]");
+  if (rd && !tl) {
+    const s = sessions.find((x) => x.id === rd.dataset.redo); rd.disabled = true; rd.textContent = "Creo…"; dbg("info", `ricreo il video del time-lapse ${s.id}`);
+    try { const base = s.src || s.id, keys = await db.frameKeys(base); if (!keys.length) throw new Error("immagini non più presenti"); await tlRender(base, keys, s.fps || 30, s.start, true); const ns = (await db.sessions()).find((x) => x.id === base + "v"); if (ns && ns.status === "pronta") await db.delSession(s.id); } catch (x) { lastErr = "Ricreazione fallita: " + x.name; dbg("error", `ricreazione fallita: ${x.name}: ${x.message}`); }
+    await loadSessions(); publish(); return;
+  }
   if (sv) {
     const s = sessions.find((x) => x.id === sv.dataset.save); sv.disabled = true; sv.textContent = "Preparo…"; dbg("info", `salvataggio di ${s.id} richiesto`);
     try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], `${cfg.name}_${s.id}.mp4`, { type: s.mime }); dbg("info", `file pronto ${(blob.size / 1048576).toFixed(0)} MB`); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
@@ -273,18 +352,27 @@ async function rtcStats(pc, tag) {
     dbg("info", "WebRTC statistiche", out);
   } catch (e) { dbg("warn", `statistiche WebRTC: ${e.message}`); }
 }
-async function startPreview(dashId) {
+async function applyPreviewParams(pc, q) {
+  const mini = q === "mini";
+  for (const sender of pc.getSenders()) {
+    if (!sender.track || sender.track.kind !== "video") continue;
+    const scale = Math.max(1, (sender.track.getSettings().height || 1920) / (mini ? 360 : 720));
+    for (const withFps of mini ? [true, false] : [false]) {
+      try { const p = sender.getParameters(); if (!p.encodings || !p.encodings.length) p.encodings = [{}]; p.encodings[0].maxBitrate = mini ? 500000 : 1500000; p.encodings[0].scaleResolutionDownBy = scale; if (withFps) p.encodings[0].maxFramerate = 15; await sender.setParameters(p); dbg("info", "parametri invio anteprima applicati", { qualita: q, maxBitrate: p.encodings[0].maxBitrate, scala: +scale.toFixed(2), maxFramerate: withFps ? 15 : "non impostato" }); break; }
+      catch (e) { dbg("warn", `setParameters (${q}${withFps ? " con fps" : ""}): ${e.name}: ${e.message}`); }
+    }
+  }
+}
+async function startPreview(dashId, q) {
   if (!stream || !rt) { lastErr = "Anteprima: avvia prima la camera"; dbg("warn", "preview_start senza camera"); publish(); return; }
   try { clearInterval(pcs[dashId]?.statT); pcs[dashId]?.pc.close(); } catch { /* ok */ }
-  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [], statT: 0 }; dbg("info", `anteprima verso ${dashId}: creo la connessione WebRTC`);
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [], statT: 0 }; dbg("info", `anteprima ${q || "full"} verso ${dashId}: creo la connessione WebRTC`);
   pc.onconnectionstatechange = () => { dbg("info", `WebRTC connessione: ${pc.connectionState}`); if (pc.connectionState === "connected") { const e = pcs[dashId]; if (e) { clearInterval(e.statT); e.statT = setInterval(() => rtcStats(pc, "10s"), 10000); setTimeout(() => rtcStats(pc, "avvio"), 2500); } } };
   pc.oniceconnectionstatechange = () => dbg("info", `WebRTC ICE: ${pc.iceConnectionState}`); pc.onsignalingstatechange = () => dbg("info", `WebRTC signaling: ${pc.signalingState}`); pc.onicegatheringstatechange = () => dbg("info", `WebRTC raccolta ICE: ${pc.iceGatheringState}`);
-  stream.getVideoTracks().forEach((t) => {
-    const sender = pc.addTrack(t, stream);
-    try { const p = sender.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 1500000; p.encodings[0].scaleResolutionDownBy = Math.max(1, (t.getSettings().height || 1080) / 720); sender.setParameters(p).then(() => dbg("info", "parametri invio anteprima applicati", { maxBitrate: 1500000, scala: p.encodings[0].scaleResolutionDownBy })).catch((e) => dbg("warn", `setParameters: ${e.message}`)); } catch (e) { dbg("warn", `parametri non supportati: ${e.message}`); }
-  });
+  stream.getVideoTracks().forEach((t) => pc.addTrack(t, stream));
   let nc = 0; pc.onicecandidate = (e) => { if (e.candidate) { nc++; rt.send("rtc", { to: dashId, from: ID, kind: "cand", data: e.candidate.toJSON() }); } else dbg("info", `candidati ICE inviati: ${nc}`); };
-  await pc.setLocalDescription(await pc.createOffer()); rt.send("rtc", { to: dashId, from: ID, kind: "offer", data: plain(pc.localDescription) }); dbg("info", "offerta WebRTC inviata");
+  await pc.setLocalDescription(await pc.createOffer()); await applyPreviewParams(pc, q);
+  rt.send("rtc", { to: dashId, from: ID, kind: "offer", data: plain(pc.localDescription) }); dbg("info", "offerta WebRTC inviata");
 }
 async function onRtc(m) {
   if (m.to !== ID) return; const e = pcs[m.from]; if (!e) { dbg("warn", `segnale rtc ${m.kind} senza connessione attiva`); return; }
@@ -306,7 +394,9 @@ async function onCmd(m) {
       case "standby": setStandby(!!m.on); detail = { standby }; break;
       case "config": if (!recording) { if (m.res && RES[m.res]) cfg.res = m.res; if (m.bps) cfg.bps = Number(m.bps); store.set("gdc.camCfg", cfg); syncForm(); if (stream) { try { await openCam(); } catch { ok = false; } } publish(); detail = { res: cfg.res, bps: cfg.bps }; } else { lastErr = "Impostazioni non applicate: registrazione in corso"; ok = false; detail = lastErr; publish(); } break;
       case "rename": if (m.name) cfg.name = m.name; if (m.device) cfg.device = m.device; store.set("gdc.camCfg", cfg); syncForm(); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); detail = { name: cfg.name, device: cfg.device }; break;
-      case "preview_start": await startPreview(m.from); detail = "offerta inviata"; break;
+      case "tl_start": ok = await tlStart(m); detail = ok ? "time-lapse avviato" : lastErr || "non avviato"; break;
+      case "tl_stop": tlStop(); detail = "stop richiesto"; break;
+      case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
       case "battery": bat.level = Number(m.level); bat.charging = m.charging == null ? bat.charging : !!m.charging; publish(); detail = bat; break;
       default: ok = false; detail = "comando sconosciuto"; break;

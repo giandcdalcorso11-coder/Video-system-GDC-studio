@@ -134,7 +134,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r3";
+const PAGE_VERSION = "dashboard r4";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -229,7 +229,7 @@ let suggestMerge = null;
 class RealtimeTransport {
   constructor(p) { this.p = p; this.cb = () => {}; this.s = {}; this.seen = {}; this.rt = null; this.id = store.get("gdc.dashId", null) || (() => { const v = "dash-" + Math.random().toString(36).slice(2, 8); store.set("gdc.dashId", v); return v; })(); }
   onState(cb) { this.cb = cb; }
-  blank() { return { online: false, rec: false, recStart: 0, battery: null, charging: null, bufMB: null, maxBufMB: null, bps: 0, pan: 0, tilt: 0, rssi: null, latency: null, res: "—", orient: "—", clips: [], real: true, camReady: false, standby: false, err: "", storage: "" }; }
+  blank() { return { online: false, rec: false, recStart: 0, battery: null, charging: null, bufMB: null, maxBufMB: null, bps: 0, pan: 0, tilt: 0, rssi: null, latency: null, res: "—", orient: "—", clips: [], real: true, camReady: false, standby: false, err: "", storage: "", tl: null, tlStage: "" }; }
   add(cam) { this.s[cam.id] = this.blank(); this.push(cam.id); }
   remove(id) { delete this.s[id]; delete this.seen[id]; }
   push(id) { if (this.s[id]) this.cb(id, this.s[id]); }
@@ -250,12 +250,13 @@ class RealtimeTransport {
       const twin = m.fp && cameras.find((c) => c.id !== m.id && c.fp && c.fp === m.fp && !(this.s[c.id] && this.s[c.id].online));
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
-    const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage };
+    const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
     Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
-      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "" });
+      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
-    dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
+    this.rxN = this.rxN || {}; this.rxN[m.id] = (this.rxN[m.id] || 0) + 1;
+    if (ch.length || this.rxN[m.id] % 15 === 1) dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
     this.s[m.id] = st; this.push(m.id);
     if (st.err && st.err !== before.err) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
@@ -264,18 +265,25 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
 const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
 const Preview = {
   pcs: {}, active: {},
-  start(id) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = true; dbg("info", "anteprima", `richiedo l'anteprima a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", rid: rid() }); },
+  want(id) { if (!REAL) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
+  start(id, mode) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = mode || "full"; dbg("info", "anteprima", `richiedo l'anteprima ${this.active[id]} a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", q: this.active[id], rid: rid() }); },
   stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
   stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
   reset(id) { const e = this.pcs[id]; if (e) clearInterval(e.statT); this.active[id] = false; try { e && e.pc && e.pc.close(); } catch { /* ok */ } delete this.pcs[id]; this.detach(id); },
-  ensure(id) { if (curDetail === id && state[id]?.online && state[id].camReady && !this.active[id]) this.start(id); },
+  ensure(id) {
+    const w = this.want(id), st = state[id];
+    if (!w) { if (this.active[id]) this.stop(id); return; }
+    if (!st || !st.online || !st.camReady) return;
+    if (this.active[id] === w) return; if (this.active[id]) this.stop(id); this.start(id, w);
+  },
+  ensureAll() { cameras.forEach((c) => this.ensure(c.id)); },
   detach(id) { const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`); if (vid && vid.dataset.live) { vid.srcObject = null; vid.hidden = true; delete vid.dataset.live; if (can) can.hidden = false; if (tag) tag.textContent = REAL ? "ANTEPRIMA NON ATTIVA" : "SIMULATA"; } },
   attach(id, stream) {
     const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`);
@@ -319,7 +327,7 @@ const logsText = (id) => [...logs].reverse().filter((l) => !id || l.id === id).m
 
 function command(id, m) {
   const c = camById(id); if (!c) return; m = { ...m, rid: rid() }; dbg("info", "comando", `→ ${camTitle(c)} (${id})`, m);
-  const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)", standby: m.on ? "schermo nero attivato" : "schermo riattivato", config: "impostazioni inviate" }[m.cmd];
+  const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)", standby: m.on ? "schermo nero attivato" : "schermo riattivato", config: "impostazioni inviate", tl_start: "time-lapse avviato", tl_stop: "time-lapse fermato: creo il video" }[m.cmd];
   if (say) log(id, `${camTitle(c)}: ${say}`);
   transport.send(id, m);
 }
@@ -329,8 +337,8 @@ transport.onState((id, st) => { state[id] = st; refresh(); });
 const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
 const BIND = {
   title: (st, c, el) => { el.textContent = camTitle(c); },
-  pill: (st, c, el) => { el.className = "pill " + (!st.online ? "" : st.rec ? "rec" : "idle"); el.innerHTML = `<span class="dot"></span>${!st.online ? "OFFLINE" : st.rec ? "IN REC" : "PRONTA"}`; },
-  card: (st, c, el) => { el.classList.toggle("is-off", !st.online); el.classList.toggle("is-rec", st.rec); },
+  pill: (st, c, el) => { const tlOn = !!(st.tl && st.tl.stage); el.className = "pill " + (!st.online ? "" : st.rec || tlOn ? "rec" : "idle"); el.innerHTML = `<span class="dot"></span>${!st.online ? "OFFLINE" : st.rec ? "IN REC" : tlOn ? (st.tl.stage === "rendering" ? "CREO VIDEO" : "TIME-LAPSE") : "PRONTA"}`; },
+  card: (st, c, el) => { el.classList.toggle("is-off", !st.online); el.classList.toggle("is-rec", !!(st.rec || st.tl)); },
   batTxt: (st, c, el) => { el.textContent = st.online ? (st.battery == null ? "n/d" : Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "")) : "—"; },
   batBar: (st, c, el) => { const has = st.online && st.battery != null; el.className = "bar " + (has ? batClass(st.battery) : ""); $("i", el).style.width = (has ? st.battery : 0) + "%"; },
   batWarn: (st, c, el) => { el.textContent = st.online && st.battery != null && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
@@ -338,19 +346,26 @@ const BIND = {
   free: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} / ${st.maxBufMB} MB` : st.freeGb.toFixed(1) + " GB"; },
   freeLong: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} MB usati su ${st.maxBufMB} MB di buffer sul telefono` : `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB`; },
   freeEst: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? (st.bps ? `circa ${Math.max(0, Math.floor(((st.maxBufMB - st.bufMB) * 8) / (st.bps / 1e6) / 60))} min di ripresa prima di riempire il buffer` : "—") : `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)`; },
-  timer: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "—"; },
+  timer: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : st.tl ? `Time-lapse: ${st.tl.frames} imm.` : "—"; },
   badge: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "00:00"; },
   conn: (st, c, el) => { el.textContent = !st.online ? "—" : st.rssi == null ? "Collegata (Supabase)" : `Wi-Fi ${Math.round(st.rssi)} dBm · ${st.latency} ms`; },
   pos: (st, c, el) => { el.textContent = !st.online || st.real ? "—" : `${st.pan}° / ${st.tilt}°`; },
   res: (st, c, el) => { el.textContent = st.res; },
   orient: (st, c, el) => { el.textContent = st.orient; },
-  recBtn: (st, c, el) => { el.disabled = !st.online || st.rec; },
+  recBtn: (st, c, el) => { el.disabled = !st.online || st.rec || !!st.tl; },
   stopBtn: (st, c, el) => { el.disabled = !st.rec; },
   connBtn: (st, c, el) => { el.disabled = !!st.real; el.textContent = st.real ? "Camera reale" : st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
   chargeBtn: (st, c, el) => { el.disabled = !st.online || !!st.real; el.hidden = !!st.real; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
+  tlStat: (st, c, el) => {
+    const t = st.tl; if (!st.online) { el.textContent = "—"; return; } if (!t) { el.textContent = "Nessun time-lapse in corso."; return; }
+    const iv = t.intS < 1 ? `${Math.round(1 / t.intS)} al secondo` : t.intS === 1 ? "1 al secondo" : `1 ogni ${t.intS} s`;
+    el.textContent = t.stage === "rendering" ? `Creo il video… ${Math.round(t.progress * 100)}% (${t.frames} immagini a ${t.fps} fps)` : `In ripresa da ${fmtTime(t.elapsedMs)} · ${t.frames} immagini (${t.MB} MB) · intervallo ${iv} · video atteso ${(t.frames / t.fps).toFixed(1)} s${t.skipped ? ` · saltate ${t.skipped}` : ""}${t.errs ? ` · errori ${t.errs}` : ""}`;
+  },
+  tlStartBtn: (st, c, el) => { el.disabled = !st.online || st.rec || !!st.tl; },
+  tlStopBtn: (st, c, el) => { el.disabled = !(st.tl && st.tl.stage === "shooting"); },
   standbyBtn: (st, c, el) => { el.disabled = !st.online; el.textContent = st.standby ? "Riattiva schermo" : "Schermo nero"; },
   screen: (st, c, el) => { el.textContent = !st.online ? "—" : st.standby ? "Nero (standby)" : "Normale"; },
-  clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${fmtTime(k.dur)} · ~${k.mb} MB</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
+  clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status || "")}</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
 };
 function refresh() {
   $$("[data-bind]").forEach((el) => {
@@ -391,7 +406,7 @@ const previewHtml = (id, cls) => `
 const connPanel = () => REAL
   ? `<div class="kvs"><div class="kv"><small>Stato</small><span id="connTxt">${esc(connStatus)}</span></div><div class="kv"><small>Canale</small><span>…${esc(pairing.c.slice(-4))}</span></div></div>
      <div class="row" style="margin-top:10px"><button id="cpCam">Copia link camera</button><button id="cpDash">Copia link dashboard</button><button class="ghost" id="newCh">Nuovo canale</button><button class="ghost" id="unpair">Scollega</button></div>
-     <div class="muted" style="margin-top:6px">I link contengono il codice segreto: non condividerli.</div>`
+     <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="homePrev" ${store.get("gdc.homePrev", true) ? "checked" : ""} style="width:auto;min-height:0"> Anteprime live nella home</label><div class="muted" style="margin-top:6px">I link contengono il codice segreto: non condividerli.</div>`
   : `<div class="muted">Modalità simulazione. Per collegare camere vere apri il link di abbinamento oppure incolla qui il codice (inizia con gdc1.).</div>
      <textarea id="pairTxt" rows="2" style="width:100%;margin-top:8px" placeholder="gdc1.…"></textarea><button id="pairBtn" style="margin-top:8px">Abbina</button>`;
 
@@ -407,6 +422,7 @@ function mergeCams() {
   transport.send(n.id, { cmd: "rename", name: n.name, device: n.device }); log(n.id, `${camTitle(n)}: unita alla camera precedente`); route();
 }
 function showHome() {
+  Preview.stopAll();
   $("#view").innerHTML = `
     ${mergeBanner()}
     <section class="tiles" id="sum" aria-label="Riepilogo">
@@ -441,6 +457,7 @@ function showHome() {
     <section class="panel" style="margin-top:16px"><div class="row" style="justify-content:space-between"><h2>Registro</h2><button class="ghost" data-copylog="">Copia</button></div><ol class="list" data-log=""></ol></section>`;
   curDetail = null; setConn(connStatus);
   $("#view").onclick = async (e) => {
+    if (e.target.id === "homePrev") { store.set("gdc.homePrev", e.target.checked); dbg("info", "ui", `anteprime nella home: ${e.target.checked ? "attive" : "spente"}`); Preview.stopAll(); Preview.ensureAll(); return; }
     const cl = e.target.closest("[data-copylog]"); if (cl) { copyText(logsText(cl.dataset.copylog), cl); return; }
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }
     if (e.target.closest("#mergeNo")) { dbg("info", "camere", "unione rifiutata dall'utente"); suggestMerge = null; showHome(); return; }
@@ -454,10 +471,11 @@ function showHome() {
     if (go) location.hash = "#/cam/" + go.dataset.go;
     if (e.target.closest("#addCam")) addCamera();
   };
-  renderLogs(); refresh();
+  renderLogs(); refresh(); Preview.ensureAll();
 }
 
 function showDetail(id) {
+  Preview.stopAll();
   const c = camById(id);
   $("#view").innerHTML = `
     <a class="back" href="#/">‹ Tutte le camere</a>
@@ -505,6 +523,17 @@ function showDetail(id) {
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
             <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
           </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
+        ${REAL ? `<div class="panel"><h2>Time-lapse</h2>
+          <div class="row" style="gap:8px;align-items:flex-end">
+            <label class="f" style="flex:1;min-width:150px">Modalità<select id="tlMode"><option value="auto">Automatica (come iPhone)</option><option value="man">Manuale</option></select></label>
+            <label class="f" id="tlIntW" style="flex:1;min-width:150px" hidden>Immagini<select id="tlInt"><option value="0.5">2 al secondo</option><option value="1">1 al secondo</option><option value="2">1 ogni 2 s</option><option value="5" selected>1 ogni 5 s</option><option value="10">1 ogni 10 s</option><option value="30">1 ogni 30 s</option><option value="60">1 ogni 60 s</option></select></label>
+            <label class="f" style="flex:1;min-width:110px">Video a<select id="tlFps"><option value="24">24 fps</option><option value="30" selected>30 fps</option></select></label>
+            <label class="f" style="flex:1;min-width:110px">Qualità JPEG<select id="tlQ"><option value="0.8">Normale</option><option value="0.92" selected>Alta</option></select></label>
+          </div>
+          <div class="row"><button class="primary" data-bind="tlStartBtn" data-cam="${id}" data-act="tl_start">● Avvia time-lapse</button><button data-bind="tlStopBtn" data-cam="${id}" data-act="tl_stop">■ Ferma e crea il video</button></div>
+          <div class="muted" id="tlHelp" style="margin-top:6px"></div>
+          <div style="margin-top:8px" data-bind="tlStat" data-cam="${id}"></div>
+          <div class="muted" style="margin-top:6px">Usa la qualità della camera impostata in “Ripresa”. Il video si crea sul telefono quando fermi il time-lapse (ci mette circa quanto dura il video).</div></div>` : ""}
         <div class="panel"><h2>Impostazioni camera</h2>
           <label class="f">Dispositivo<input type="text" id="fDev" value="${esc(c.device)}" maxlength="40"></label>
           <label class="f">Nome camera<input type="text" id="fName" value="${esc(c.name)}" maxlength="30"></label>
@@ -528,12 +557,15 @@ function showDetail(id) {
     else if (act === "charge") command(id, { cmd: "charge", on: !state[id].charging });
     else if (act === "webcam") toggleWebcam(id, a);
     else if (act === "standby") command(id, { cmd: "standby", on: !state[id].standby });
+    else if (act === "tl_start") command(id, { cmd: "tl_start", mode: $("#tlMode").value, int: Number($("#tlInt").value), fps: Number($("#tlFps").value), q: Number($("#tlQ").value) });
+    else if (act === "tl_stop") command(id, { cmd: "tl_stop" });
     else command(id, { cmd: act });
   };
   const rename = () => {
     c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
     saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
   };
+  if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
   if (REAL) $("#cfgApply").onclick = () => command(id, { cmd: "config", res: $("#cfgRes").value, bps: Number($("#cfgBps").value) });
   curDetail = id;
@@ -542,7 +574,7 @@ function showDetail(id) {
     if (!confirm(`Rimuovere ${camTitle(c)} dalla dashboard?`)) return;
     transport.remove(id); delete state[id]; cameras = cameras.filter((x) => x.id !== id); saveCams(); location.hash = "#/";
   };
-  renderLogs(); refresh(); if (REAL) Preview.ensure(id);
+  renderLogs(); refresh(); Preview.ensureAll();
 }
 
 async function toggleWebcam(id, btn) {
@@ -565,7 +597,7 @@ function addCamera() {
 
 /* ===== Router ===== */
 function route() {
-  if (curDetail) { Preview.stopAll(); curDetail = null; }
+  curDetail = null;
   dbg("info", "ui", `vista: ${location.hash || "#/"}`);
   const m = location.hash.match(/^#\/cam\/(.+)$/);
   if (m && camById(m[1])) showDetail(m[1]); else showHome();

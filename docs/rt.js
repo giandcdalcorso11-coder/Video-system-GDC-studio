@@ -30,8 +30,9 @@
     const handlers = {}, peerCbs = [], statusCbs = []; let peers = [], status = "connessione…", lastSig = "", prevKeys = new Set();
     const emit = (ev, payload) => (handlers[ev] || []).forEach((fn) => { try { fn(payload); } catch (e) { L("error", `gestore "${ev}": ${e.message}`); } });
     const size = (p) => { try { return JSON.stringify(p).length; } catch { return -1; } };
-    const noisy = (ev) => ev === "dbg";
-    const onRx = (ev, payload) => { if (!noisy(ev)) L("trace", `rx ${ev} ${size(payload)}B`); emit(ev, payload); };
+    const noisy = (ev) => ev === "dbg", cnt = { tx: 0, rx: 0 }; // i messaggi "state" si registrano 1 volta su 15
+    const skipState = (ev, k) => ev === "state" && cnt[k]++ % 15 !== 0;
+    const onRx = (ev, payload) => { if (!noisy(ev) && !skipState(ev, "rx")) L("trace", `rx ${ev} ${size(payload)}B`); emit(ev, payload); };
     const setStatus = (s) => { if (s !== status) L("info", `stato collegamento: ${s}`); status = s; statusCbs.forEach((f) => f(s)); };
     const setPeers = (list) => {
       const sig = JSON.stringify(list); if (sig === lastSig) return; lastSig = sig; peers = list;
@@ -52,7 +53,7 @@
       bc.onmessage = (e) => { const d = e.data; if (d.t === "ev") onRx(d.event, d.payload); else if (d.t === "hello") seen.set(d.id, { at: Date.now(), meta: d.meta }); };
       setInterval(() => { hello(); const now = Date.now(); for (const [k, v] of seen) if (now - v.at > 4000) seen.delete(k); setPeers([...seen.values()].map((v) => v.meta)); }, 1000);
       hello(); setStatus("connesso (simulazione locale)");
-      rt.send = (event, payload) => { if (!noisy(event)) L("trace", `tx ${event} ${size(payload)}B`); bc.postMessage({ t: "ev", event, payload }); };
+      rt.send = (event, payload) => { if (!noisy(event) && !skipState(event, "tx")) L("trace", `tx ${event} ${size(payload)}B`); bc.postMessage({ t: "ev", event, payload }); };
       rt.setMeta = (m) => { meta = { ...meta, ...m }; hello(); };
       return rt;
     }
@@ -67,7 +68,7 @@
       else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("errore: " + s);
       else if (s === "CLOSED") setStatus("chiuso");
     });
-    rt.send = (event, payload) => { if (!noisy(event)) L("trace", `tx ${event} ${size(payload)}B`); return ch.send({ type: "broadcast", event, payload }).then((r) => { if (r && r !== "ok") L("warn", `invio ${event}: ${r}`); return r; }).catch((e) => L("error", `invio ${event} fallito: ${e.message}`)); };
+    rt.send = (event, payload) => { if (!noisy(event) && !skipState(event, "tx")) L("trace", `tx ${event} ${size(payload)}B`); return ch.send({ type: "broadcast", event, payload }).then((r) => { if (r && r !== "ok") L("warn", `invio ${event}: ${r}`); return r; }).catch((e) => L("error", `invio ${event} fallito: ${e.message}`)); };
     rt.setMeta = (m) => { meta = { ...meta, ...m }; ch.track({ role, id, ...meta }).catch(() => {}); };
     rt.close = () => sb.removeChannel(ch);
     return rt;
