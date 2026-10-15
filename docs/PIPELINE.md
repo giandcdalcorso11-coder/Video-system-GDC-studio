@@ -12,6 +12,7 @@ Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
 ## 2. Dashboard
 - ✅ Prototipo con camere simulate: home, dettaglio camera, rinomina, REC, pan/tilt segnaposto
 - ✅ Registro attività avanzato (dashboard + camera), pulsanti Copia
+- ✅ Anteprime live nella home (interruttore) e pannello Time-lapse nel dettaglio
 - ✅ Unione di camere duplicate ("Stesso telefono?")
 - ⏳ Barra batteria alimentata dai dati reali (vedi punto 5)
 - ⏳ Selettore della destinazione dei file
@@ -21,11 +22,11 @@ Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
 
 ## 3. Pagina camera (telefono)
 - ✅ Collegamento alla dashboard (REC/STOP, stato, impostazioni, schermo nero) (provato con dispositivi veri)
-- ⏳ Comando time-lapse
+- ✅ Comando time-lapse (automatico e manuale): da provare sull'XR
 - ✅ Anteprima in tempo reale (WebRTC) (provato con dispositivi veri)
 - ✅ Registrazione scritta a pezzi su disco (IndexedDB), tetto di sicurezza 700 MB
 - ⏳ File in attesa di invio e scarico continuo verso il PC
-- ⏳ Time-lapse integrato (modalità automatica e manuale)
+- ✅ Time-lapse integrato (automatico e manuale), video creato sul telefono: da provare sull'XR
 
 ## 4. Canale di comunicazione
 - ✅ Decisione: Supabase Realtime (progetto GDC-thumbnail-generator, per ora) per comandi e segnalazione + collegamento diretto telefono ↔ dashboard per video e file

@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 3
-**Ultimo aggiornamento:** 2026-10-15 15:23
+**Versione:** 4
+**Ultimo aggiornamento:** 2026-10-15 15:35
 
 ## Vision
 
@@ -57,6 +57,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-14] Prototipo simulato con home e dettaglio.
 - [2026-10-15] Collegata alle camere reali (Supabase), con anteprima WebRTC, impostazioni, schermo nero: provata solo con simulazione locale.
 - Da fare: barra batteria reale, selettore destinazione, barra di scaricamento.
+- [2026-10-15] Dashboard r4: anteprime live nella home (interruttore), pannello Time-lapse nel dettaglio, stato "Time-lapse"/"Creo video" nel pill, registro avanzato con campionamento dei messaggi di stato.
 - [2026-10-15] Provata con i dispositivi veri (XR e telefono personale): REC/STOP, stato e impostazioni funzionano. Aggiunti: registro attività avanzato con copia, pulsante Copia nel registro base, banner "Stesso telefono?" per unire camere duplicate, link per singola camera, indicatore dello schermo nero.
 
 ### Step 4 — Pagina camera (telefono)
@@ -71,7 +72,8 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] `docs/camera.html` v1: abbinamento, camera, REC/STOP, anteprima, impostazioni, schermo nero, elenco registrazioni.
-- Da fare: time-lapse, file in attesa, trasferimento.
+- Da fare: file in attesa, trasferimento.
+- [2026-10-15] Seconda prova con i dispositivi veri: anteprima WebRTC ok (collegamento diretto host→host, RTT circa 8 ms, 1080p a circa 20 fps), REC, schermo nero e avvio automatico ok. Camera r4: time-lapse (automatico come iPhone e manuale) con immagini su disco e video creato sul telefono; anteprima "mini" (home) e "full" (dettaglio); parametri di invio applicati dopo la negoziazione.
 - [2026-10-15] Camera r3: avvio automatico della camera all'apertura della pagina (opzione attiva di default; si disattiva con "Ferma camera" a mano, si riattiva con "Avvia camera"; riprova al ritorno in primo piano). Permesso fotocamera/microfono: va impostato su "Consenti" per il sito nelle impostazioni di Safari. Da provare sull'XR.
 - [2026-10-15] Provata sull'XR: REC/STOP dalla dashboard e salvataggio in galleria ok. Problemi segnalati: camera duplicata alla riapertura del link, "Archivio non disponibile: InvalidStateError", tasto schermo nero non funzionante. Corretti/instrumentati in camera r2 (riapertura automatica di IndexedDB, identità da link/cookie, registro attività inviato alla dashboard).
 
@@ -104,7 +106,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 7 — Time-lapse nella pagina camera
 
-**Stato:** da fare
+**Stato:** in corso
 
 **Obiettivo:** time-lapse comandabile dalla dashboard, in modalità automatica (emula l'app Fotocamera) e manuale.
 
@@ -114,6 +116,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Prototipo nel test. Limite: circa 1300 immagini a 1080p nel buffer locale.
+- [2026-10-15] Integrato in camera r4 e dashboard r4 (comandi tl_start e tl_stop, modalità automatica e manuale, video creato sul telefono, "Ricrea il video" se la creazione fallisce). Provato solo con simulazione locale: da provare sull'XR, in particolare la creazione del video con canvas e MediaRecorder su iOS 16.3.
 
 ### Step 8 — App Comandi sull'XR (batteria)
 
@@ -142,6 +145,34 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-15 15:35] Time-lapse e anteprime live nella home
+
+**Riepilogo:** dal registro avanzato della seconda prova (anteprima, REC, schermo nero e avvio automatico funzionano) si passa al time-lapse integrato in dashboard e camera e alle anteprime live nella home.
+
+**Cosa è stato fatto:**
+- Analisi del registro avanzato inviato dall'utente: anteprima in WebRTC diretta (host→host, RTT 5-15 ms, circa 20 fps, circa 2,4 Mbps), REC da 17 s con 16 pezzi e 41,9 MB (20 Mbps), schermo nero attivo e disattivato con conferma, avvio automatico della camera riuscito (2,5 s).
+- Camera r4 e dashboard r4: time-lapse (automatico come iPhone e manuale), anteprime "mini" e "full", campionamento dei messaggi di stato nel registro (1 su 15), archivio IndexedDB v2 con le immagini del time-lapse.
+
+**Bug: Anteprima senza limite di banda**
+
+**Sintomo:** nel registro della camera: "setParameters: parameters are not valid"; l'anteprima viaggiava a circa 2,4 Mbps in 1080p invece di 720p a 1,5 Mbps.
+**Causa:** non accertata; probabilmente i parametri venivano impostati prima della negoziazione WebRTC.
+**Fix applicato:** parametri applicati dopo la creazione dell'offerta, con riprova senza frame rate massimo; da verificare nel prossimo registro.
+
+**Decisioni prese:**
+- Contesto: il time-lapse è la modalità più usata ma non era ancora in dashboard (solo nella pagina di test). Decisione: anticiparlo rispetto al trasferimento dei file. Alternative scartate: lasciarlo dopo il trasferimento. Da rivedere se: la creazione del video sul telefono non funziona su iOS 16.3.
+- Contesto: anteprime nella home. Decisione: qualità "mini" (360p, 500 kbps) in home e "full" (720p, 1,5 Mbps) nel dettaglio, con interruttore per spegnerle.
+
+**Osservazione:** l'orologio del telefono risulta circa 0,6 s avanti rispetto a quello del PC (età dei messaggi di stato negativa): da tenere presente per sincronizzare le camere.
+
+**File consegnati/modificati:**
+- `docs/camera.html`, `docs/dashboard.html`, `docs/rt.js`
+- `docs/PIPELINE.md`, `documento-sessione-video-system-gdc-studio.md`
+
+**Impatto su Vision/Pipeline:** Step 7 (time-lapse) in corso; il trasferimento dei file (Step 6) resta il prossimo passo.
+
+---
 
 ### [2026-10-15 14:42] Prova con dispositivi veri, correzioni e registro attività avanzato
 
