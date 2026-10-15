@@ -47,6 +47,7 @@
   <section class="panel"><h2>4 · Formati di registrazione</h2><table id="mimes"></table></section>
 
   <section class="panel"><h2>5 · Registra 10 secondi</h2>
+    <label>Bitrate <select id="bps"><option value="0">Predefinito</option><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label><br>
     <button id="rec" disabled>● Registra 10 s</button><button id="share" disabled>Salva / Condividi</button>
     <div id="recInfo" class="muted"></div>
     <video id="play" controls playsinline hidden style="margin-top:8px"></video>
@@ -138,16 +139,19 @@ $("probe").onclick = async () => {
 };
 
 /* 5 · Registrazione */
-$("rec").onclick = () => {
+$("rec").onclick = async () => {
+  try { const [w, h] = getRes(); await open($("facing").value, w, h, $("audio").checked); } catch (e) { $("recInfo").innerHTML = bad(`${e.name}: ${e.message}`); return; }
+  const bps = Number($("bps").value), hasAudio = stream.getAudioTracks().length > 0;
   const pref = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
   const chunks = []; let mr;
-  try { mr = new MediaRecorder(stream, pref ? { mimeType: pref } : undefined); } catch (e) { $("recInfo").innerHTML = bad(`${e.name}: ${e.message}`); return; }
+  try { mr = new MediaRecorder(stream, { ...(pref ? { mimeType: pref } : {}), ...(bps ? { videoBitsPerSecond: bps } : {}) }); } catch (e) { $("recInfo").innerHTML = bad(`${e.name}: ${e.message}`); return; }
   $("rec").disabled = true; let left = 10; const t0 = Date.now();
   const tick = setInterval(() => { left--; $("recInfo").textContent = `Registrazione… ${left} s`; }, 1000); $("recInfo").textContent = "Registrazione… 10 s";
   mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   mr.onstop = () => {
     clearInterval(tick); lastBlob = new Blob(chunks, { type: mr.mimeType || pref || "video/mp4" });
     const sec = (Date.now() - t0) / 1000, mb = lastBlob.size / 1048576, p = $("play");
+    p.onloadedmetadata = () => { set("Clip registrato", `${p.videoWidth}x${p.videoHeight} audio:${hasAudio ? "si" : "no"} bitrate richiesto:${bps ? bps / 1e6 + "Mbps" : "predefinito"}`); $("recInfo").innerHTML += `<br>Clip: <b>${p.videoWidth}×${p.videoHeight}</b> · audio ${hasAudio ? "sì" : "no"}`; };
     p.src = URL.createObjectURL(lastBlob); p.hidden = false; $("share").disabled = false; $("rec").disabled = false;
     $("recInfo").innerHTML = `Formato <b>${mr.mimeType}</b> · ${mb.toFixed(1)} MB · ~${((lastBlob.size * 8) / sec / 1e6).toFixed(1)} Mbps`;
     set("Registrazione", `${mr.mimeType} ${mb.toFixed(1)}MB ${((lastBlob.size * 8) / sec / 1e6).toFixed(1)}Mbps su ${sec.toFixed(0)}s`);
