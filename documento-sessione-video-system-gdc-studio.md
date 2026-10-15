@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 1
-**Ultimo aggiornamento:** 2026-10-15 14:20
+**Versione:** 2
+**Ultimo aggiornamento:** 2026-10-15 14:42
 
 ## Vision
 
@@ -57,6 +57,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-14] Prototipo simulato con home e dettaglio.
 - [2026-10-15] Collegata alle camere reali (Supabase), con anteprima WebRTC, impostazioni, schermo nero: provata solo con simulazione locale.
 - Da fare: barra batteria reale, selettore destinazione, barra di scaricamento.
+- [2026-10-15] Provata con i dispositivi veri (XR e telefono personale): REC/STOP, stato e impostazioni funzionano. Aggiunti: registro attività avanzato con copia, pulsante Copia nel registro base, banner "Stesso telefono?" per unire camere duplicate, link per singola camera, indicatore dello schermo nero.
 
 ### Step 4 — Pagina camera (telefono)
 
@@ -71,10 +72,11 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] `docs/camera.html` v1: abbinamento, camera, REC/STOP, anteprima, impostazioni, schermo nero, elenco registrazioni.
 - Da fare: time-lapse, file in attesa, trasferimento.
+- [2026-10-15] Provata sull'XR: REC/STOP dalla dashboard e salvataggio in galleria ok. Problemi segnalati: camera duplicata alla riapertura del link, "Archivio non disponibile: InvalidStateError", tasto schermo nero non funzionante. Corretti/instrumentati in camera r2 (riapertura automatica di IndexedDB, identità da link/cookie, registro attività inviato alla dashboard).
 
 ### Step 5 — Canale di comunicazione
 
-**Stato:** in corso
+**Stato:** completato
 
 **Obiettivo:** far comunicare pagina camera e dashboard (comandi, presenza, segnalazione WebRTC).
 
@@ -84,6 +86,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Progetto scelto per ora: GDC-thumbnail-generator. Codice in `docs/rt.js`. Provato solo con una simulazione locale: da provare sui dispositivi.
+- [2026-10-15] Provato con dispositivi veri: funziona (XR e telefono personale).
 
 ### Step 6 — Trasferimento file e destinazioni
 
@@ -138,6 +141,46 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-15 14:42] Prova con dispositivi veri, correzioni e registro attività avanzato
+
+**Riepilogo:** la prova con XR e telefono personale conferma comandi, stato e salvataggio in galleria; corretti identità e archivio della camera e aggiunto un registro attività avanzato (dashboard e camera) per il debug.
+
+**Cosa è stato fatto:**
+- Esito della prova: REC/STOP dalla dashboard ok, file salvato nella galleria dell'XR, stato e impostazioni ok, anche con un secondo telefono (quello personale).
+- Camera r2: archivio IndexedDB con riapertura automatica e ripiego in memoria; identità da link (`~id`), memoria locale e cookie; registro attività con copia; conferma (ack) dei comandi; messaggi sullo stato delle tracce e di WebRTC; schermo nero più robusto, con stato visibile in dashboard.
+- Dashboard r3: registro attività avanzato (nascosto, con Copia e Svuota) che include anche il registro della camera; pulsante Copia nel registro base; banner "Stesso telefono?" con unione; pulsante "Copia link di questa camera".
+- `rt.js`: link con id camera fisso e registro del traffico (tx/rx, presenza, stato).
+
+**Bug: Camera duplicata alla riapertura del link**
+
+**Sintomo:** riaprendo il link la dashboard crea una nuova camera invece di riconoscere lo stesso telefono.
+**Causa:** non accertata. Ipotesi: il link viene aperto in un browser interno di un'app (Messaggi/WhatsApp ecc.) con memoria separata da Safari, oppure la memoria locale non è persistente.
+**Fix applicato:** identità fissabile dal link (per camera), copia nel cookie, banner di unione in dashboard; da verificare con il registro avanzato.
+
+**Bug: "Archivio non disponibile: InvalidStateError"**
+
+**Sintomo:** sulla camera riaperta l'archivio risulta non disponibile.
+**Causa:** non accertata. Ipotesi: connessione IndexedDB chiusa da Safari (sfondo, ripristino pagina) oppure contesto senza archivio.
+**Fix applicato:** riapertura automatica e nuovi tentativi, ripiego in memoria con avviso; da verificare.
+
+**Bug: Tasto schermo nero non funzionante**
+
+**Sintomo:** dalla dashboard lo schermo del telefono non diventava nero.
+**Causa:** non accertata (nel test simulato funzionava).
+**Fix applicato:** overlay forzato con stile diretto, ack del comando con dettagli (dimensioni e stile calcolato), stato visibile in dashboard; da verificare.
+
+**Decisioni prese:**
+- Contesto: ordine dei prossimi passi. Decisione: prima i fix, poi il trasferimento dei file al PC, poi il time-lapse (confermato valido: il time-lapse userà lo stesso invio dei pezzi).
+- Contesto: duplicati di camere. Decisione: proporre l'unione (impronta del dispositivo + camera offline) invece di unire in automatico. Alternative scartate: unione automatica (rischio con telefoni dello stesso modello). Da rivedere se: l'impronta risulta troppo debole.
+
+**File consegnati/modificati:**
+- `docs/camera.html`, `docs/dashboard.html`, `docs/rt.js`
+- `documento-sessione-video-system-gdc-studio.md`, `docs/PIPELINE.md`
+
+**Impatto su Vision/Pipeline:** Step 5 (canale) segnato come completato; note aggiunte agli Step 3 e 4.
+
+---
 
 ### [2026-10-15 14:20] Dall'idea ESP32 alla dashboard con camere reali via Supabase
 

@@ -11,16 +11,18 @@ Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
 
 ## 2. Dashboard
 - ✅ Prototipo con camere simulate: home, dettaglio camera, rinomina, REC, pan/tilt segnaposto
+- ✅ Registro attività avanzato (dashboard + camera), pulsanti Copia
+- ✅ Unione di camere duplicate ("Stesso telefono?")
 - ⏳ Barra batteria alimentata dai dati reali (vedi punto 5)
 - ⏳ Selettore della destinazione dei file
 - ⏳ Barra di scaricamento dei video con indicatore "puoi chiudere in sicurezza"
 - ✅ Standby / Riattiva (schermo nero sul telefono)
-- ✅ Dashboard collegata alle camere reali tramite Supabase (da provare con i dispositivi veri)
+- ✅ Dashboard collegata alle camere reali tramite Supabase (provato con dispositivi veri)
 
 ## 3. Pagina camera (telefono)
-- ✅ Collegamento alla dashboard (REC/STOP, stato, impostazioni, schermo nero): da provare con i dispositivi veri
+- ✅ Collegamento alla dashboard (REC/STOP, stato, impostazioni, schermo nero) (provato con dispositivi veri)
 - ⏳ Comando time-lapse
-- ✅ Anteprima in tempo reale (WebRTC): da provare con i dispositivi veri
+- ✅ Anteprima in tempo reale (WebRTC) (provato con dispositivi veri)
 - ✅ Registrazione scritta a pezzi su disco (IndexedDB), tetto di sicurezza 700 MB
 - ⏳ File in attesa di invio e scarico continuo verso il PC
 - ⏳ Time-lapse integrato (modalità automatica e manuale)

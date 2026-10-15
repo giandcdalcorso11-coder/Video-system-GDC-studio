@@ -23,10 +23,11 @@
   .pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); } .pill.ok { color: var(--ok); border-color: var(--ok); } .pill.ok .dot { background: var(--ok); } .pill.rec { color: var(--bad); border-color: var(--bad); } .pill.rec .dot { background: var(--bad); animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .25; } } @media (prefers-reduced-motion: reduce) { .pill.rec .dot { animation: none; } }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 4px 0; border-bottom: 1px dashed var(--line); } td:first-child { color: var(--muted); width: 45%; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 4px 0; border-bottom: 1px dashed var(--line); vertical-align: top; } td:first-child { color: var(--muted); width: 45%; padding-right: 8px; }
   .muted { color: var(--muted); font-size: 13px; } .err { color: var(--bad); font-weight: 600; }
   ol { list-style: none; margin: 0; padding: 0; } ol li { padding: 8px 0; border-bottom: 1px dashed var(--line); }
-  #blackout { position: fixed; inset: 0; background: #000; z-index: 10; display: none; } #blackout.on { display: block; }
+  pre { white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.35; background: var(--panel-2); border-radius: 10px; padding: 8px; margin: 8px 0 0; max-height: 50vh; overflow: auto; }
+  #blackout { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; z-index: 2147483647; display: none; } #blackout.on { display: block; }
 </style>
 </head>
 <body>
@@ -45,7 +46,7 @@
     <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
     <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
-    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button>
+    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button>
     <video id="vid" muted playsinline></video>
   </section>
 
@@ -61,6 +62,12 @@
     <ol id="clips"></ol>
     <div class="muted" id="clipNote"></div>
   </section>
+
+  <section class="panel" id="dbgPanel" hidden>
+    <h2>Registro attività</h2>
+    <button id="dbgToggle">Mostra</button><button id="dbgCopy">Copia tutto</button>
+    <pre id="dbgPre" hidden></pre>
+  </section>
 </main>
 <div id="blackout"></div>
 
@@ -68,83 +75,164 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
+const PAGE_VERSION = "camera r2";
 const $ = (id) => document.getElementById(id);
-const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ok */ } } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ID = (() => { let v = store.get("gdc.camId", null); if (!v) { v = "cam-" + Math.random().toString(36).slice(2, 8); store.set("gdc.camId", v); } return v; })();
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
+const getCookie = (k) => (document.cookie.match(new RegExp("(?:^|; )" + k + "=([^;]*)")) || [])[1] || null;
+const setCookie = (k, v) => { try { document.cookie = `${k}=${v}; max-age=31536000; path=/; SameSite=Lax`; } catch { /* cookie bloccati */ } };
+
+/* ===== Registro attività (locale + inviato alla dashboard) ===== */
+const LOGMAX = 4000, dbgBuf = [], dbgOut = []; let dbgOpen = false, dbgTimer = 0, rt = null;
+const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
+function dbg(level, msg, extra) {
+  const line = { t: Date.now(), l: level, m: String(msg) + (extra !== undefined ? " " + sj(extra) : "") };
+  dbgBuf.push(line); if (dbgBuf.length > LOGMAX) dbgBuf.shift(); dbgOut.push(line); if (dbgOut.length > 600) dbgOut.shift();
+  if (dbgOpen && !dbgTimer) dbgTimer = setTimeout(() => { dbgTimer = 0; renderDbg(); }, 400);
+}
+const fmtLine = (x) => `${new Date(x.t).toISOString().slice(11, 23)} [${x.l}] ${x.m}`;
+function renderDbg() { const pre = $("dbgPre"); pre.textContent = dbgBuf.slice(-300).map(fmtLine).join("\n"); pre.scrollTop = pre.scrollHeight; }
+function flushDbg() { if (rt && rt.status && /^connesso/.test(rt.status) && dbgOut.length) { const lines = dbgOut.splice(0, 40); rt.send("dbg", { id: ID, lines }); } }
+async function copyText(text, btn) {
+  const done = () => { if (btn) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = "Copiato ✓"; setTimeout(() => (btn.textContent = o), 1500); } };
+  try { await navigator.clipboard.writeText(text); done(); return; } catch { /* provo il metodo alternativo */ }
+  try { const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;top:0;left:0;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); const ok = document.execCommand("copy"); ta.remove(); if (ok) { done(); return; } } catch { /* ok */ }
+  prompt("Copia questo testo", text.slice(0, 20000));
+}
+addEventListener("error", (e) => { dbg("error", `errore pagina: ${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`); });
+addEventListener("unhandledrejection", (e) => { dbg("error", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`); });
+document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { db.reset(); loadSessions(); publish(); } });
+addEventListener("pagehide", (e) => dbg("info", `pagehide persisted=${e.persisted}`));
+addEventListener("pageshow", (e) => { dbg("info", `pageshow persisted=${e.persisted}`); if (e.persisted) { db.reset(); loadSessions(); publish(); } });
+addEventListener("online", () => dbg("info", "rete: online")); addEventListener("offline", () => dbg("warn", "rete: offline"));
+document.addEventListener("freeze", () => dbg("warn", "pagina congelata dal browser")); document.addEventListener("resume", () => dbg("info", "pagina ripresa"));
+
+/* ===== Identità della camera ===== */
+const hashPair = (window.GDC_RT && GDC_RT.Pair.fromHash()) || null; // legge e consuma il link di abbinamento
+const idSrc = (() => {
+  const lk = hashPair && hashPair.linkId, ls = store.get("gdc.camId", null), ck = getCookie("gdc_camid");
+  if (lk) return { id: lk, src: "link" }; if (ls) return { id: ls, src: "memoria locale" }; if (ck) return { id: ck, src: "cookie" };
+  return { id: "cam-" + Math.random().toString(36).slice(2, 8), src: "nuova" };
+})();
+const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
+const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
 const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment" }, store.get("gdc.camCfg", {}));
 const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
 const MAX_BUF = 700 * 1048576; // limite di sicurezza misurato nei test (circa 0,78 GB)
 const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
-let stream = null, rt = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0;
+let stream = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0, storageMode = "indexeddb";
 const bat = { level: null, charging: null };
 
-/* ===== Archivio locale (IndexedDB): pezzi della registrazione e elenco registrazioni ===== */
+/* ===== Archivio locale: pezzi della registrazione e registrazioni (IndexedDB, con riapertura automatica) ===== */
 const db = (() => {
-  let h = null;
-  const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => { const r = indexedDB.open("gdc-camera", 1); r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("sessions", { keyPath: "id" }); }; r.onsuccess = () => res((h = r.result)); r.onerror = () => rej(r.error); });
+  let h = null; const mem = { chunks: new Map(), sessions: new Map() };
+  const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => {
+    const r = indexedDB.open("gdc-camera", 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("sessions", { keyPath: "id" }); };
+    r.onsuccess = () => { h = r.result; h.onclose = () => { dbg("warn", "IndexedDB: connessione chiusa dal browser"); h = null; }; h.onversionchange = () => { dbg("warn", "IndexedDB: versionchange"); try { h.close(); } catch { /* ok */ } h = null; }; res(h); };
+    r.onerror = () => rej(r.error); r.onblocked = () => dbg("warn", "IndexedDB: apertura bloccata");
+  });
+  const run = async (fn) => {
+    let last;
+    for (let i = 0; i < 3; i++) {
+      try { return await fn(await open()); }
+      catch (e) { last = e; if (i < 2 && ["InvalidStateError", "TransactionInactiveError", "UnknownError", "AbortError"].includes(e.name)) { dbg("warn", `IndexedDB ${e.name} (${e.message}): riapro e riprovo ${i + 1}/2`); try { h && h.close(); } catch { /* ok */ } h = null; await sleep(200 * (i + 1)); continue; } throw e; }
+    }
+    throw last;
+  };
   const rq = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-  const tx = (store, mode, fn) => open().then((d) => { const t = d.transaction(store, mode); return new Promise((res, rej) => { const out = fn(t.objectStore(store)); t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("transazione annullata")); }); });
+  const done = (t) => new Promise((res, rej) => { t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("transazione annullata")); });
+  const range = (sid) => IDBKeyRange.bound(sid + ":", sid + ":￿");
   return {
-    putChunk: (k, b) => tx("chunks", "readwrite", (s) => s.put(b, k)),
-    putSession: (o) => tx("sessions", "readwrite", (s) => s.put(o)),
-    sessions: () => open().then((d) => rq(d.transaction("sessions").objectStore("sessions").getAll())),
-    chunks: (sid) => open().then((d) => rq(d.transaction("chunks").objectStore("chunks").getAll(IDBKeyRange.bound(sid + ":", sid + ":￿")))),
-    delSession: async (sid) => { const d = await open(); await new Promise((res, rej) => { const t = d.transaction(["chunks", "sessions"], "readwrite"); t.objectStore("chunks").delete(IDBKeyRange.bound(sid + ":", sid + ":￿")); t.objectStore("sessions").delete(sid); t.oncomplete = res; t.onerror = () => rej(t.error); }); },
+    reset() { try { h && h.close(); } catch { /* ok */ } h = null; },
+    async selfTest() {
+      const t0 = performance.now();
+      try { await run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(new Blob(["x"]), "_test"); await done(t); const t2 = d.transaction("chunks", "readwrite"); t2.objectStore("chunks").delete("_test"); await done(t2); }); dbg("info", `archivio IndexedDB ok (${Math.round(performance.now() - t0)} ms)`); storageMode = "indexeddb"; return true; }
+      catch (e) { dbg("error", `archivio IndexedDB NON utilizzabile: ${e.name}: ${e.message}`); storageMode = "memoria"; return false; }
+    },
+    putChunk: (k, b) => storageMode === "memoria" ? Promise.resolve(void mem.chunks.set(k, b)) : run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(b, k); await done(t); }),
+    putSession: (o) => storageMode === "memoria" ? Promise.resolve(void mem.sessions.set(o.id, o)) : run(async (d) => { const t = d.transaction("sessions", "readwrite"); t.objectStore("sessions").put(o); await done(t); }),
+    sessions: () => storageMode === "memoria" ? Promise.resolve([...mem.sessions.values()]) : run((d) => rq(d.transaction("sessions").objectStore("sessions").getAll())),
+    chunks: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.chunks.entries()].filter(([k]) => k.startsWith(sid + ":")).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((x) => x[1])) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAll(range(sid)))),
+    delSession: (sid) => storageMode === "memoria" ? Promise.resolve((mem.sessions.delete(sid), [...mem.chunks.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.chunks.delete(k)))) : run(async (d) => { const t = d.transaction(["chunks", "sessions"], "readwrite"); t.objectStore("chunks").delete(range(sid)); t.objectStore("sessions").delete(sid); await done(t); }),
   };
 })();
 let sessions = [];
 const bufBytes = () => sessions.filter((s) => s.status !== "inviata").reduce((a, s) => a + (s.bytes || 0), 0) + (recording && !sessions.some((s) => s.id === recording.sid) ? recording.bytes : 0);
-async function loadSessions() { try { sessions = (await db.sessions()).sort((a, b) => b.start - a.start); } catch (e) { lastErr = "Archivio non disponibile: " + e.name; } renderClips(); }
+async function loadSessions() {
+  try { sessions = (await db.sessions()).sort((a, b) => b.start - a.start); if (lastErr.startsWith("Archivio")) lastErr = ""; dbg("info", `registrazioni nell'archivio: ${sessions.length}`); }
+  catch (e) { lastErr = "Archivio non disponibile: " + e.name; dbg("error", `lettura archivio fallita: ${e.name}: ${e.message}`); }
+  renderClips();
+}
 
 /* ===== Fotocamera ===== */
 async function openCam() {
   if (stream) stream.getTracks().forEach((t) => t.stop());
-  const [w, h] = RES[cfg.res] || RES["1080p"], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } };
+  const [w, h] = RES[cfg.res] || RES["1080p"], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } }, t0 = performance.now();
+  dbg("info", `apro la camera: ${cfg.res} ${cfg.facing}`);
   try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: true }); }
-  catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); lastErr = "Microfono non disponibile: registro senza audio"; } catch (e2) { lastErr = "Camera non disponibile: " + e2.name; stream = null; publish(); throw e2; } }
-  const v = $("vid"); v.srcObject = stream; await v.play().catch(() => {}); lastErr = lastErr.startsWith("Camera") ? "" : lastErr;
-  $("camStop").disabled = false; $("recBtn").disabled = false; publish();
+  catch (e) {
+    dbg("warn", `camera+audio non disponibili: ${e.name}: ${e.message}`);
+    try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); lastErr = "Microfono non disponibile: registro senza audio"; }
+    catch (e2) { lastErr = "Camera non disponibile: " + e2.name; dbg("error", `camera non disponibile: ${e2.name}: ${e2.message}`); stream = null; publish(); throw e2; }
+  }
+  stream.getTracks().forEach((t) => { t.onended = () => { dbg("error", `traccia ${t.kind} terminata (camera interrotta?)`); if (t.kind === "video") { lastErr = "Camera interrotta dal sistema"; if (recording) stopRec(); stream = null; $("camStop").disabled = true; publish(); } }; t.onmute = () => dbg("warn", `traccia ${t.kind} silenziata dal sistema`); t.onunmute = () => dbg("info", `traccia ${t.kind} riattivata`); });
+  const v = $("vid"); v.srcObject = stream; await v.play().catch((e) => dbg("warn", `play anteprima locale: ${e.name}`));
+  const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];
+  dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
+  lastErr = lastErr.startsWith("Camera") ? "" : lastErr; $("camStop").disabled = false; $("recBtn").disabled = false; publish();
 }
-function stopCam() { if (recording) stopRec(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+function stopCam() { dbg("info", "ferma camera"); if (recording) stopRec(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
 
 /* ===== Registrazione: i pezzi vanno subito su disco ===== */
 async function startRec() {
-  if (recording) return;
-  if (!stream) { try { await openCam(); } catch { return; } }
+  if (recording) { dbg("warn", "rec_start ignorato: già in registrazione"); return; }
+  if (!stream) { dbg("info", "rec_start senza camera: provo ad aprirla"); try { await openCam(); } catch { return; } }
   const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
   const sid = "s" + Date.now().toString(36), start = Date.now();
-  let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; publish(); return; }
-  const rec = { mr, sid, start, seq: 0, bytes: 0, pending: 0, errs: 0, mime: mr.mimeType || mime || "video/mp4", stopping: false };
-  recording = rec; lastErr = "";
+  let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; dbg("error", `MediaRecorder non creato: ${e.name}: ${e.message}`); publish(); return; }
+  const rec = { mr, sid, start, seq: 0, bytes: 0, pending: 0, errs: 0, wr: [], mime: mr.mimeType || mime || "video/mp4", stopping: false };
+  recording = rec; lastErr = ""; dbg("info", `REC avviato sessione ${sid}`, { mime: rec.mime, bps: Number(cfg.bps), res: cfg.res, archivio: storageMode });
+  mr.onerror = (e) => dbg("error", `MediaRecorder errore: ${e.error?.name || ""} ${e.error?.message || e.message || ""}`);
+  mr.onpause = () => dbg("warn", "MediaRecorder in pausa"); mr.onresume = () => dbg("info", "MediaRecorder ripreso");
   mr.ondataavailable = (e) => {
-    if (!e.data.size) return; const k = `${sid}:${String(++rec.seq).padStart(6, "0")}`; rec.bytes += e.data.size; rec.pending++;
-    db.putChunk(k, e.data).catch((x) => { rec.errs++; lastErr = "Scrittura su disco fallita: " + (x?.name || "errore"); }).finally(() => rec.pending--);
-    if (bufBytes() > MAX_BUF && !rec.stopping) { lastErr = "Buffer pieno: registrazione fermata"; stopRec(); }
+    if (!e.data.size) return; const k = `${sid}:${String(++rec.seq).padStart(6, "0")}`, t = performance.now(); rec.bytes += e.data.size; rec.pending++;
+    db.putChunk(k, e.data).then(() => rec.wr.push(performance.now() - t)).catch((x) => { rec.errs++; lastErr = "Scrittura su disco fallita: " + (x?.name || "errore"); dbg("error", `scrittura pezzo ${k} fallita: ${x?.name}: ${x?.message}`); }).finally(() => rec.pending--);
+    if (bufBytes() > MAX_BUF && !rec.stopping) { lastErr = "Buffer pieno: registrazione fermata"; dbg("error", "buffer pieno: fermo la registrazione"); stopRec(); }
   };
+  rec.statTimer = setInterval(() => { const vt = stream && stream.getVideoTracks()[0]; dbg("info", `REC ${Math.round((Date.now() - start) / 1000)}s: ${rec.seq} pezzi, ${(rec.bytes / 1048576).toFixed(1)} MB, in scrittura ${rec.pending}, errori ${rec.errs}, buffer ${Math.round(bufBytes() / 1048576)} MB`, { videoTrack: vt ? { stato: vt.readyState, muto: vt.muted, ...vt.getSettings() } : "assente" }); }, 10000);
   mr.onstop = async () => {
-    while (rec.pending > 0) await sleep(50);
+    clearInterval(rec.statTimer); while (rec.pending > 0) await sleep(50);
     const s = { id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: rec.errs ? "errore" : "pronta" };
-    try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; }
+    try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; dbg("error", `registro sessione non salvato: ${e.name}: ${e.message}`); }
+    dbg("info", `REC fermato sessione ${sid}`, { durata_s: Math.round(s.dur / 1000), pezzi: s.chunks, MB: +(s.bytes / 1048576).toFixed(1), errori: rec.errs, scrittura_media_ms: rec.wr.length ? Math.round(rec.wr.reduce((a, b) => a + b, 0) / rec.wr.length) : null });
     if (recording === rec) recording = null; await loadSessions(); publish();
   };
   mr.start(1000); publish();
 }
-function stopRec() { if (!recording || recording.stopping) return; recording.stopping = true; try { recording.mr.stop(); } catch { /* già fermo */ } publish(); }
+function stopRec() { if (!recording || recording.stopping) return; recording.stopping = true; dbg("info", "richiesto stop registrazione"); try { recording.mr.stop(); } catch (e) { dbg("warn", `stop: ${e.message}`); } publish(); }
+
+/* ===== Schermo nero ===== */
+function setStandby(on) {
+  standby = !!on; const b = $("blackout"); b.classList.toggle("on", standby); b.style.display = standby ? "block" : "none";
+  const cs = getComputedStyle(b), r = b.getBoundingClientRect();
+  dbg("info", `schermo nero ${standby ? "attivato" : "disattivato"}`, { display: cs.display, z: cs.zIndex, rect: [Math.round(r.width), Math.round(r.height)], finestra: [innerWidth, innerHeight] });
+  publish();
+}
 
 /* ===== Stato verso la dashboard ===== */
 const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
 function stateObj() {
   const v = $("vid");
-  return { id: ID, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
-    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging,
+  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, storage: storageMode,
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status })), ts: Date.now() };
 }
-function publish() { try { rt?.send("state", stateObj()); } catch { /* collegamento non pronto */ } renderStat(); }
+function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
   const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Collegamento", $("connTxt").textContent);
+  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
@@ -157,49 +245,66 @@ function renderClips() {
 $("clips").onclick = async (e) => {
   const sv = e.target.closest("[data-save]"), dl = e.target.closest("[data-del]");
   if (sv) {
-    const s = sessions.find((x) => x.id === sv.dataset.save); sv.disabled = true; sv.textContent = "Preparo…";
-    try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], `${cfg.name}_${s.id}.mp4`, { type: s.mime }); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
-    catch (x) { if (x.name !== "AbortError") { lastErr = "Salvataggio: " + x.name; renderStat(); } }
+    const s = sessions.find((x) => x.id === sv.dataset.save); sv.disabled = true; sv.textContent = "Preparo…"; dbg("info", `salvataggio di ${s.id} richiesto`);
+    try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], `${cfg.name}_${s.id}.mp4`, { type: s.mime }); dbg("info", `file pronto ${(blob.size / 1048576).toFixed(0)} MB`); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
+    catch (x) { if (x.name !== "AbortError") { lastErr = "Salvataggio: " + x.name; dbg("error", `salvataggio fallito: ${x.name}: ${x.message}`); renderStat(); } else dbg("info", "salvataggio annullato dall'utente"); }
     sv.disabled = false; sv.textContent = "Salva in Foto / File";
   }
-  if (dl && confirm("Eliminare questa registrazione dal telefono?")) { await db.delSession(dl.dataset.del); await loadSessions(); publish(); }
+  if (dl && confirm("Eliminare questa registrazione dal telefono?")) { dbg("info", `elimino ${dl.dataset.del}`); await db.delSession(dl.dataset.del); await loadSessions(); publish(); }
 };
 
 /* ===== Anteprima WebRTC verso la dashboard ===== */
 const pcs = {};
 const plain = (d) => ({ type: d.type, sdp: d.sdp });
-function closePreviews() { for (const k in pcs) { try { pcs[k].pc.close(); } catch { /* ok */ } delete pcs[k]; } }
+function closePreviews() { for (const k in pcs) { try { clearInterval(pcs[k].statT); pcs[k].pc.close(); } catch { /* ok */ } delete pcs[k]; } }
+async function rtcStats(pc, tag) {
+  try {
+    const r = await pc.getStats(), out = { tag }; let pair = null; const cands = {};
+    r.forEach((x) => { if (x.type === "outbound-rtp" && x.kind === "video") Object.assign(out, { inviati: x.framesEncoded, larg: x.frameWidth, alt: x.frameHeight, fps: x.framesPerSecond, bytes: x.bytesSent, limite: x.qualityLimitationReason }); if (x.type === "candidate-pair" && (x.nominated || x.selected) && x.state === "succeeded") pair = x; if (x.type === "local-candidate" || x.type === "remote-candidate") cands[x.id] = x.candidateType; });
+    if (pair) Object.assign(out, { coppia: `${cands[pair.localCandidateId] || "?"}→${cands[pair.remoteCandidateId] || "?"}`, rtt_ms: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null });
+    dbg("info", "WebRTC statistiche", out);
+  } catch (e) { dbg("warn", `statistiche WebRTC: ${e.message}`); }
+}
 async function startPreview(dashId) {
-  if (!stream || !rt) { lastErr = "Anteprima: avvia prima la camera"; publish(); return; }
-  try { pcs[dashId]?.pc.close(); } catch { /* ok */ }
-  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [] };
+  if (!stream || !rt) { lastErr = "Anteprima: avvia prima la camera"; dbg("warn", "preview_start senza camera"); publish(); return; }
+  try { clearInterval(pcs[dashId]?.statT); pcs[dashId]?.pc.close(); } catch { /* ok */ }
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [], statT: 0 }; dbg("info", `anteprima verso ${dashId}: creo la connessione WebRTC`);
+  pc.onconnectionstatechange = () => { dbg("info", `WebRTC connessione: ${pc.connectionState}`); if (pc.connectionState === "connected") { const e = pcs[dashId]; if (e) { clearInterval(e.statT); e.statT = setInterval(() => rtcStats(pc, "10s"), 10000); setTimeout(() => rtcStats(pc, "avvio"), 2500); } } };
+  pc.oniceconnectionstatechange = () => dbg("info", `WebRTC ICE: ${pc.iceConnectionState}`); pc.onsignalingstatechange = () => dbg("info", `WebRTC signaling: ${pc.signalingState}`); pc.onicegatheringstatechange = () => dbg("info", `WebRTC raccolta ICE: ${pc.iceGatheringState}`);
   stream.getVideoTracks().forEach((t) => {
     const sender = pc.addTrack(t, stream);
-    try { const p = sender.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 1500000; p.encodings[0].scaleResolutionDownBy = Math.max(1, (t.getSettings().height || 1080) / 720); sender.setParameters(p).catch(() => {}); } catch { /* parametri non supportati */ }
+    try { const p = sender.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 1500000; p.encodings[0].scaleResolutionDownBy = Math.max(1, (t.getSettings().height || 1080) / 720); sender.setParameters(p).then(() => dbg("info", "parametri invio anteprima applicati", { maxBitrate: 1500000, scala: p.encodings[0].scaleResolutionDownBy })).catch((e) => dbg("warn", `setParameters: ${e.message}`)); } catch (e) { dbg("warn", `parametri non supportati: ${e.message}`); }
   });
-  pc.onicecandidate = (e) => e.candidate && rt.send("rtc", { to: dashId, from: ID, kind: "cand", data: e.candidate.toJSON() });
-  await pc.setLocalDescription(await pc.createOffer()); rt.send("rtc", { to: dashId, from: ID, kind: "offer", data: plain(pc.localDescription) });
+  let nc = 0; pc.onicecandidate = (e) => { if (e.candidate) { nc++; rt.send("rtc", { to: dashId, from: ID, kind: "cand", data: e.candidate.toJSON() }); } else dbg("info", `candidati ICE inviati: ${nc}`); };
+  await pc.setLocalDescription(await pc.createOffer()); rt.send("rtc", { to: dashId, from: ID, kind: "offer", data: plain(pc.localDescription) }); dbg("info", "offerta WebRTC inviata");
 }
 async function onRtc(m) {
-  if (m.to !== ID) return; const e = pcs[m.from]; if (!e) return;
-  if (m.kind === "answer") { await e.pc.setRemoteDescription(m.data); for (const c of e.pending.splice(0)) await e.pc.addIceCandidate(c).catch(() => {}); }
-  else if (m.kind === "cand") { if (e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch(() => {}); else e.pending.push(m.data); }
+  if (m.to !== ID) return; const e = pcs[m.from]; if (!e) { dbg("warn", `segnale rtc ${m.kind} senza connessione attiva`); return; }
+  try {
+    if (m.kind === "answer") { await e.pc.setRemoteDescription(m.data); dbg("info", "risposta WebRTC ricevuta"); for (const c of e.pending.splice(0)) await e.pc.addIceCandidate(c).catch(() => {}); }
+    else if (m.kind === "cand") { if (e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch((x) => dbg("warn", `candidato ICE rifiutato: ${x.message}`)); else e.pending.push(m.data); }
+  } catch (x) { dbg("error", `segnale rtc ${m.kind}: ${x.name}: ${x.message}`); }
 }
 
 /* ===== Comandi dalla dashboard ===== */
 async function onCmd(m) {
   if (m.to !== ID && m.to !== "*") return;
-  switch (m.cmd) {
-    case "rec_start": await startRec(); break;
-    case "rec_stop": stopRec(); break;
-    case "standby": standby = !!m.on; $("blackout").classList.toggle("on", standby); publish(); break;
-    case "config": if (!recording) { if (m.res && RES[m.res]) cfg.res = m.res; if (m.bps) cfg.bps = Number(m.bps); store.set("gdc.camCfg", cfg); syncForm(); if (stream) { try { await openCam(); } catch { /* errore già segnalato */ } } publish(); } else { lastErr = "Impostazioni non applicate: registrazione in corso"; publish(); } break;
-    case "rename": if (m.name) cfg.name = m.name; if (m.device) cfg.device = m.device; store.set("gdc.camCfg", cfg); syncForm(); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); break;
-    case "preview_start": await startPreview(m.from); break;
-    case "preview_stop": try { pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; break;
-    case "battery": bat.level = Number(m.level); bat.charging = m.charging == null ? bat.charging : !!m.charging; publish(); break;
-    default: break;
-  }
+  dbg("info", `comando ricevuto: ${m.cmd}`, m);
+  let ok = true, detail = null;
+  try {
+    switch (m.cmd) {
+      case "rec_start": await startRec(); ok = !!recording; detail = ok ? "registrazione avviata" : lastErr || "non avviata"; break;
+      case "rec_stop": stopRec(); detail = "stop richiesto"; break;
+      case "standby": setStandby(!!m.on); detail = { standby }; break;
+      case "config": if (!recording) { if (m.res && RES[m.res]) cfg.res = m.res; if (m.bps) cfg.bps = Number(m.bps); store.set("gdc.camCfg", cfg); syncForm(); if (stream) { try { await openCam(); } catch { ok = false; } } publish(); detail = { res: cfg.res, bps: cfg.bps }; } else { lastErr = "Impostazioni non applicate: registrazione in corso"; ok = false; detail = lastErr; publish(); } break;
+      case "rename": if (m.name) cfg.name = m.name; if (m.device) cfg.device = m.device; store.set("gdc.camCfg", cfg); syncForm(); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); detail = { name: cfg.name, device: cfg.device }; break;
+      case "preview_start": await startPreview(m.from); detail = "offerta inviata"; break;
+      case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
+      case "battery": bat.level = Number(m.level); bat.charging = m.charging == null ? bat.charging : !!m.charging; publish(); detail = bat; break;
+      default: ok = false; detail = "comando sconosciuto"; break;
+    }
+  } catch (e) { ok = false; detail = `${e.name}: ${e.message}`; dbg("error", `comando ${m.cmd} fallito: ${detail}`); }
+  rt?.send("ack", { id: ID, cmd: m.cmd, rid: m.rid || null, ok, detail, ts: Date.now() });
 }
 
 /* ===== Interfaccia ===== */
@@ -209,23 +314,32 @@ $("fRes").onchange = $("fBps").onchange = async () => { if (recording) { syncFor
 $("camBtn").onclick = async () => { try { await openCam(); } catch { /* errore già mostrato */ } };
 $("camStop").onclick = stopCam;
 $("recBtn").onclick = () => (recording ? stopRec() : startRec());
-$("blackBtn").onclick = () => { standby = true; $("blackout").classList.add("on"); publish(); };
-$("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) { standby = false; $("blackout").classList.remove("on"); publish(); } lastTapT = n; };
+$("blackBtn").onclick = () => setStandby(true);
+$("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) setStandby(false); lastTapT = n; };
+$("myLink").onclick = () => { if (!pairing) return; copyText(GDC_RT.Pair.link("camera.html", pairing, ID), $("myLink")); };
 $("pairBtn").onclick = () => { const p = GDC_RT.Pair.decode($("pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); };
+$("dbgToggle").onclick = () => { dbgOpen = !dbgOpen; $("dbgPre").hidden = !dbgOpen; $("dbgToggle").textContent = dbgOpen ? "Nascondi" : "Mostra"; if (dbgOpen) renderDbg(); };
+$("dbgCopy").onclick = () => copyText(`REGISTRO CAMERA ${PAGE_VERSION} · ID ${ID} (${idSrc.src}) · ${new Date().toISOString()}\n` + dbgBuf.map(fmtLine).join("\n"), $("dbgCopy"));
 
-function start() {
-  pairing = (window.GDC_RT && (GDC_RT.Pair.fromHash() || GDC_RT.Pair.load())) || null;
-  $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing;
-  syncForm(); loadSessions(); renderStat();
+async function start() {
+  const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+  dbg("info", `avvio ${PAGE_VERSION}`, { ua: navigator.userAgent, standalone: navigator.standalone === true, displayMode: matchMedia("(display-mode: standalone)").matches ? "standalone" : "browser", browserVero: /Safari\//.test(navigator.userAgent), schermo: `${screen.width}x${screen.height}@${devicePixelRatio}`, finestra: `${innerWidth}x${innerHeight}`, lingua: navigator.language, fuso: Intl.DateTimeFormat().resolvedOptions().timeZone, core: navigator.hardwareConcurrency, online: navigator.onLine, referrer: document.referrer || "(nessuno)", navigazione: nav ? nav.type : "?", storiaPagine: history.length, mock: MOCK });
+  dbg("info", `identità camera: ${ID} (origine: ${idSrc.src})`, { linkId: hashPair?.linkId || null, localStorage: !!store.get("gdc.camId", null), cookie: !!getCookie("gdc_camid"), cookieAbilitati: navigator.cookieEnabled, fp: FP });
+  const lsOk = store.set("gdc.test", Date.now()); dbg(lsOk ? "info" : "error", `localStorage ${lsOk ? "ok" : "NON scrivibile"}`);
+  try { if (navigator.storage?.persisted) dbg("info", `archivio persistente: ${await navigator.storage.persisted()}`); } catch { /* ok */ }
+  pairing = hashPair || (window.GDC_RT && GDC_RT.Pair.load()) || null;
+  dbg("info", `abbinamento: ${pairing ? "presente, canale …" + String(pairing.c).slice(-4) + (hashPair ? " (da link)" : " (memorizzato)") : "assente"}`);
+  $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing; $("dbgPanel").hidden = false;
+  syncForm(); renderStat();
+  await db.selfTest(); await loadSessions();
   if (!pairing) return;
-  rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device }, mock: MOCK });
+  rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
-  rt.on("cmd", onCmd); rt.on("rtc", onRtc);
-  rt.on("hello", () => publish());
-  setInterval(publish, 2000); publish();
+  rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
+  setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
+  navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
 }
-addEventListener("error", (e) => { lastErr = "Errore: " + e.message; renderStat(); });
 start();
 </script>
 </body>

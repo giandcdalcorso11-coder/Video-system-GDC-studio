@@ -92,6 +92,7 @@
   .muted { color: var(--muted); font-size: 13px; }
   footer { color: var(--muted); font-size: 12px; padding: 14px 4px; }
   @media (max-width: 480px) { .wrap { padding: 12px; } .timer { font-size: 18px; } }
+  pre.adv { white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.35; background: var(--panel-2); border-radius: 10px; padding: 8px; margin: 8px 0 0; max-height: 55vh; overflow: auto; }
 </style>
 </head>
 <body>
@@ -109,6 +110,11 @@
     </div>
   </header>
   <main id="view"></main>
+  <section class="panel" id="advPanel" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Registro attività avanzato</h2>
+      <div class="row"><button id="advToggle" class="ghost">Mostra</button><button id="advCopy">Copia tutto</button><button id="advClear" class="ghost">Svuota</button></div></div>
+    <pre class="adv" id="advPre" hidden></pre>
+  </section>
   <footer>Con le camere collegate (Supabase) stato, REC, impostazioni e anteprima sono reali. Batteria e movimenti pan/tilt non sono ancora disponibili. Senza abbinamento la dashboard mostra una simulazione.</footer>
 </div>
 
@@ -126,6 +132,36 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage non disponibile */ } },
 };
+
+/* ===== Registro attività avanzato ===== */
+const PAGE_VERSION = "dashboard r3";
+const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
+const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
+const rid = () => Math.random().toString(36).slice(2, 7);
+function scheduleAdv() { if (advOpen && !advTimer) advTimer = setTimeout(() => { advTimer = 0; renderAdv(); }, 400); }
+function dbg(level, src, msg, extra) { adv.push({ t: Date.now(), l: level, s: src, m: String(msg) + (extra !== undefined ? " " + sj(extra) : "") }); if (adv.length > ADVMAX) adv.shift(); scheduleAdv(); }
+const fmtAdv = (x) => `${new Date(x.t).toISOString().slice(11, 23)} [${x.l}] ${x.s}: ${x.m}`;
+const advSorted = () => adv.map((x, i) => [x, i]).sort((a, b) => a[0].t - b[0].t || a[1] - b[1]).map((x) => x[0]);
+function advHeader() {
+  const cams = cameras.map((c) => ({ id: c.id, nome: camTitle(c), fp: c.fp, stato: state[c.id] }));
+  return [`REGISTRO ATTIVITÀ AVANZATO · ${PAGE_VERSION} · ${new Date().toISOString()}`,
+    `modalità: ${REAL ? (MOCK_RT ? "simulazione locale (mock)" : "Supabase") : "simulazione"} · canale …${pairing ? String(pairing.c).slice(-4) : "-"} · collegamento: ${connStatus}`,
+    `ambiente: ${navigator.userAgent} · schermo ${screen.width}x${screen.height}@${devicePixelRatio} · finestra ${innerWidth}x${innerHeight} · fuso ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
+    `presenti nel canale: ${sj(transport.rt ? transport.rt.peers : [])}`, `anteprime attive: ${sj(Preview.active)}`, `camere (stato attuale): ${sj(cams)}`].join("\n");
+}
+const advText = () => advHeader() + "\n\n" + advSorted().map(fmtAdv).join("\n");
+function renderAdv() { const pre = $("#advPre"); if (!pre) return; pre.textContent = advSorted().slice(-400).map(fmtAdv).join("\n"); pre.scrollTop = pre.scrollHeight; }
+async function copyText(text, btn) {
+  const done = () => { if (btn) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = "Copiato ✓"; setTimeout(() => (btn.textContent = o), 1500); } };
+  try { await navigator.clipboard.writeText(text); done(); return; } catch { /* provo il metodo alternativo */ }
+  try { const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;top:0;left:0;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); const ok = document.execCommand("copy"); ta.remove(); if (ok) { done(); return; } } catch { /* ok */ }
+  prompt("Copia questo testo", text.slice(0, 20000));
+}
+addEventListener("error", (e) => dbg("error", "pagina", `${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`));
+addEventListener("unhandledrejection", (e) => dbg("error", "pagina", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`));
+document.addEventListener("visibilitychange", () => dbg("info", "pagina", `visibilità: ${document.visibilityState}`));
+addEventListener("online", () => dbg("info", "pagina", "rete: online")); addEventListener("offline", () => dbg("warn", "pagina", "rete: offline"));
+addEventListener("pageshow", (e) => dbg("info", "pagina", `pageshow persisted=${e.persisted}`)); addEventListener("pagehide", (e) => dbg("info", "pagina", `pagehide persisted=${e.persisted}`));
 
 /* ===== Camere (nome dispositivo + nome camera, rinominabili) ===== */
 const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
@@ -189,66 +225,100 @@ class MockTransport {
     st.clips.unshift({ file: `${cam.name.toUpperCase().replace(/\s+/g, "_")}_${String(st.n).padStart(3, "0")}`, dur: ms, mb: Math.round(ms / 60000 * MB_PER_MIN) });
   }
 }
+let suggestMerge = null;
 class RealtimeTransport {
   constructor(p) { this.p = p; this.cb = () => {}; this.s = {}; this.seen = {}; this.rt = null; this.id = store.get("gdc.dashId", null) || (() => { const v = "dash-" + Math.random().toString(36).slice(2, 8); store.set("gdc.dashId", v); return v; })(); }
   onState(cb) { this.cb = cb; }
-  blank() { return { online: false, rec: false, recStart: 0, battery: null, charging: null, bufMB: null, maxBufMB: null, bps: 0, pan: 0, tilt: 0, rssi: null, latency: null, res: "—", orient: "—", clips: [], real: true, camReady: false, standby: false, err: "" }; }
+  blank() { return { online: false, rec: false, recStart: 0, battery: null, charging: null, bufMB: null, maxBufMB: null, bps: 0, pan: 0, tilt: 0, rssi: null, latency: null, res: "—", orient: "—", clips: [], real: true, camReady: false, standby: false, err: "", storage: "" }; }
   add(cam) { this.s[cam.id] = this.blank(); this.push(cam.id); }
   remove(id) { delete this.s[id]; delete this.seen[id]; }
   push(id) { if (this.s[id]) this.cb(id, this.s[id]); }
   start() {
-    this.rt = GDC_RT.connect({ pairing: this.p, role: "dashboard", id: this.id, meta: { name: "dashboard" }, mock: MOCK_RT });
+    this.rt = GDC_RT.connect({ pairing: this.p, role: "dashboard", id: this.id, meta: { name: "dashboard" }, mock: MOCK_RT, log: (l, m) => dbg(l, "rt", m) });
     this.rt.onStatus((s) => { setConn(s); if (/^connesso/.test(s)) this.rt.send("hello", { from: this.id }); });
     this.rt.on("state", (m) => this.onCamState(m)); this.rt.on("rtc", (m) => Preview.onSignal(m));
+    this.rt.on("ack", (m) => { dbg(m.ok ? "info" : "warn", "ack", `${m.cmd} da ${m.id}: ${m.ok ? "ok" : "NON RIUSCITO"}`, { rid: m.rid, detail: m.detail }); if (!m.ok) { const c = camById(m.id); log(m.id, `${c ? camTitle(c) : m.id}: comando "${m.cmd}" non riuscito${typeof m.detail === "string" ? " (" + m.detail + ")" : ""}`); } });
+    this.rt.on("dbg", (m) => { const c = camById(m.id), src = "cam " + (c ? c.name : m.id); (m.lines || []).forEach((x) => adv.push({ t: x.t, l: x.l, s: src, m: x.m })); while (adv.length > ADVMAX) adv.shift(); scheduleAdv(); });
     setInterval(() => this.sweep(), 2000);
   }
   onCamState(m) {
     if (!m || !m.id) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
-    if (!camById(m.id)) { cameras.push({ id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0 }); saveCams(); isNew = true; log(m.id, `${m.device || "Telefono"} · ${m.name || m.id}: camera collegata`); }
-    const st = this.s[m.id] || this.blank(), wasErr = st.err;
+    let cam = camById(m.id);
+    if (!cam) {
+      cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp }; cameras.push(cam); saveCams(); isNew = true;
+      log(m.id, `${cam.device} · ${cam.name}: camera collegata`); dbg("info", "camere", `nuova camera ${m.id}`, { device: m.device, name: m.name, os: m.os, fp: m.fp });
+      const twin = m.fp && cameras.find((c) => c.id !== m.id && c.fp && c.fp === m.fp && !(this.s[c.id] && this.s[c.id].online));
+      if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
+    } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
+    const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage };
     Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
-      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "" });
+      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "" });
+    const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
+    if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
+    dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
     this.s[m.id] = st; this.push(m.id);
-    if (st.err && st.err !== wasErr) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
-    if (isNew && curDetail == null) route();
+    if (st.err && st.err !== before.err) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
+    if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id);
   }
-  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
+  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
-    if (!this.rt) return;
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); return; }
+    if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
 const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
 const Preview = {
   pcs: {}, active: {},
-  start(id) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = true; transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start" }); },
-  stop(id) { if (!this.active[id] && !this.pcs[id]) return; if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop" }); this.reset(id); },
+  start(id) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = true; dbg("info", "anteprima", `richiedo l'anteprima a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", rid: rid() }); },
+  stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
   stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
-  reset(id) { this.active[id] = false; try { this.pcs[id]?.pc.close(); } catch { /* ok */ } delete this.pcs[id]; this.detach(id); },
+  reset(id) { const e = this.pcs[id]; if (e) clearInterval(e.statT); this.active[id] = false; try { e && e.pc && e.pc.close(); } catch { /* ok */ } delete this.pcs[id]; this.detach(id); },
   ensure(id) { if (curDetail === id && state[id]?.online && state[id].camReady && !this.active[id]) this.start(id); },
   detach(id) { const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`); if (vid && vid.dataset.live) { vid.srcObject = null; vid.hidden = true; delete vid.dataset.live; if (can) can.hidden = false; if (tag) tag.textContent = REAL ? "ANTEPRIMA NON ATTIVA" : "SIMULATA"; } },
-  attach(id, stream) { const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`); if (!vid) return; vid.srcObject = stream; vid.dataset.live = "1"; vid.play().catch(() => {}); vid.hidden = false; if (can) can.hidden = true; if (tag) tag.textContent = "LIVE"; },
+  attach(id, stream) {
+    const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`);
+    dbg("info", "anteprima", `flusso video ricevuto da ${id}`, { tracce: stream.getTracks().map((t) => `${t.kind}:${t.readyState}`), elementoVideo: !!vid });
+    if (!vid) return; vid.srcObject = stream; vid.dataset.live = "1"; vid.onloadedmetadata = () => dbg("info", "anteprima", `video ${id}: ${vid.videoWidth}x${vid.videoHeight}`);
+    vid.play().catch((e) => dbg("warn", "anteprima", `play(): ${e.name}`)); vid.hidden = false; if (can) can.hidden = true; if (tag) tag.textContent = "LIVE";
+  },
+  async stats(id) {
+    const e = this.pcs[id]; if (!e || !e.pc) return;
+    try {
+      const r = await e.pc.getStats(); let inb = null, pair = null; const c = {};
+      r.forEach((x) => { if (x.type === "inbound-rtp" && x.kind === "video") inb = x; if (x.type === "candidate-pair" && (x.nominated || x.selected) && x.state === "succeeded") pair = x; if (x.type === "local-candidate" || x.type === "remote-candidate") c[x.id] = x.candidateType; });
+      const o = { camera: id };
+      if (inb) { const dt = e.prevT ? (inb.timestamp - e.prevT) / 1000 : 0; Object.assign(o, { larg: inb.frameWidth, alt: inb.frameHeight, fps: inb.framesPerSecond, decodificati: inb.framesDecoded, persi: inb.framesDropped, pacchettiPersi: inb.packetsLost, jitter_ms: inb.jitter != null ? Math.round(inb.jitter * 1000) : null, kbps: dt ? Math.round(((inb.bytesReceived - e.prevB) * 8) / dt / 1000) : null }); e.prevB = inb.bytesReceived; e.prevT = inb.timestamp; }
+      if (pair) Object.assign(o, { coppia: `${c[pair.localCandidateId] || "?"}→${c[pair.remoteCandidateId] || "?"}`, rtt_ms: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null });
+      dbg("info", "anteprima", "statistiche", o);
+    } catch (x) { dbg("warn", "anteprima", `statistiche: ${x.message}`); }
+  },
   async onSignal(m) {
-    if (m.to !== transport.id) return; const e = (this.pcs[m.from] = this.pcs[m.from] || { pc: null, pending: [] });
-    if (m.kind === "offer") {
-      try { e.pc?.close(); } catch { /* ok */ }
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); e.pc = pc;
-      pc.onicecandidate = (ev) => ev.candidate && transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "cand", data: ev.candidate.toJSON() });
-      pc.ontrack = (ev) => this.attach(m.from, ev.streams[0]);
-      await pc.setRemoteDescription(m.data); for (const c of e.pending.splice(0)) await pc.addIceCandidate(c).catch(() => {});
-      await pc.setLocalDescription(await pc.createAnswer()); transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "answer", data: plainDesc(pc.localDescription) });
-    } else if (m.kind === "cand") { if (e.pc && e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch(() => {}); else e.pending.push(m.data); }
+    if (m.to !== transport.id) return; const e = (this.pcs[m.from] = this.pcs[m.from] || { pc: null, pending: [], statT: 0 });
+    dbg("trace", "anteprima", `segnale ${m.kind} da ${m.from}`);
+    try {
+      if (m.kind === "offer") {
+        clearInterval(e.statT); try { e.pc?.close(); } catch { /* ok */ }
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); e.pc = pc; e.prevT = 0;
+        pc.onicecandidate = (ev) => ev.candidate && transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "cand", data: ev.candidate.toJSON() });
+        pc.onconnectionstatechange = () => { dbg("info", "anteprima", `WebRTC connessione ${m.from}: ${pc.connectionState}`); if (pc.connectionState === "connected") { clearInterval(e.statT); e.statT = setInterval(() => this.stats(m.from), 5000); setTimeout(() => this.stats(m.from), 2000); } };
+        pc.oniceconnectionstatechange = () => dbg("info", "anteprima", `WebRTC ICE ${m.from}: ${pc.iceConnectionState}`); pc.onsignalingstatechange = () => dbg("info", "anteprima", `WebRTC signaling: ${pc.signalingState}`);
+        pc.ontrack = (ev) => this.attach(m.from, ev.streams[0]);
+        await pc.setRemoteDescription(m.data); for (const c of e.pending.splice(0)) await pc.addIceCandidate(c).catch(() => {});
+        await pc.setLocalDescription(await pc.createAnswer()); transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "answer", data: plainDesc(pc.localDescription) }); dbg("info", "anteprima", "risposta WebRTC inviata");
+      } else if (m.kind === "cand") { if (e.pc && e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch((x) => dbg("warn", "anteprima", `candidato rifiutato: ${x.message}`)); else e.pending.push(m.data); }
+    } catch (x) { dbg("error", "anteprima", `segnale ${m.kind}: ${x.name}: ${x.message}`); }
   },
 };
 const transport = REAL ? new RealtimeTransport(pairing) : new MockTransport();
 const state = {};
 const logs = []; // {t, id, msg}
-function log(id, msg) { logs.unshift({ t: stamp(), id, msg }); if (logs.length > 200) logs.pop(); renderLogs(); }
+function log(id, msg) { logs.unshift({ t: stamp(), id, msg }); if (logs.length > 200) logs.pop(); renderLogs(); dbg("info", "registro", msg); }
+const logsText = (id) => [...logs].reverse().filter((l) => !id || l.id === id).map((l) => `${l.t} ${l.msg}`).join("\n");
 
 function command(id, m) {
-  const c = camById(id); if (!c) return;
+  const c = camById(id); if (!c) return; m = { ...m, rid: rid() }; dbg("info", "comando", `→ ${camTitle(c)} (${id})`, m);
   const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)", standby: m.on ? "schermo nero attivato" : "schermo riattivato", config: "impostazioni inviate" }[m.cmd];
   if (say) log(id, `${camTitle(c)}: ${say}`);
   transport.send(id, m);
@@ -278,6 +348,8 @@ const BIND = {
   stopBtn: (st, c, el) => { el.disabled = !st.rec; },
   connBtn: (st, c, el) => { el.disabled = !!st.real; el.textContent = st.real ? "Camera reale" : st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
   chargeBtn: (st, c, el) => { el.disabled = !st.online || !!st.real; el.hidden = !!st.real; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
+  standbyBtn: (st, c, el) => { el.disabled = !st.online; el.textContent = st.standby ? "Riattiva schermo" : "Schermo nero"; },
+  screen: (st, c, el) => { el.textContent = !st.online ? "—" : st.standby ? "Nero (standby)" : "Normale"; },
   clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${fmtTime(k.dur)} · ~${k.mb} MB</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
 };
 function refresh() {
@@ -323,8 +395,20 @@ const connPanel = () => REAL
   : `<div class="muted">Modalità simulazione. Per collegare camere vere apri il link di abbinamento oppure incolla qui il codice (inizia con gdc1.).</div>
      <textarea id="pairTxt" rows="2" style="width:100%;margin-top:8px" placeholder="gdc1.…"></textarea><button id="pairBtn" style="margin-top:8px">Abbina</button>`;
 
+const mergeBanner = () => {
+  const x = suggestMerge; if (!x || !camById(x.oldId) || !camById(x.newId)) return "";
+  const o = esc(camTitle(camById(x.oldId))), n = esc(camTitle(camById(x.newId)));
+  return `<section class="panel" style="margin-bottom:16px;border-color:var(--warn)"><b>Stesso telefono?</b><div class="muted" style="margin:4px 0 8px">“${n}” (nuova, online) sembra lo stesso telefono di “${o}” (offline): stesso modello e impostazioni.</div><button id="mergeYes" class="primary">Unisci e tieni il nome “${o}”</button><button id="mergeNo" class="ghost">Sono due telefoni diversi</button></section>`;
+};
+function mergeCams() {
+  const x = suggestMerge, o = x && camById(x.oldId), n = x && camById(x.newId); suggestMerge = null; if (!o || !n) return;
+  dbg("info", "camere", `unisco ${x.oldId} in ${x.newId}: tengo il nome "${camTitle(o)}"`);
+  n.device = o.device; n.name = o.name; transport.remove(o.id); delete state[o.id]; cameras = cameras.filter((c) => c.id !== o.id); saveCams();
+  transport.send(n.id, { cmd: "rename", name: n.name, device: n.device }); log(n.id, `${camTitle(n)}: unita alla camera precedente`); route();
+}
 function showHome() {
   $("#view").innerHTML = `
+    ${mergeBanner()}
     <section class="tiles" id="sum" aria-label="Riepilogo">
       <div class="tile"><small>Camere online</small><b id="sOnline">—</b></div>
       <div class="tile"><small>In registrazione</small><b id="sRec">0</b></div>
@@ -354,9 +438,12 @@ function showHome() {
       ${REAL ? `<div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
     <section class="panel" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
-    <section class="panel" style="margin-top:16px"><h2>Registro</h2><ol class="list" data-log=""></ol></section>`;
+    <section class="panel" style="margin-top:16px"><div class="row" style="justify-content:space-between"><h2>Registro</h2><button class="ghost" data-copylog="">Copia</button></div><ol class="list" data-log=""></ol></section>`;
   curDetail = null; setConn(connStatus);
   $("#view").onclick = async (e) => {
+    const cl = e.target.closest("[data-copylog]"); if (cl) { copyText(logsText(cl.dataset.copylog), cl); return; }
+    if (e.target.closest("#mergeYes")) { mergeCams(); return; }
+    if (e.target.closest("#mergeNo")) { dbg("info", "camere", "unione rifiutata dall'utente"); suggestMerge = null; showHome(); return; }
     if (e.target.closest("#cpCam") || e.target.closest("#cpDash")) { const link = GDC_RT.Pair.link(e.target.closest("#cpCam") ? "camera.html" : "dashboard.html", pairing); try { await navigator.clipboard.writeText(link); e.target.textContent = "Copiato ✓"; } catch { prompt("Copia questo link", link); } return; }
     if (e.target.closest("#newCh")) { if (confirm("Creo un nuovo canale: i link già inviati ai telefoni smetteranno di funzionare. Continuare?")) { GDC_RT.Pair.save({ ...pairing, c: GDC_RT.Pair.newChannel() }); location.reload(); } return; }
     if (e.target.closest("#unpair")) { if (confirm("Scollego questa dashboard dal canale?")) { GDC_RT.Pair.clear(); location.reload(); } return; }
@@ -385,7 +472,7 @@ function showDetail(id) {
             <div class="btns">
               <button class="primary" data-bind="recBtn" data-cam="${id}" data-act="rec_start">● REC</button>
               <button data-bind="stopBtn" data-cam="${id}" data-act="rec_stop">■ STOP</button>
-              ${REAL ? `<button class="ghost" data-cam="${id}" data-act="standby">Schermo nero / Riattiva</button>` : `<button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>`}
+              ${REAL ? `<button class="ghost" data-bind="standbyBtn" data-cam="${id}" data-act="standby">Schermo nero</button>` : `<button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>`}
             </div>
             <div>
               <div class="pad" role="group" aria-label="Movimento (segnaposto)">
@@ -404,6 +491,7 @@ function showDetail(id) {
             <div class="kv"><small>Registrazione in corso</small><span data-bind="timer" data-cam="${id}"></span></div>
             <div class="kv"><small>Connessione</small><span data-bind="conn" data-cam="${id}"></span></div>
             <div class="kv"><small>Pan / Tilt</small><span data-bind="pos" data-cam="${id}"></span></div>
+            <div class="kv"><small>Schermo del telefono</small><span data-bind="screen" data-cam="${id}"></span></div>
           </div></div>
         <div class="panel"><h2>Batteria</h2>
           <div class="bat"><div class="bar" data-bind="batBar" data-cam="${id}"><i></i></div><b data-bind="batTxt" data-cam="${id}"></b></div>
@@ -423,14 +511,15 @@ function showDetail(id) {
           <div class="muted">Sistema: ${esc(c.os)}</div>
           <div class="row" style="margin-top:10px">
             <button class="ghost" data-bind="connBtn" data-cam="${id}" data-act="toggleConn"></button>
-            <button class="ghost" id="rmCam">Rimuovi camera</button>
+            ${REAL ? `<button class="ghost" id="cpThis">Copia link di questa camera</button>` : ""}<button class="ghost" id="rmCam">Rimuovi camera</button>
           </div></div>
         <div class="panel"><h2>Clip della sessione</h2><ol class="list" data-bind="clips" data-cam="${id}"></ol></div>
-        <div class="panel"><h2>Registro camera</h2><ol class="list" data-log="${id}"></ol></div>
+        <div class="panel"><div class="row" style="justify-content:space-between"><h2>Registro camera</h2><button class="ghost" data-copylog="${id}">Copia</button></div><ol class="list" data-log="${id}"></ol></div>
       </div>
     </div>`;
   const v = $("#view");
   v.onclick = async (e) => {
+    const cl = e.target.closest("[data-copylog]"); if (cl) { copyText(logsText(cl.dataset.copylog), cl); return; }
     const m = e.target.closest("[data-m]");
     if (m) { const [pan, tilt] = m.dataset.m.split(",").map(Number); command(id, { cmd: "move", pan, tilt }); return; }
     const a = e.target.closest("[data-act]"); if (!a) return;
@@ -445,6 +534,7 @@ function showDetail(id) {
     c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
     saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
   };
+  if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
   if (REAL) $("#cfgApply").onclick = () => command(id, { cmd: "config", res: $("#cfgRes").value, bps: Number($("#cfgBps").value) });
   curDetail = id;
   $("#fDev").onchange = rename; $("#fName").onchange = rename;
@@ -476,6 +566,7 @@ function addCamera() {
 /* ===== Router ===== */
 function route() {
   if (curDetail) { Preview.stopAll(); curDetail = null; }
+  dbg("info", "ui", `vista: ${location.hash || "#/"}`);
   const m = location.hash.match(/^#\/cam\/(.+)$/);
   if (m && camById(m[1])) showDetail(m[1]); else showHome();
   window.scrollTo(0, 0);
@@ -521,6 +612,10 @@ cameras.forEach((c, i) => transport.add(c, i === 0 ? 600 : null));
 transport.start();
 route();
 requestAnimationFrame(drawPreview);
+$("#advToggle").onclick = () => { advOpen = !advOpen; $("#advPre").hidden = !advOpen; $("#advToggle").textContent = advOpen ? "Nascondi" : "Mostra"; if (advOpen) renderAdv(); };
+$("#advCopy").onclick = () => copyText(advText(), $("#advCopy"));
+$("#advClear").onclick = () => { adv.length = 0; dbg("info", "registro", "registro avanzato svuotato"); renderAdv(); };
+dbg("info", "avvio", `${PAGE_VERSION}`, { modalita: REAL ? (MOCK_RT ? "mock" : "supabase") : "simulazione", canale: pairing ? "…" + String(pairing.c).slice(-4) : null, camere: cameras.map((c) => `${c.id}=${camTitle(c)}`), dashId: transport.id || null, standalone: navigator.standalone === true, lingua: navigator.language, online: navigator.onLine });
 setConn(connStatus); log("", REAL ? "Dashboard avviata (collegamento reale)" : "Dashboard avviata (simulazione)");
 </script>
 </body>
