@@ -27,8 +27,13 @@ Nel codice questo è l'oggetto `transport` (oggi `MockTransport`, domani WebSock
 
 Flusso consigliato da provare: **B per inquadrare, A per registrare**.
 
-## Prossimi passi
-1. Dashboard con camere simulate (fatto).
-2. Prototipo ESP32: pagina web + trigger Bluetooth verso l'iPhone XR (da verificare su iOS).
-3. Pagina camera per Safari + hub WebRTC (anteprima reale).
-4. Servo pan/tilt (opzionale).
+## Pipeline
+1. [fatto] Dashboard simulata (home, dettaglio camera, rinomina).
+2. [fatto] Pagina di test per l'iPhone XR (risoluzioni, registrazione, time-lapse automatico e manuale).
+3. [in corso] Secondo giro di test: ripresa lunga a pezzi, 60 fps, 12 MP, limite di spazio.
+4. [da fare] Canale di comunicazione tra pagina camera e dashboard (segnalazione e comandi).
+5. [da fare] Pagina camera vera: anteprima WebRTC, REC/STOP, time-lapse, scrittura a pezzi su disco.
+6. [da fare] Trasferimento file: dalla camera alla cartella del PC (Edge), con barra di avanzamento e stato "sicuro da chiudere".
+7. [da fare] Destinazioni alternative: galleria del telefono, galleria dell'iPad (un tocco), cloud (segnaposto).
+8. [da fare] App Comandi sull'XR: batteria a soglie (100, 90, ... 50, 40, 35, 30, 25, 20, 15, 10, 5, 4, 3, 2, 1 %) e stato del caricabatterie, mostrati nella barra batteria della dashboard.
+9. [opzionale] Standby/Riattiva, servo pan/tilt con ESP32, controllo dell'XR dall'iPad.
