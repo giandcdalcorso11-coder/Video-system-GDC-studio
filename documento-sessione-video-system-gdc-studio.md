@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 4
-**Ultimo aggiornamento:** 2026-10-15 15:35
+**Versione:** 5
+**Ultimo aggiornamento:** 2026-10-15 15:37
 
 ## Vision
 
@@ -57,6 +57,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-14] Prototipo simulato con home e dettaglio.
 - [2026-10-15] Collegata alle camere reali (Supabase), con anteprima WebRTC, impostazioni, schermo nero: provata solo con simulazione locale.
 - Da fare: barra batteria reale, selettore destinazione, barra di scaricamento.
+- [2026-10-15] Dashboard r5: i due registri sono fusi in un unico pannello con tab "Registro" e "Attività avanzata" (stesso spazio in home e nel dettaglio, la scheda scelta viene ricordata; Copia e Svuota valgono per la scheda aperta).
 - [2026-10-15] Dashboard r4: anteprime live nella home (interruttore), pannello Time-lapse nel dettaglio, stato "Time-lapse"/"Creo video" nel pill, registro avanzato con campionamento dei messaggi di stato.
 - [2026-10-15] Provata con i dispositivi veri (XR e telefono personale): REC/STOP, stato e impostazioni funzionano. Aggiunti: registro attività avanzato con copia, pulsante Copia nel registro base, banner "Stesso telefono?" per unire camere duplicate, link per singola camera, indicatore dello schermo nero.
 

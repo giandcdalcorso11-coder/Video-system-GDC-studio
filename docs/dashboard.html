@@ -93,6 +93,10 @@
   footer { color: var(--muted); font-size: 12px; padding: 14px 4px; }
   @media (max-width: 480px) { .wrap { padding: 12px; } .timer { font-size: 18px; } }
   pre.adv { white-space: pre-wrap; word-break: break-word; font-size: 11px; line-height: 1.35; background: var(--panel-2); border-radius: 10px; padding: 8px; margin: 8px 0 0; max-height: 55vh; overflow: auto; }
+  .tabs { display: inline-flex; gap: 4px; background: var(--panel-2); padding: 3px; border-radius: 10px; border: 1px solid var(--line); }
+  .tabs button { border: 0; background: transparent; min-height: 34px; padding: 6px 14px; border-radius: 8px; color: var(--muted); font-weight: 600; margin: 0; }
+  .tabs button[aria-selected="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  #logPanel { margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -110,11 +114,6 @@
     </div>
   </header>
   <main id="view"></main>
-  <section class="panel" id="advPanel" style="margin-top:16px">
-    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Registro attività avanzato</h2>
-      <div class="row"><button id="advToggle" class="ghost">Mostra</button><button id="advCopy">Copia tutto</button><button id="advClear" class="ghost">Svuota</button></div></div>
-    <pre class="adv" id="advPre" hidden></pre>
-  </section>
   <footer>Con le camere collegate (Supabase) stato, REC, impostazioni e anteprima sono reali. Batteria e movimenti pan/tilt non sono ancora disponibili. Senza abbinamento la dashboard mostra una simulazione.</footer>
 </div>
 
@@ -134,7 +133,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r4";
+const PAGE_VERSION = "dashboard r5";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -162,6 +161,29 @@ addEventListener("unhandledrejection", (e) => dbg("error", "pagina", `promessa r
 document.addEventListener("visibilitychange", () => dbg("info", "pagina", `visibilità: ${document.visibilityState}`));
 addEventListener("online", () => dbg("info", "pagina", "rete: online")); addEventListener("offline", () => dbg("warn", "pagina", "rete: offline"));
 addEventListener("pageshow", (e) => dbg("info", "pagina", `pageshow persisted=${e.persisted}`)); addEventListener("pagehide", (e) => dbg("info", "pagina", `pagehide persisted=${e.persisted}`));
+
+/* ===== Pannello registri unico (tab: Registro / Attività avanzata) ===== */
+let logTab = store.get("gdc.logTab", "basic"), logId = "";
+const logPanel = (id) => { logId = id || ""; return `<section class="panel" id="logPanel">
+  <div class="row" style="justify-content:space-between;margin-bottom:8px">
+    <div class="tabs" role="tablist" aria-label="Registri"><button role="tab" data-tab="basic">Registro</button><button role="tab" data-tab="adv">Attività avanzata</button></div>
+    <div class="row"><button class="ghost" data-logcopy>Copia</button><button class="ghost" data-logclear>Svuota</button></div>
+  </div>
+  <ol class="list" data-log="${esc(logId)}"></ol>
+  <pre class="adv" id="advPre" hidden></pre>
+</section>`; };
+function applyLogTab() {
+  const pn = $("#logPanel"); if (!pn) { advOpen = false; return; }
+  advOpen = logTab === "adv";
+  $$("[data-tab]", pn).forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === logTab)));
+  $("ol.list", pn).hidden = advOpen; $("#advPre").hidden = !advOpen;
+  if (advOpen) renderAdv(); else renderLogs();
+}
+document.addEventListener("click", (e) => {
+  const tb = e.target.closest("[data-tab]"); if (tb) { logTab = tb.dataset.tab; store.set("gdc.logTab", logTab); dbg("info", "ui", `registro: scheda ${logTab === "adv" ? "attività avanzata" : "base"}`); applyLogTab(); return; }
+  const cp = e.target.closest("[data-logcopy]"); if (cp) { copyText(logTab === "adv" ? advText() : logsText(logId), cp); return; }
+  const cl = e.target.closest("[data-logclear]"); if (cl) { if (logTab === "adv") { adv.length = 0; dbg("info", "registro", "registro avanzato svuotato"); } else { logs.length = 0; } applyLogTab(); }
+});
 
 /* ===== Camere (nome dispositivo + nome camera, rinominabili) ===== */
 const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
@@ -454,11 +476,10 @@ function showHome() {
       ${REAL ? `<div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
     <section class="panel" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
-    <section class="panel" style="margin-top:16px"><div class="row" style="justify-content:space-between"><h2>Registro</h2><button class="ghost" data-copylog="">Copia</button></div><ol class="list" data-log=""></ol></section>`;
+    ${logPanel("")}`;
   curDetail = null; setConn(connStatus);
   $("#view").onclick = async (e) => {
     if (e.target.id === "homePrev") { store.set("gdc.homePrev", e.target.checked); dbg("info", "ui", `anteprime nella home: ${e.target.checked ? "attive" : "spente"}`); Preview.stopAll(); Preview.ensureAll(); return; }
-    const cl = e.target.closest("[data-copylog]"); if (cl) { copyText(logsText(cl.dataset.copylog), cl); return; }
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }
     if (e.target.closest("#mergeNo")) { dbg("info", "camere", "unione rifiutata dall'utente"); suggestMerge = null; showHome(); return; }
     if (e.target.closest("#cpCam") || e.target.closest("#cpDash")) { const link = GDC_RT.Pair.link(e.target.closest("#cpCam") ? "camera.html" : "dashboard.html", pairing); try { await navigator.clipboard.writeText(link); e.target.textContent = "Copiato ✓"; } catch { prompt("Copia questo link", link); } return; }
@@ -471,7 +492,7 @@ function showHome() {
     if (go) location.hash = "#/cam/" + go.dataset.go;
     if (e.target.closest("#addCam")) addCamera();
   };
-  renderLogs(); refresh(); Preview.ensureAll();
+  applyLogTab(); refresh(); Preview.ensureAll();
 }
 
 function showDetail(id) {
@@ -543,12 +564,11 @@ function showDetail(id) {
             ${REAL ? `<button class="ghost" id="cpThis">Copia link di questa camera</button>` : ""}<button class="ghost" id="rmCam">Rimuovi camera</button>
           </div></div>
         <div class="panel"><h2>Clip della sessione</h2><ol class="list" data-bind="clips" data-cam="${id}"></ol></div>
-        <div class="panel"><div class="row" style="justify-content:space-between"><h2>Registro camera</h2><button class="ghost" data-copylog="${id}">Copia</button></div><ol class="list" data-log="${id}"></ol></div>
+        ${logPanel(id)}
       </div>
     </div>`;
   const v = $("#view");
   v.onclick = async (e) => {
-    const cl = e.target.closest("[data-copylog]"); if (cl) { copyText(logsText(cl.dataset.copylog), cl); return; }
     const m = e.target.closest("[data-m]");
     if (m) { const [pan, tilt] = m.dataset.m.split(",").map(Number); command(id, { cmd: "move", pan, tilt }); return; }
     const a = e.target.closest("[data-act]"); if (!a) return;
@@ -574,7 +594,7 @@ function showDetail(id) {
     if (!confirm(`Rimuovere ${camTitle(c)} dalla dashboard?`)) return;
     transport.remove(id); delete state[id]; cameras = cameras.filter((x) => x.id !== id); saveCams(); location.hash = "#/";
   };
-  renderLogs(); refresh(); Preview.ensureAll();
+  applyLogTab(); refresh(); Preview.ensureAll();
 }
 
 async function toggleWebcam(id, btn) {
@@ -644,9 +664,6 @@ cameras.forEach((c, i) => transport.add(c, i === 0 ? 600 : null));
 transport.start();
 route();
 requestAnimationFrame(drawPreview);
-$("#advToggle").onclick = () => { advOpen = !advOpen; $("#advPre").hidden = !advOpen; $("#advToggle").textContent = advOpen ? "Nascondi" : "Mostra"; if (advOpen) renderAdv(); };
-$("#advCopy").onclick = () => copyText(advText(), $("#advCopy"));
-$("#advClear").onclick = () => { adv.length = 0; dbg("info", "registro", "registro avanzato svuotato"); renderAdv(); };
 dbg("info", "avvio", `${PAGE_VERSION}`, { modalita: REAL ? (MOCK_RT ? "mock" : "supabase") : "simulazione", canale: pairing ? "…" + String(pairing.c).slice(-4) : null, camere: cameras.map((c) => `${c.id}=${camTitle(c)}`), dashId: transport.id || null, standalone: navigator.standalone === true, lingua: navigator.language, online: navigator.onLine });
 setConn(connStatus); log("", REAL ? "Dashboard avviata (collegamento reale)" : "Dashboard avviata (simulazione)");
 </script>
