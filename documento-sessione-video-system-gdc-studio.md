@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 2
-**Ultimo aggiornamento:** 2026-10-15 14:42
+**Versione:** 3
+**Ultimo aggiornamento:** 2026-10-15 15:23
 
 ## Vision
 
@@ -72,6 +72,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] `docs/camera.html` v1: abbinamento, camera, REC/STOP, anteprima, impostazioni, schermo nero, elenco registrazioni.
 - Da fare: time-lapse, file in attesa, trasferimento.
+- [2026-10-15] Camera r3: avvio automatico della camera all'apertura della pagina (opzione attiva di default; si disattiva con "Ferma camera" a mano, si riattiva con "Avvia camera"; riprova al ritorno in primo piano). Permesso fotocamera/microfono: va impostato su "Consenti" per il sito nelle impostazioni di Safari. Da provare sull'XR.
 - [2026-10-15] Provata sull'XR: REC/STOP dalla dashboard e salvataggio in galleria ok. Problemi segnalati: camera duplicata alla riapertura del link, "Archivio non disponibile: InvalidStateError", tasto schermo nero non funzionante. Corretti/instrumentati in camera r2 (riapertura automatica di IndexedDB, identità da link/cookie, registro attività inviato alla dashboard).
 
 ### Step 5 — Canale di comunicazione

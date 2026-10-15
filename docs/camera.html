@@ -47,6 +47,7 @@
     <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
     <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button>
+    <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
     <video id="vid" muted playsinline></video>
   </section>
 
@@ -75,7 +76,7 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r2";
+const PAGE_VERSION = "camera r3";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -101,7 +102,7 @@ async function copyText(text, btn) {
 }
 addEventListener("error", (e) => { dbg("error", `errore pagina: ${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`); });
 addEventListener("unhandledrejection", (e) => { dbg("error", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`); });
-document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { db.reset(); loadSessions(); publish(); } });
+document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { db.reset(); loadSessions(); publish(); setTimeout(() => autoOpen("ritorno in primo piano"), 800); } });
 addEventListener("pagehide", (e) => dbg("info", `pagehide persisted=${e.persisted}`));
 addEventListener("pageshow", (e) => { dbg("info", `pageshow persisted=${e.persisted}`); if (e.persisted) { db.reset(); loadSessions(); publish(); } });
 addEventListener("online", () => dbg("info", "rete: online")); addEventListener("offline", () => dbg("warn", "rete: offline"));
@@ -116,7 +117,7 @@ const idSrc = (() => {
 })();
 const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
 const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
-const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment" }, store.get("gdc.camCfg", {}));
+const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
 const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
 const MAX_BUF = 700 * 1048576; // limite di sicurezza misurato nei test (circa 0,78 GB)
 const MOCK = new URLSearchParams(location.search).has("mock");
@@ -182,6 +183,13 @@ async function openCam() {
   const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];
   dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
   lastErr = lastErr.startsWith("Camera") ? "" : lastErr; $("camStop").disabled = false; $("recBtn").disabled = false; publish();
+}
+let opening = false;
+async function autoOpen(why) {
+  if (!cfg.autoCam || stream || opening || recording || !pairing) return; opening = true; dbg("info", `avvio automatico della camera (${why})`);
+  try { await openCam(); dbg("info", "avvio automatico riuscito"); }
+  catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }
+  opening = false;
 }
 function stopCam() { dbg("info", "ferma camera"); if (recording) stopRec(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
 
@@ -308,11 +316,12 @@ async function onCmd(m) {
 }
 
 /* ===== Interfaccia ===== */
-function syncForm() { $("fDev").value = cfg.device; $("fName").value = cfg.name; $("fRes").value = cfg.res; $("fBps").value = String(cfg.bps); }
+function syncForm() { $("fAuto").checked = !!cfg.autoCam; $("fDev").value = cfg.device; $("fName").value = cfg.name; $("fRes").value = cfg.res; $("fBps").value = String(cfg.bps); }
 $("fDev").onchange = $("fName").onchange = () => { cfg.device = $("fDev").value.trim() || cfg.device; cfg.name = $("fName").value.trim() || cfg.name; store.set("gdc.camCfg", cfg); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); };
 $("fRes").onchange = $("fBps").onchange = async () => { if (recording) { syncForm(); return; } cfg.res = $("fRes").value; cfg.bps = Number($("fBps").value); store.set("gdc.camCfg", cfg); if (stream) { try { await openCam(); } catch { /* ok */ } } publish(); };
-$("camBtn").onclick = async () => { try { await openCam(); } catch { /* errore già mostrato */ } };
-$("camStop").onclick = stopCam;
+$("camBtn").onclick = async () => { cfg.autoCam = true; store.set("gdc.camCfg", cfg); syncForm(); try { await openCam(); } catch { /* errore già mostrato */ } };
+$("camStop").onclick = () => { cfg.autoCam = false; store.set("gdc.camCfg", cfg); syncForm(); dbg("info", "camera fermata a mano: avvio automatico disattivato"); stopCam(); };
+$("fAuto").onchange = () => { cfg.autoCam = $("fAuto").checked; store.set("gdc.camCfg", cfg); dbg("info", `avvio automatico ${cfg.autoCam ? "attivato" : "disattivato"}`); if (cfg.autoCam) autoOpen("opzione attivata"); };
 $("recBtn").onclick = () => (recording ? stopRec() : startRec());
 $("blackBtn").onclick = () => setStandby(true);
 $("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) setStandby(false); lastTapT = n; };
@@ -339,6 +348,7 @@ async function start() {
   setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
+  autoOpen("apertura pagina");
 }
 start();
 </script>
