@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 7
-**Ultimo aggiornamento:** 2026-10-15 17:10
+**Versione:** 8
+**Ultimo aggiornamento:** 2026-10-15 17:40
 
 ## Vision
 
@@ -133,6 +133,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Messo in pipeline. Circa 20 automazioni da creare a mano.
+- [2026-10-15] Scelto il canale: Comandi invia un POST all'API REST di Supabase Realtime (`/realtime/v1/api/broadcast`, evento `battery`, canale del progetto) con id camera e livello (e opzionalmente `charging`). Camera r6 riceve l'evento, salva e rimanda lo stato alla dashboard con l'ora della misura. Pulsanti "Dati per Comandi (batteria)" e "Prova invio batteria" nella pagina camera. Il POST REST non è stato provato dal vivo (rete della sandbox bloccata): da verificare sull'XR con "Prova invio batteria".
 
 ### Step 9 — Hardware opzionale
 
@@ -148,6 +149,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-15 17:40] Batteria reale tramite Comandi
+
+**Riepilogo:** la batteria arriva alla dashboard da Comandi (POST REST a Supabase Realtime), con ora della misura; aggiunta l'automazione all'apertura di Safari come lettura iniziale (camera r6).
+
+**Cosa è stato fatto:**
+- Camera r6: evento `battery` ricevuto dal canale (solo se l'id coincide), valore salvato in localStorage con l'ora e inviato nello stato; pulsanti per copiare i dati del comando e per provare l'invio dal browser.
+- Dashboard: mostra "misurata alle HH:MM" accanto allo stato di carica.
+- Verificato in simulazione locale: evento accettato per l'id giusto, ignorato per un altro id.
+
+**Decisioni prese:**
+- Contesto: la pagina non può leggere la batteria (nessuna API in Safari 16.3).
+- Decisione: lettura iniziale con un'automazione "all'apertura di Safari" invece di un'icona che apre il link con il livello; stesso comando delle soglie.
+- Alternative scartate: link con parametro `bat` (richiede aprire la camera da quell'icona).
+- Da rivedere se: l'automazione all'apertura di Safari chiede conferma su iOS 16.3.1.
+
+**File consegnati/modificati:** `docs/camera.html` (r6), `docs/dashboard.html`, `documento-sessione-video-system-gdc-studio.md` (versione 8).
+
+---
 
 ### [2026-10-15 17:10] Time-lapse scattoso: nuova creazione del video
 

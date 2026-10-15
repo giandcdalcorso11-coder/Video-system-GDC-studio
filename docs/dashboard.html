@@ -273,7 +273,7 @@ class RealtimeTransport {
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -364,7 +364,7 @@ const BIND = {
   batTxt: (st, c, el) => { el.textContent = st.online ? (st.battery == null ? "n/d" : Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "")) : "—"; },
   batBar: (st, c, el) => { const has = st.online && st.battery != null; el.className = "bar " + (has ? batClass(st.battery) : ""); $("i", el).style.width = (has ? st.battery : 0) + "%"; },
   batWarn: (st, c, el) => { el.textContent = st.online && st.battery != null && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
-  batState: (st, c, el) => { el.textContent = !st.online ? "—" : st.battery == null ? "Livello non disponibile (arriverà dall'app Comandi)" : st.charging ? "In carica" : "A batteria"; },
+  batState: (st, c, el) => { const at = st.batAt ? new Date(st.batAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : ""; el.textContent = !st.online ? "—" : st.battery == null ? "Livello non disponibile (arriverà dall'app Comandi)" : (st.charging == null ? "" : st.charging ? "In carica" : "A batteria") + (at ? (st.charging == null ? "" : " · ") + "misurata alle " + at : ""); },
   free: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} / ${st.maxBufMB} MB` : st.freeGb.toFixed(1) + " GB"; },
   freeLong: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} MB usati su ${st.maxBufMB} MB di buffer sul telefono` : `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB`; },
   freeEst: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? (st.bps ? `circa ${Math.max(0, Math.floor(((st.maxBufMB - st.bufMB) * 8) / (st.bps / 1e6) / 60))} min di ripresa prima di riempire il buffer` : "—") : `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)`; },

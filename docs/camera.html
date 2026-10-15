@@ -46,7 +46,7 @@
     <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
     <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
-    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button>
+    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button><button id="batInfo">Dati per Comandi (batteria)</button><button id="batTest">Prova invio batteria</button>
     <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
     <video id="vid" muted playsinline></video>
   </section>
@@ -76,7 +76,7 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r5";
+const PAGE_VERSION = "camera r6";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -123,7 +123,16 @@ const MAX_BUF = 700 * 1048576; // limite di sicurezza misurato nei test (circa 0
 const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
 let stream = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0, storageMode = "indexeddb";
-const bat = { level: null, charging: null };
+const bat = { level: null, charging: null, at: 0 };
+try { const o = JSON.parse(localStorage.getItem("gdc.bat." + ID)); if (o && o.level != null) Object.assign(bat, o); } catch { /* ok */ }
+function setBat(level, charging, src) {
+  let l = Number(level); if (!isFinite(l)) { dbg("warn", `batteria: valore non valido da ${src}: ${JSON.stringify(level)}`); return false; }
+  l = Math.max(0, Math.min(100, Math.round(l)));
+  const ch = charging === true || charging === "true" || charging === 1 || charging === "1" ? true : charging === false || charging === "false" || charging === 0 || charging === "0" ? false : null;
+  bat.level = l; if (ch !== null) bat.charging = ch; bat.at = Date.now();
+  try { localStorage.setItem("gdc.bat." + ID, JSON.stringify(bat)); } catch { /* ok */ }
+  dbg("info", `batteria da ${src}: ${l}%${ch === null ? "" : ch ? ", in carica" : ", non in carica"}`); publish(); return true;
+}
 
 /* ===== Archivio locale: pezzi della registrazione e registrazioni (IndexedDB, con riapertura automatica) ===== */
 const db = (() => {
@@ -319,7 +328,7 @@ const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return Stri
 function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
-    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, storage: storageMode, tl: tlState(),
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
@@ -409,7 +418,7 @@ async function onCmd(m) {
       case "tl_stop": tlStop(); detail = "stop richiesto"; break;
       case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
-      case "battery": bat.level = Number(m.level); bat.charging = m.charging == null ? bat.charging : !!m.charging; publish(); detail = bat; break;
+      case "battery": ok = setBat(m.level, m.charging, "dashboard"); detail = ok ? bat : "valore non valido"; break;
       default: ok = false; detail = "comando sconosciuto"; break;
     }
   } catch (e) { ok = false; detail = `${e.name}: ${e.message}`; dbg("error", `comando ${m.cmd} fallito: ${detail}`); }
@@ -426,6 +435,17 @@ $("fAuto").onchange = () => { cfg.autoCam = $("fAuto").checked; store.set("gdc.c
 $("recBtn").onclick = () => (recording ? stopRec() : startRec());
 $("blackBtn").onclick = () => setStandby(true);
 $("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) setStandby(false); lastTapT = n; };
+const batReq = (extra) => ({ url: pairing.u.replace(/\/$/, "") + "/realtime/v1/api/broadcast", body: JSON.stringify({ messages: [{ topic: "gdc-" + pairing.c, event: "battery", payload: { id: ID, ...extra }, private: false }] }) });
+$("batInfo").onclick = () => {
+  if (!pairing) return; const r = (x) => batReq(x).body, L = "LIVELLO";
+  copyText(`DATI PER COMANDI — camera ${cfg.name} (${ID})\n\nURL:\n${batReq({}).url}\n\nMetodo: POST\nIntestazioni:\napikey: ${pairing.k}\nAuthorization: Bearer ${pairing.k}\nContent-Type: application/json\n\nTESTO A (solo livello: soglie e apertura Safari):\n${r({ level: L }).replace('"' + L + '"', "LIVELLO")}\n\nTESTO B (caricabatterie collegato):\n${r({ level: L, charging: true }).replace('"' + L + '"', "LIVELLO")}\n\nTESTO C (caricabatterie scollegato):\n${r({ level: L, charging: false }).replace('"' + L + '"', "LIVELLO")}\n\nIn ogni testo sostituisci la parola LIVELLO con la variabile "Livello batteria" (senza virgolette).\n`, $("batInfo"));
+};
+$("batTest").onclick = async () => {
+  if (!pairing) return; const q = batReq({ level: bat.level ?? 50 }); dbg("info", `prova invio batteria come Comandi (${q.url})`);
+  try { const res = await fetch(q.url, { method: "POST", headers: { apikey: pairing.k, Authorization: "Bearer " + pairing.k, "Content-Type": "application/json" }, body: q.body }); const tx = await res.text().catch(() => ""); dbg(res.ok ? "info" : "error", `prova invio batteria: HTTP ${res.status} ${tx.slice(0, 200)}`); $("batTest").textContent = res.ok ? "Inviata ✓ (HTTP " + res.status + ")" : "Errore HTTP " + res.status; }
+  catch (e) { dbg("error", `prova invio batteria fallita: ${e.name}: ${e.message}`); $("batTest").textContent = "Errore: " + e.name; }
+  setTimeout(() => ($("batTest").textContent = "Prova invio batteria"), 4000);
+};
 $("myLink").onclick = () => { if (!pairing) return; copyText(GDC_RT.Pair.link("camera.html", pairing, ID), $("myLink")); };
 $("pairBtn").onclick = () => { const p = GDC_RT.Pair.decode($("pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); };
 $("dbgToggle").onclick = () => { dbgOpen = !dbgOpen; $("dbgPre").hidden = !dbgOpen; $("dbgToggle").textContent = dbgOpen ? "Nascondi" : "Mostra"; if (dbgOpen) renderDbg(); };
@@ -445,7 +465,7 @@ async function start() {
   if (!pairing) return;
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
-  rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
+  rt.on("battery", (m) => { if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
   setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
