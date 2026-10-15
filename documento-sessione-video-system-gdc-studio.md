@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 6
-**Ultimo aggiornamento:** 2026-10-15 16:20
+**Versione:** 7
+**Ultimo aggiornamento:** 2026-10-15 17:10
 
 ## Vision
 
@@ -119,6 +119,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Prototipo nel test. Limite: circa 1300 immagini a 1080p nel buffer locale.
 - [2026-10-15] Integrato in camera r4 e dashboard r4 (comandi tl_start e tl_stop, modalità automatica e manuale, video creato sul telefono, "Ricrea il video" se la creazione fallisce). Provato solo con simulazione locale: da provare sull'XR, in particolare la creazione del video con canvas e MediaRecorder su iOS 16.3.
 - [2026-10-15] Provato sull'XR (iOS 16.3.1): modalità automatica, 72 s di ripresa, 145 immagini (2 al secondo, circa 600 KB l'una), video 1080×1920 a 30 fps di 4,8 s (×15), 19 MB, creato in 9 s e salvato in Foto con "Salva in Foto / File". Funziona; aspetto diverso dalla camera nativa (esposizione e messa a fuoco automatiche, nessun blocco possibile in Safari 16.3), ma giudicato accettabile. Per ritmi più lenti usare la modalità manuale: velocità = intervallo × fps. Limite buffer 700 MB: circa 8-9 minuti a 2 immagini al secondo.
+- [2026-10-15] Segnalato dall'utente: il video del time-lapse web è più scattoso del nativo. Causa trovata nel registro: il video veniva creato in tempo reale con attesa + decodifica di ogni immagine (9 s per 145 immagini invece di 4,8 s), quindi tempi irregolari. Camera r5: immagini decodificate in anticipo, ogni fotogramma disegnato alla sua scadenza esatta (30 fps) con `requestFrame`; il registro riporta i fotogrammi in ritardo. Da riprovare sull'XR.
 
 ### Step 8 — App Comandi sull'XR (batteria)
 
@@ -147,6 +148,22 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-15 17:10] Time-lapse scattoso: nuova creazione del video
+
+**Riepilogo:** il video del time-lapse web risultava più scattoso del nativo; corretta la cadenza di creazione del video (camera r5).
+
+**Cosa è stato fatto:**
+
+**Bug: video time-lapse scattoso**
+
+**Sintomo:** rispetto al nativo il movimento appare a scatti.
+**Causa:** nella creazione del video ogni immagine veniva letta, decodificata e disegnata, e solo dopo si attendeva 1/30 s. La creazione è durata circa 9 s per 145 immagini (attesi 4,8 s), con tempi tra fotogrammi irregolari. Causa dedotta dai tempi del registro, non misurata fotogramma per fotogramma.
+**Fix applicato:** immagini decodificate 6 in anticipo; ogni fotogramma disegnato alla scadenza esatta e inviato al video con `requestFrame` (se disponibile). Se una scadenza è mancata, il video aspetta quella immagine invece di saltarla. Verificato in Chromium (80 immagini, video creato); da verificare sull'XR.
+
+**File consegnati/modificati:** `docs/camera.html` (r5), `documento-sessione-video-system-gdc-studio.md` (versione 7).
+
+---
 
 ### [2026-10-15 16:20] Prova del time-lapse sull'XR e specifiche
 

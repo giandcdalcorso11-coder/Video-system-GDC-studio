@@ -76,7 +76,7 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r4";
+const PAGE_VERSION = "camera r5";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -280,15 +280,26 @@ async function tlRender(sid, keys, fps, startTs, silent) {
   const t = tl && tl.sid === sid ? tl : null, g = tlCanvas.getContext("2d"), t0 = performance.now();
   const first = await loadBmp(await db.getFrame(keys[0])); tlCanvas.width = first.width; tlCanvas.height = first.height; g.drawImage(first, 0, 0);
   const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((x) => MediaRecorder.isTypeSupported(x)), vsid = silent ? sid + "v" : sid;
-  const mr = new MediaRecorder(tlCanvas.captureStream(fps), { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 20000000 });
+  const cs0 = tlCanvas.captureStream(0), vtr = cs0.getVideoTracks()[0], manual = !!(vtr && typeof vtr.requestFrame === "function"), mr = new MediaRecorder(manual ? cs0 : tlCanvas.captureStream(fps), { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 20000000 });
   let seq = 0, bytes = 0, pending = 0, errs = 0; dbg("info", `time-lapse: creo il video da ${keys.length} immagini a ${fps} fps`, { mime: mr.mimeType, dimensioni: `${tlCanvas.width}x${tlCanvas.height}`, durataAttesa_s: +(keys.length / fps).toFixed(1) });
   mr.ondataavailable = (e) => { if (!e.data.size) return; const k = `${vsid}:${String(++seq).padStart(6, "0")}`; bytes += e.data.size; pending++; db.putChunk(k, e.data).catch((x) => { errs++; dbg("error", `scrittura pezzo video fallita: ${x.name}`); }).finally(() => pending--); };
   mr.onerror = (e) => dbg("error", `MediaRecorder (time-lapse): ${e.error?.name || ""} ${e.error?.message || ""}`);
   const stopped = new Promise((r) => (mr.onstop = r)); mr.start(1000);
+  /* Cadenza esatta: le immagini si decodificano in anticipo e ogni fotogramma viene disegnato alla sua scadenza (non "attesa + decodifica"), così i tempi nel video sono regolari. */
+  const AHEAD = 6, step = 1000 / fps, q = new Map(); let late = 0, lateMs = 0, maxLate = 0;
+  const fetchF = (i) => { if (i < keys.length && !q.has(i)) q.set(i, db.getFrame(keys[i]).then(loadBmp).catch(() => null)); };
+  q.set(0, Promise.resolve(first)); for (let i = 1; i < Math.min(AHEAD, keys.length); i++) fetchF(i);
+  const push = () => { if (manual) { try { vtr.requestFrame(); } catch { /* ok */ } } };
+  let T0 = performance.now(), last = first; push();
   for (let i = 0; i < keys.length; i++) {
-    const bmp = await loadBmp(await db.getFrame(keys[i])); g.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
-    if (t) t.progress = (i + 1) / keys.length; if (i % 5 === 0 || i === keys.length - 1) publish(); await sleep(1000 / fps);
+    const w = T0 + i * step - performance.now(); if (w > 0) await sleep(w);
+    fetchF(i + AHEAD); const bmp = await q.get(i); q.delete(i);
+    const lag = performance.now() - (T0 + i * step); if (lag > step) { late++; lateMs += lag; if (lag > maxLate) maxLate = lag; T0 += lag - step; }
+    if (bmp) { last = bmp; g.drawImage(bmp, 0, 0); } else g.drawImage(last, 0, 0);
+    push(); if (bmp && bmp !== first && bmp.close) bmp.close();
+    if (t) t.progress = (i + 1) / keys.length; if (i % 5 === 0 || i === keys.length - 1) publish();
   }
+  dbg("info", `time-lapse: cadenza video, ${late} fotogrammi in ritardo di ${keys.length}`, { ritardoMedio_ms: late ? Math.round(lateMs / late) : 0, ritardoMax_ms: Math.round(maxLate), scattoManuale: manual, durataReale_s: +((performance.now() - T0) / 1000).toFixed(1), durataAttesa_s: +(keys.length / fps).toFixed(1) });
   await sleep(700); try { mr.requestData(); } catch { /* ok */ } await sleep(150); mr.stop(); await stopped; while (pending > 0) await sleep(50);
   const ok = bytes > 0 && !errs, s = { id: vsid, start: startTs, end: Date.now(), dur: Math.round((keys.length / fps) * 1000), bytes, chunks: seq, mime: mr.mimeType || mime, res: `${tlCanvas.width}x${tlCanvas.height}`, bps: 20000000, status: ok ? "pronta" : "video non creato", kind: "timelapse", frames: keys.length, fps, src: sid };
   await db.putSession(s); dbg(ok ? "info" : "error", `time-lapse: video ${ok ? "pronto" : "NON creato correttamente"}`, { MB: +(bytes / 1048576).toFixed(1), pezzi: seq, errori: errs, tempoCreazione_s: Math.round((performance.now() - t0) / 1000) });
