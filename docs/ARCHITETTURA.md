@@ -28,12 +28,4 @@ Nel codice questo è l'oggetto `transport` (oggi `MockTransport`, domani WebSock
 Flusso consigliato da provare: **B per inquadrare, A per registrare**.
 
 ## Pipeline
-1. [fatto] Dashboard simulata (home, dettaglio camera, rinomina).
-2. [fatto] Pagina di test per l'iPhone XR (risoluzioni, registrazione, time-lapse automatico e manuale).
-3. [in corso] Secondo giro di test: ripresa lunga a pezzi, 60 fps, 12 MP, limite di spazio.
-4. [fatto, da provare con i dispositivi veri] Canale di comunicazione con Supabase Realtime (`docs/rt.js`): presenza, stato, comandi, segnalazione WebRTC.
-5. [in corso] Pagina camera (`docs/camera.html`): anteprima WebRTC, REC/STOP, scrittura a pezzi su disco, schermo nero. Manca il time-lapse.
-6. [da fare] Trasferimento file: dalla camera alla cartella del PC (Edge), con barra di avanzamento e stato "sicuro da chiudere".
-7. [da fare] Destinazioni alternative: galleria del telefono, galleria dell'iPad (un tocco), cloud (segnaposto).
-8. [da fare] App Comandi sull'XR: batteria a soglie (100, 90, ... 50, 40, 35, 30, 25, 20, 15, 10, 5, 4, 3, 2, 1 %) e stato del caricabatterie, mostrati nella barra batteria della dashboard.
-9. [opzionale] Standby/Riattiva, servo pan/tilt con ESP32, controllo dell'XR dall'iPad.
+Vedi `docs/PIPELINE.md` (stato attuale) e `documento-sessione-video-system-gdc-studio.md` (storico, decisioni, bug).

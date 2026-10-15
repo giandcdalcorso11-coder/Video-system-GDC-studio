@@ -6,7 +6,7 @@ Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
 - ✅ Fotocamera dal browser: 1080p e 4K verticali a 30 fps, MP4 H.264 + audio AAC, bitrate controllabile
 - ✅ WebRTC (anteprima) e raggiungibilità STUN confermati
 - ✅ Time-lapse dal browser (automatico stile iPhone + manuale)
-- 🔄 Test approfondito: ripresa lunga a pezzi, 60 fps, foto 12 MP, canale dati, limite di spazio
+- ✅ Test approfondito: ripresa lunga a pezzi, 60 fps (solo 720p), foto 12 MP, canale dati, limite di spazio (circa 0,78 GB). Risultati in `docs/RISULTATI-TEST.md`
 - ⏳ Prova del tasto volume nel Time-lapse nativo (solo se si userà l'app Fotocamera)
 
 ## 2. Dashboard
@@ -14,16 +14,19 @@ Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
 - ⏳ Barra batteria alimentata dai dati reali (vedi punto 5)
 - ⏳ Selettore della destinazione dei file
 - ⏳ Barra di scaricamento dei video con indicatore "puoi chiudere in sicurezza"
-- 💤 Standby / Riattiva (schermo nero sul telefono)
+- ✅ Standby / Riattiva (schermo nero sul telefono)
+- ✅ Dashboard collegata alle camere reali tramite Supabase (da provare con i dispositivi veri)
 
 ## 3. Pagina camera (telefono)
-- ⏳ Collegamento alla dashboard (comandi: REC/STOP, time-lapse, stato)
-- ⏳ Anteprima in tempo reale (WebRTC)
-- ⏳ Registrazione scritta a pezzi su disco (IndexedDB), file in attesa di invio
+- ✅ Collegamento alla dashboard (REC/STOP, stato, impostazioni, schermo nero): da provare con i dispositivi veri
+- ⏳ Comando time-lapse
+- ✅ Anteprima in tempo reale (WebRTC): da provare con i dispositivi veri
+- ✅ Registrazione scritta a pezzi su disco (IndexedDB), tetto di sicurezza 700 MB
+- ⏳ File in attesa di invio e scarico continuo verso il PC
 - ⏳ Time-lapse integrato (modalità automatica e manuale)
 
 ## 4. Canale di comunicazione
-- ⏳ Decisione: cloud leggero per i comandi + collegamento diretto telefono ↔ dashboard per video e file
+- ✅ Decisione: Supabase Realtime (progetto GDC-thumbnail-generator, per ora) per comandi e segnalazione + collegamento diretto telefono ↔ dashboard per video e file
 - ⏳ Trasferimento file con verifica di integrità
 
 ## 5. App Comandi sull'XR (batteria)
