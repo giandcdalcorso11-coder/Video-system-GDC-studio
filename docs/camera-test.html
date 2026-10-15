@@ -57,6 +57,19 @@
     <button id="wake">Prova blocco schermo</button><table id="misc"></table>
   </section>
 
+  <section class="panel"><h2>7 · Time-lapse</h2>
+    <p class="muted" style="margin:0 0 8px">Usa la fotocamera avviata nella sezione 2 (stessa qualità scelta). Tieni il telefono fermo, in carica e con lo schermo acceso.</p>
+    <label>Un'immagine ogni <select id="tlInt"><option value="1">1 s</option><option value="2">2 s</option><option value="5" selected>5 s</option><option value="10">10 s</option><option value="30">30 s</option><option value="60">60 s</option></select></label>
+    <label>Video a <select id="tlFps"><option value="24">24 fps</option><option value="30" selected>30 fps</option></select></label>
+    <label>Qualità JPEG <select id="tlQ"><option value="0.8">Normale</option><option value="0.92" selected>Alta</option></select></label><br>
+    <button class="primary" id="tlStart">● Avvia time-lapse</button><button id="tlStop" disabled>■ Ferma</button><button id="tlMake" disabled>Crea video</button><button id="tlClear" disabled>Svuota</button>
+    <table id="tlStat" style="margin-top:8px"></table>
+    <div id="tlMsg" class="muted"></div>
+    <canvas id="tlCanvas" style="display:none"></canvas>
+    <video id="tlPlay" controls playsinline hidden style="margin-top:8px"></video>
+    <button id="tlShare" disabled>Salva / Condividi video</button>
+  </section>
+
   <section class="panel"><h2>Report (fai uno screenshot)</h2><pre id="report">Esegui i passaggi sopra.</pre>
     <button id="copy" style="margin-top:8px">Copia report</button></section>
 </main>
@@ -174,6 +187,83 @@ $("wake").onclick = async () => {
   else { rows.push(row("Batteria", bad("non disponibile nel browser"))); set("Batteria", "non disponibile"); }
   $("misc").innerHTML = rows.join("");
 };
+
+
+/* 7 · Time-lapse: i fotogrammi (JPEG) si salvano in IndexedDB, poi si compongono in un video */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const frames = (() => {
+  let db = null; const mem = []; let useMem = false, bytes = 0, n = 0;
+  const req = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  return {
+    async init() {
+      if (db || useMem) return;
+      try { db = await new Promise((res, rej) => { const r = indexedDB.open("gdc-timelapse", 1); r.onupgradeneeded = () => r.result.createObjectStore("f", { autoIncrement: true }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); n = await req(db.transaction("f").objectStore("f").count()); }
+      catch { useMem = true; }
+    },
+    get memOnly() { return useMem; }, get count() { return useMem ? mem.length : n; }, get bytes() { return bytes; },
+    async add(b) { bytes += b.size; if (useMem) mem.push(b); else { await req(db.transaction("f", "readwrite").objectStore("f").add(b)); n++; } },
+    async keys() { return useMem ? mem.map((_, i) => i) : req(db.transaction("f").objectStore("f").getAllKeys()); },
+    async get(k) { return useMem ? mem[k] : req(db.transaction("f").objectStore("f").get(k)); },
+    async clear() { bytes = 0; n = 0; mem.length = 0; if (db) await req(db.transaction("f", "readwrite").objectStore("f").clear()); },
+  };
+})();
+let tlTimer = null, tlStart = 0, tlBusy = false, tlBlob = null;
+const loadBmp = async (b) => { if (window.createImageBitmap) return createImageBitmap(b); const i = new Image(); i.src = URL.createObjectURL(b); await i.decode(); return i; };
+function tlRefresh() {
+  const fps = +$("tlFps").value, int = +$("tlInt").value, c = frames.count, el = tlTimer ? (Date.now() - tlStart) / 1000 : 0;
+  const mb = frames.bytes / 1048576;
+  $("tlStat").innerHTML = row("Immagini", c) + row("Tempo di ripresa", tlTimer ? `${Math.floor(el / 60)} min ${Math.floor(el % 60)} s` : "—") +
+    row("Durata del video", `${(c / fps).toFixed(1)} s a ${fps} fps`) + row("Spazio usato (sessione)", `${mb.toFixed(1)} MB`) +
+    row("Salvataggio", frames.memOnly ? bad("solo in memoria (si perde se chiudi la pagina)") : ok("su disco (resta anche se ricarichi)"));
+  $("tlMake").disabled = !c || !!tlTimer; $("tlClear").disabled = !c || !!tlTimer; $("tlStop").disabled = !tlTimer; $("tlStart").disabled = !!tlTimer;
+}
+async function tlCapture() {
+  if (tlBusy) return; tlBusy = true;
+  try {
+    const v = $("vid"), cv = $("tlCanvas"); cv.width = v.videoWidth; cv.height = v.videoHeight;
+    cv.getContext("2d").drawImage(v, 0, 0);
+    const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", +$("tlQ").value));
+    await frames.add(blob); set("Time-lapse", `${frames.count} immagini ${v.videoWidth}x${v.videoHeight} ~${(blob.size / 1024).toFixed(0)}KB ciascuna`);
+  } catch (e) { $("tlMsg").innerHTML = bad(`${e.name}: ${e.message}`); }
+  tlBusy = false; tlRefresh();
+}
+$("tlStart").onclick = async () => {
+  await frames.init();
+  try { if (!stream) { const [w, h] = getRes(); await open($("facing").value, w, h, false); $("stop").disabled = false; } } catch (e) { $("tlMsg").innerHTML = bad(`${e.name}: ${e.message}`); return; }
+  if (frames.count && !confirm("Ci sono già immagini salvate: aggiungo a quelle esistenti?")) await frames.clear();
+  const int = +$("tlInt").value * 1000; tlStart = Date.now(); let k = 0;
+  $("tlMsg").textContent = "Time-lapse in corso: non chiudere la pagina e non bloccare lo schermo.";
+  const loop = async () => { await tlCapture(); k++; if (tlTimer) tlTimer = setTimeout(loop, Math.max(0, tlStart + k * int - Date.now())); };
+  tlTimer = setTimeout(() => {}, 0); loop();
+  clearInterval(window.tlUi); window.tlUi = setInterval(tlRefresh, 1000);
+};
+$("tlStop").onclick = () => { clearTimeout(tlTimer); tlTimer = null; clearInterval(window.tlUi); $("tlMsg").textContent = "Fermato. Tocca “Crea video”."; tlRefresh(); };
+$("tlClear").onclick = async () => { await frames.clear(); $("tlPlay").hidden = true; $("tlShare").disabled = true; tlBlob = null; $("tlMsg").textContent = "Svuotato."; tlRefresh(); };
+$("tlMake").onclick = async () => {
+  const keys = await frames.keys(), fps = +$("tlFps").value; if (!keys.length) return;
+  $("tlMake").disabled = true; const cv = $("tlCanvas"), g = cv.getContext("2d");
+  const first = await loadBmp(await frames.get(keys[0])); cv.width = first.width; cv.height = first.height; g.drawImage(first, 0, 0);
+  const pref = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+  const chunks = []; let mr;
+  try { mr = new MediaRecorder(cv.captureStream(fps), { ...(pref ? { mimeType: pref } : {}), videoBitsPerSecond: 20000000 }); } catch (e) { $("tlMsg").innerHTML = bad(`${e.name}: ${e.message}`); tlRefresh(); return; }
+  mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const done = new Promise((r) => (mr.onstop = r)); mr.start(500);
+  for (let i = 0; i < keys.length; i++) {
+    const bmp = await loadBmp(await frames.get(keys[i])); g.drawImage(bmp, 0, 0); bmp.close?.();
+    $("tlMsg").textContent = `Creo il video… ${i + 1}/${keys.length}`; await sleep(1000 / fps);
+  }
+  await sleep(300); mr.stop(); await done;
+  tlBlob = new Blob(chunks, { type: mr.mimeType || pref || "video/mp4" });
+  const p = $("tlPlay"); p.src = URL.createObjectURL(tlBlob); p.hidden = false; $("tlShare").disabled = false;
+  $("tlMsg").innerHTML = ok(`Video pronto: ${(tlBlob.size / 1048576).toFixed(1)} MB · ${cv.width}×${cv.height} · ${(keys.length / fps).toFixed(1)} s`);
+  set("Video time-lapse", `${cv.width}x${cv.height} ${(tlBlob.size / 1048576).toFixed(1)}MB ${tlBlob.type}`); tlRefresh();
+};
+$("tlShare").onclick = async () => {
+  const ext = tlBlob.type.includes("mp4") ? "mp4" : "webm", file = new File([tlBlob], `timelapse.${ext}`, { type: tlBlob.type });
+  try { if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(tlBlob); a.download = file.name; a.click(); } }
+  catch (e) { $("tlMsg").innerHTML += `<br>${bad(e.name)}`; }
+};
+frames.init().then(tlRefresh);
 
 $("copy").onclick = async () => { try { await navigator.clipboard.writeText($("report").textContent); $("copy").textContent = "Copiato"; } catch { const r = document.createRange(); r.selectNodeContents($("report")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
 </script>
