@@ -26,7 +26,13 @@
 <body>
 <main>
   <h1>Test fotocamera</h1>
-  <p class="muted" style="margin:0">Apri questa pagina in Safari sul telefono da testare. Esegui i passaggi in ordine e manda lo screenshot del Report in fondo.</p>
+  <p class="muted" style="margin:0">Apri questa pagina in Safari sul telefono da testare.</p>
+
+  <section class="panel"><h2>Test completo (consigliato)</h2>
+    <p class="muted" style="margin:0 0 8px">Un solo tocco: prova fotocamere, risoluzioni, registrazione con audio, time-lapse, anteprima WebRTC e rete. Dura circa 2-3 minuti. Consenti fotocamera e microfono, tieni lo schermo acceso e non cambiare app. Alla fine usa <b>Copia report</b> e incollalo in chat.</p>
+    <button class="primary" id="full">▶ Esegui test completo</button>
+    <div id="fullProg" class="muted" style="margin-top:6px"></div>
+  </section>
 
   <section class="panel"><h2>1 · Ambiente</h2><table id="env"></table></section>
 
@@ -72,23 +78,34 @@
     <button id="tlShare" disabled>Salva / Condividi video</button>
   </section>
 
-  <section class="panel"><h2>Report (fai uno screenshot)</h2><pre id="report">Esegui i passaggi sopra.</pre>
-    <button id="copy" style="margin-top:8px">Copia report</button></section>
+  <section class="panel"><h2>Report</h2><pre id="report">Esegui il test completo.</pre>
+    <button class="primary" id="copy" style="margin-top:8px">Copia report</button><button id="repShare" style="margin-top:8px">Condividi…</button><button id="repDl" style="margin-top:8px">Scarica .txt</button></section>
 </main>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const R = {}; // risultati per il report
 const ok = (t) => `<span class="ok">${t}</span>`, bad = (t) => `<span class="bad">${t}</span>`;
 const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
 const yn = (v) => (v ? ok("sì") : bad("no"));
 let stream = null, lastBlob = null;
 
-function updateReport() {
-  $("report").textContent = Object.entries(R).map(([k, v]) => `${k}: ${v}`).join("\n");
+const PAGE_VERSION = "r5-2026-10-15";
+const R = new Map(); // sezione -> Map(chiave -> valore)
+function rep(sec, k, v) { if (!R.has(sec)) R.set(sec, new Map()); R.get(sec).set(k, typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)); updateReport(); }
+function set(k, v) { rep("Prove manuali", k, v); }
+function buildReport() {
+  const out = [`REPORT TEST FOTOCAMERA · pagina ${PAGE_VERSION} · ${new Date().toISOString()}`];
+  for (const [sec, m] of R) { out.push("", `## ${sec}`); for (const [k, v] of m) out.push(`${k}: ${v}`); }
+  return out.join("\n");
 }
-function set(k, v) { R[k] = v; updateReport(); }
+function updateReport() { $("report").textContent = buildReport(); }
+const nErr = () => R.get("Errori")?.size ?? 0;
+addEventListener("error", (e) => rep("Errori", `err${nErr() + 1}`, `${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`));
+addEventListener("unhandledrejection", (e) => rep("Errori", `err${nErr() + 1}`, `promise: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`));
+const mon = { drift: 0, late: 0, hidden: 0, last: performance.now() };
+setInterval(() => { const n = performance.now(), d = Math.abs(n - mon.last - 1000); mon.last = n; mon.drift = Math.max(mon.drift, d); if (d > 500) mon.late++; }, 1000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) mon.hidden++; });
 
 /* 1 · Ambiente */
 (function env() {
@@ -294,7 +311,163 @@ $("tlShare").onclick = async () => {
 };
 frames.init().then(() => { tlHelp(); tlRefresh(); });
 
-$("copy").onclick = async () => { try { await navigator.clipboard.writeText($("report").textContent); $("copy").textContent = "Copiato"; } catch { const r = document.createRange(); r.selectNodeContents($("report")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
+
+/* ===== Test completo ===== */
+const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1), mx = (a) => Math.max(...a);
+function hiddenVideo(st) { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none"; document.body.appendChild(v); v.srcObject = st; return v; }
+function fpsOn(v, ms = 1500) {
+  return new Promise((res) => {
+    if (!v.requestVideoFrameCallback) return res(null);
+    let n = 0; const t0 = performance.now();
+    const cb = () => { n++; if (performance.now() - t0 < ms) v.requestVideoFrameCallback(cb); else res(+(n / ((performance.now() - t0) / 1000)).toFixed(1)); };
+    v.requestVideoFrameCallback(cb);
+  });
+}
+const errTxt = (e) => `ERRORE ${e.name || ""}: ${e.message || e}`;
+async function safe(sec, k, fn) { try { rep(sec, k, await fn()); } catch (e) { rep(sec, k, errTxt(e)); } }
+const stopStream = (st) => st && st.getTracks().forEach((t) => t.stop());
+
+async function collectEnv() {
+  const ua = navigator.userAgent, m = ua.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/);
+  rep("Ambiente", "User agent", ua); rep("Ambiente", "iOS (da UA)", m ? `${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : "non rilevata");
+  rep("Ambiente", "Piattaforma", navigator.platform); rep("Ambiente", "Lingua", navigator.language); rep("Ambiente", "Fuso orario", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  rep("Ambiente", "Schermo", `${screen.width}x${screen.height} @${devicePixelRatio}x`); rep("Ambiente", "Viewport", `${innerWidth}x${innerHeight}`);
+  rep("Ambiente", "Orientamento", screen.orientation?.type ?? (innerWidth > innerHeight ? "landscape" : "portrait"));
+  rep("Ambiente", "App su schermata Home (standalone)", navigator.standalone ?? "n/d"); rep("Ambiente", "CPU core", navigator.hardwareConcurrency ?? "n/d"); rep("Ambiente", "RAM dichiarata", navigator.deviceMemory ?? "n/d");
+  rep("Ambiente", "Online", navigator.onLine); rep("Ambiente", "Connessione (API)", navigator.connection ? { type: navigator.connection.effectiveType, down: navigator.connection.downlink, rtt: navigator.connection.rtt } : "non disponibile");
+  rep("Ambiente", "HTTPS", isSecureContext); rep("Ambiente", "Origine", location.origin);
+  const md = navigator.mediaDevices, F = "Funzioni del browser", tf = (v) => (v ? "sì" : "NO");
+  const fileShare = (() => { try { return !!navigator.canShare?.({ files: [new File([new Blob(["x"])], "a.mp4", { type: "video/mp4" })] }); } catch { return false; } })();
+  const feats = { "getUserMedia": !!md?.getUserMedia, "enumerateDevices": !!md?.enumerateDevices, "getSupportedConstraints": !!md?.getSupportedConstraints, "MediaRecorder": "MediaRecorder" in window,
+    "canvas.captureStream": !!HTMLCanvasElement.prototype.captureStream, "requestVideoFrameCallback": !!HTMLVideoElement.prototype.requestVideoFrameCallback, "createImageBitmap": !!window.createImageBitmap,
+    "OffscreenCanvas": "OffscreenCanvas" in window, "IndexedDB": !!window.indexedDB, "WebRTC (RTCPeerConnection)": !!window.RTCPeerConnection, "WebSocket": "WebSocket" in window, "WebCodecs (VideoEncoder)": "VideoEncoder" in window,
+    "Web Share": !!navigator.share, "Condivisione file": fileShare, "Wake Lock": "wakeLock" in navigator, "Batteria (API)": "getBattery" in navigator, "Service Worker": "serviceWorker" in navigator,
+    "Storage persist()": !!navigator.storage?.persist, "ImageCapture": "ImageCapture" in window, "Blocco orientamento": !!screen.orientation?.lock, "BroadcastChannel": "BroadcastChannel" in window, "AudioContext": !!(window.AudioContext || window.webkitAudioContext) };
+  for (const [k, v] of Object.entries(feats)) rep(F, k, tf(v));
+  try { rep(F, "Vincoli supportati", Object.keys(md.getSupportedConstraints()).filter((k) => md.getSupportedConstraints()[k]).join(",")); } catch (e) { rep(F, "Vincoli supportati", errTxt(e)); }
+  const mimes = ["video/mp4", "video/mp4;codecs=avc1", "video/mp4;codecs=avc1.640028", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=hvc1", "video/mp4;codecs=hev1", "video/mp4;codecs=hvc1,mp4a.40.2", "video/webm", "video/webm;codecs=vp8", "video/webm;codecs=vp9", "video/webm;codecs=h264", "video/webm;codecs=vp9,opus", "audio/mp4", "audio/webm;codecs=opus"];
+  if ("MediaRecorder" in window) for (const t of mimes) rep("Registrazione: formati", t, tf(MediaRecorder.isTypeSupported(t)));
+  const v = document.createElement("video");
+  for (const [n, t] of [["H.264", 'video/mp4; codecs="avc1.640028"'], ["HEVC/H.265", 'video/mp4; codecs="hvc1"'], ["VP9", 'video/webm; codecs="vp9"'], ["AV1", 'video/mp4; codecs="av01.0.05M.08"']]) rep("Riproduzione: codec", n, v.canPlayType(t) || "no");
+  await safe("Spazio", "Quota e uso del browser", async () => { const e = await navigator.storage.estimate(); return `uso ${(e.usage / 1048576).toFixed(0)} MB di quota ${(e.quota / 1048576).toFixed(0)} MB`; });
+  await safe("Spazio", "Archivio persistente", async () => String(await navigator.storage.persisted()));
+}
+
+async function probeCamera(facing, w, h, o = {}) {
+  const t0 = performance.now(); let st;
+  try {
+    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: o.exactFacing ? { exact: facing } : facing, width: o.exact ? { exact: w } : { ideal: w }, height: o.exact ? { exact: h } : { ideal: h }, frameRate: { ideal: o.fps || 30 } } });
+  } catch (e) { return errTxt(e); }
+  const openMs = Math.round(performance.now() - t0), v = hiddenVideo(st);
+  try {
+    await v.play(); const tr = st.getVideoTracks()[0], se = tr.getSettings(), fps = await fpsOn(v, 1500), q = v.getVideoPlaybackQuality?.();
+    if (o.detail) { rep("Camera: dettagli", `Etichetta ${facing}`, tr.label); rep("Camera: dettagli", `Impostazioni ${facing}`, se); try { rep("Camera: dettagli", `Capacità ${facing}`, tr.getCapabilities ? tr.getCapabilities() : "non disponibile"); } catch (e) { rep("Camera: dettagli", `Capacità ${facing}`, errTxt(e)); } }
+    return `${se.width}x${se.height} dich.${se.frameRate ?? "?"}fps mis.${fps ?? "?"}fps fotogrammi persi ${q ? q.droppedVideoFrames + "/" + q.totalVideoFrames : "n/d"} apertura ${openMs}ms`;
+  } catch (e) { return errTxt(e); } finally { stopStream(st); v.remove(); await sleep(300); }
+}
+
+let actx = null; // AudioContext creato nel gesto dell'utente (iOS lo richiede)
+async function recTest(w, h, bps, audio, secs = 5) {
+  let st; const t0 = performance.now();
+  try { st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } }, audio }); } catch (e) { return errTxt(e); }
+  const openMs = Math.round(performance.now() - t0), pv = hiddenVideo(st); await pv.play().catch(() => {});
+  const pref = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+  let mr; try { mr = new MediaRecorder(st, { ...(pref ? { mimeType: pref } : {}), ...(bps ? { videoBitsPerSecond: bps } : {}) }); } catch (e) { stopStream(st); pv.remove(); return errTxt(e); }
+  const chunks = []; mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const at = st.getAudioTracks()[0], aset = at ? at.getSettings() : null; let peak = 0, ctx, timer;
+  if (audio && at) { try { ctx = actx || new (window.AudioContext || window.webkitAudioContext)(); await ctx.resume(); const an = ctx.createAnalyser(); ctx.createMediaStreamSource(st).connect(an); const buf = new Uint8Array(an.fftSize); timer = setInterval(() => { an.getByteTimeDomainData(buf); for (const b of buf) peak = Math.max(peak, Math.abs(b - 128)); }, 100); } catch { /* niente livello audio */ } }
+  const stopped = new Promise((r) => (mr.onstop = r)), tS = performance.now(); mr.start(1000); await sleep(secs * 1000); mr.stop(); await stopped;
+  const real = (performance.now() - tS) / 1000; clearInterval(timer); stopStream(st); pv.remove(); await sleep(300);
+  const blob = new Blob(chunks, { type: mr.mimeType || pref }), vs = pv.videoWidth;
+  const meta = await new Promise((res) => { const v = document.createElement("video"); v.muted = true; v.preload = "metadata"; v.onloadedmetadata = () => res({ w: v.videoWidth, h: v.videoHeight, d: v.duration }); v.onerror = () => res(null); v.src = URL.createObjectURL(blob); setTimeout(() => res(null), 6000); });
+  return `${mr.mimeType} · clip ${meta ? meta.w + "x" + meta.h : "NON LEGGIBILE"} durata ${meta ? (isFinite(meta.d) ? meta.d.toFixed(1) + "s" : "Infinity") : "?"} su ${real.toFixed(1)}s · ${(blob.size / 1048576).toFixed(2)}MB · ${((blob.size * 8) / real / 1e6).toFixed(1)}Mbps · apertura ${openMs}ms · audio ${at ? "sì " + JSON.stringify({ sr: aset.sampleRate, ch: aset.channelCount }) + " picco " + peak + "/128" + (peak === 0 ? " (SILENZIO: microfono non attivo?)" : "") : audio ? "RICHIESTO MA ASSENTE" : "no"}`;
+}
+
+async function tlTiming(w, h, n = 8) {
+  const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } });
+  const pv = hiddenVideo(st); await pv.play(); await sleep(600);
+  const name = "gdc-tl-test", cv = document.createElement("canvas");
+  await new Promise((r) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = r; });
+  const db = await new Promise((res, rej) => { const r = indexedDB.open(name, 1); r.onupgradeneeded = () => r.result.createObjectStore("f", { autoIncrement: true }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const tb = [], ta = [], sz = [];
+  for (let i = 0; i < n; i++) {
+    const t1 = performance.now(); cv.width = pv.videoWidth; cv.height = pv.videoHeight; cv.getContext("2d").drawImage(pv, 0, 0);
+    const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.92)), t2 = performance.now();
+    await new Promise((res, rej) => { const q = db.transaction("f", "readwrite").objectStore("f").add(blob); q.onsuccess = res; q.onerror = () => rej(q.error); });
+    ta.push(performance.now() - t2); tb.push(t2 - t1); sz.push(blob.size); await sleep(100);
+  }
+  const back = await new Promise((res, rej) => { const q = db.transaction("f").objectStore("f").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  const okRead = back.length === n && back.every((b, i) => b.size === sz[i]), wh = `${pv.videoWidth}x${pv.videoHeight}`;
+  db.close(); indexedDB.deleteDatabase(name); stopStream(st); pv.remove();
+  return `${wh} · JPEG ${(avg(sz) / 1024).toFixed(0)}KB · codifica ${avg(tb).toFixed(0)}ms (max ${mx(tb).toFixed(0)}) · scrittura disco ${avg(ta).toFixed(0)}ms (max ${mx(ta).toFixed(0)}) · rilettura ${okRead ? "ok" : "ERRORE"} · intervallo minimo consigliato ≈ ${(((mx(tb) + mx(ta)) * 1.5) / 1000).toFixed(1)} s`;
+}
+
+async function rtcTest() {
+  if (!window.RTCPeerConnection) return "WebRTC non supportato";
+  const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } });
+  const cfg = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }, pc1 = new RTCPeerConnection(cfg), pc2 = new RTCPeerConnection(cfg), cand = {};
+  const onc = (to) => (e) => { if (e.candidate) { const t = e.candidate.type || (/ typ (\w+)/.exec(e.candidate.candidate) || [])[1] || "?"; cand[t] = (cand[t] || 0) + 1; to.addIceCandidate(e.candidate).catch(() => {}); } };
+  pc1.onicecandidate = onc(pc2); pc2.onicecandidate = onc(pc1);
+  st.getTracks().forEach((t) => pc1.addTrack(t, st));
+  const remote = new Promise((res) => (pc2.ontrack = (e) => res(e.streams[0])));
+  await pc1.setLocalDescription(await pc1.createOffer()); await pc2.setRemoteDescription(pc1.localDescription);
+  await pc2.setLocalDescription(await pc2.createAnswer()); await pc1.setRemoteDescription(pc2.localDescription);
+  const rs = await Promise.race([remote, sleep(8000).then(() => null)]);
+  if (!rs) { pc1.close(); pc2.close(); stopStream(st); return `nessun video ricevuto · candidati ${JSON.stringify(cand)}`; }
+  const rv = hiddenVideo(rs); await rv.play().catch(() => {}); await sleep(1500);
+  const grab = async () => { const r = await pc2.getStats(), o = { codecs: {} }; r.forEach((x) => { if (x.type === "codec") o.codecs[x.id] = x.mimeType; if (x.type === "inbound-rtp" && x.kind === "video") o.in = x; }); return o; };
+  const a = await grab(); await sleep(3000); const b = await grab();
+  let out = ""; const ob = []; (await pc1.getStats()).forEach((x) => { if (x.type === "outbound-rtp" && x.kind === "video") ob.push(x); });
+  const i = b.in || {}, o1 = ob[0] || {}, mbps = i.bytesReceived != null && a.in ? (((i.bytesReceived - a.in.bytesReceived) * 8) / 3 / 1e6).toFixed(2) : "?";
+  out = `ricevuto ${i.frameWidth ?? "?"}x${i.frameHeight ?? "?"} · ${i.framesPerSecond ?? "?"}fps · ${mbps}Mbps · codec ${b.codecs[i.codecId] ?? "?"} · persi ${i.framesDropped ?? "?"} · limitazione ${o1.qualityLimitationReason ?? "?"} · encoder ${o1.encoderImplementation ?? "?"} · candidati ICE ${JSON.stringify(cand)} (srflx = STUN raggiungibile)`;
+  rv.remove(); pc1.close(); pc2.close(); stopStream(st); return out;
+}
+
+async function netTest() {
+  const t = [], url = location.href.split("#")[0];
+  for (let i = 0; i < 5; i++) { const t0 = performance.now(); const r = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Math.random(), { cache: "no-store" }); const b = await r.arrayBuffer(); t.push({ ms: performance.now() - t0, kb: b.byteLength / 1024 }); }
+  const ms = t.map((x) => x.ms).sort((a, b) => a - b), kb = t[0].kb;
+  return `richiesta a ${location.host}: mediana ${ms[2].toFixed(0)}ms (min ${ms[0].toFixed(0)}, max ${ms[4].toFixed(0)}) su ${kb.toFixed(0)}KB`;
+}
+
+async function runFull(btn) {
+  btn.disabled = true; try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume().catch(() => {}); } catch { actx = null; }
+  const prog = $("fullProg"), t00 = performance.now(), step = (t) => { prog.textContent = t; };
+  stopStream(stream); stream = null; $("vid").srcObject = null;
+  try {
+    step("1/9 Ambiente e funzioni…"); await collectEnv();
+    step("2/9 Permessi e dispositivi…");
+    let s0, S = "Permessi";
+    try { s0 = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); rep(S, "Fotocamera + microfono", "concessi"); }
+    catch (e) { rep(S, "Fotocamera + microfono", errTxt(e)); try { s0 = await navigator.mediaDevices.getUserMedia({ video: true }); rep(S, "Solo fotocamera", "concessa"); } catch (e2) { rep(S, "Solo fotocamera", errTxt(e2)); throw e2; } }
+    try { const d = await navigator.mediaDevices.enumerateDevices(); d.forEach((x, i) => rep("Dispositivi", `#${i + 1} ${x.kind}`, x.label || "(senza nome)")); } catch (e) { rep("Dispositivi", "enumerateDevices", errTxt(e)); }
+    stopStream(s0);
+    step("3/9 Fotocamera posteriore: risoluzioni…");
+    const REAR = "Camera posteriore: risoluzioni", rear = [["ideale 640x480", 640, 480], ["ideale 1280x720", 1280, 720, { detail: true }], ["ideale 1920x1080", 1920, 1080], ["ideale 3840x2160", 3840, 2160], ["ideale 1080x1920 (verticale)", 1080, 1920], ["esatta 1920x1080", 1920, 1080, { exact: true }], ["esatta 3840x2160", 3840, 2160, { exact: true }], ["1920x1080 a 60 fps", 1920, 1080, { fps: 60 }], ["3840x2160 a 60 fps", 3840, 2160, { fps: 60 }]];
+    for (const [l, w, h, o] of rear) { step(`3/9 Posteriore ${l}…`); rep(REAR, l, await probeCamera("environment", w, h, o)); }
+    step("4/9 Fotocamera frontale…");
+    for (const [l, w, h, o] of [["ideale 1280x720", 1280, 720, { detail: true }], ["ideale 1920x1080", 1920, 1080]]) rep("Camera frontale: risoluzioni", l, await probeCamera("user", w, h, o));
+    const RC = "Registrazione dal browser (5 s ciascuna)";
+    for (const [l, w, h, bps, au] of [["1080p predefinito senza audio", 1920, 1080, 0, false], ["1080p 20Mbps con audio", 1920, 1080, 20e6, true], ["4K predefinito senza audio", 3840, 2160, 0, false], ["4K 40Mbps con audio", 3840, 2160, 40e6, true]]) { step(`5/9 Registrazione ${l}…`); rep(RC, l, await recTest(w, h, bps, au)); }
+    for (const [l, w, h] of [["1080p", 1920, 1080], ["4K", 3840, 2160]]) { step(`6/9 Time-lapse, velocità di cattura ${l}…`); await safe("Time-lapse: velocità di cattura (8 immagini)", l, () => tlTiming(w, h)); }
+    step("7/9 Anteprima WebRTC (prova in locale)…"); await safe("WebRTC", "Anteprima 720p in locale + STUN", rtcTest);
+    step("8/9 Rete…"); await safe("Rete", "Latenza verso la pagina", netTest);
+    step("9/9 Schermo acceso…");
+    await safe("Schermo acceso", "Wake Lock", async () => { if (!("wakeLock" in navigator)) return "non disponibile"; const l = await navigator.wakeLock.request("screen"); await l.release(); return "ottenuto"; });
+    rep("Schermo acceso", "Livello batteria", "getBattery" in navigator ? "disponibile" : "non disponibile");
+  } catch (e) { rep("Errori", `test interrotto`, errTxt(e)); }
+  rep("Esito", "Durata del test", `${((performance.now() - t00) / 1000).toFixed(0)} s`);
+  rep("Esito", "Scarto massimo dei timer (1 s)", `${mon.drift.toFixed(0)} ms · ritardi >500ms: ${mon.late}`); rep("Esito", "Pagina in background durante il test", mon.hidden);
+  rep("Esito", "Errori registrati", nErr());
+  step(`Fatto in ${((performance.now() - t00) / 1000).toFixed(0)} s. Tocca “Copia report” e incollalo in chat.`); btn.disabled = false; $("report").scrollIntoView({ behavior: "smooth" });
+}
+$("full").onclick = () => runFull($("full"));
+collectEnv().catch(() => {});
+
+const saveText = async () => buildReport();
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText(buildReport()); $("copy").textContent = "Copiato ✓"; } catch { const r = document.createRange(); r.selectNodeContents($("report")); getSelection().removeAllRanges(); getSelection().addRange(r); $("copy").textContent = "Selezionato: tieni premuto e Copia"; } };
+$("repShare").onclick = async () => { try { await navigator.share({ title: "Report test fotocamera", text: buildReport() }); } catch (e) { rep("Errori", `err${nErr() + 1}`, `share ${e.name}`); } };
+$("repDl").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([buildReport()], { type: "text/plain" })); a.download = "report-camera.txt"; a.click(); };
 </script>
 </body>
 </html>
