@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 5
-**Ultimo aggiornamento:** 2026-10-15 15:37
+**Versione:** 6
+**Ultimo aggiornamento:** 2026-10-15 16:20
 
 ## Vision
 
@@ -118,6 +118,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] Prototipo nel test. Limite: circa 1300 immagini a 1080p nel buffer locale.
 - [2026-10-15] Integrato in camera r4 e dashboard r4 (comandi tl_start e tl_stop, modalità automatica e manuale, video creato sul telefono, "Ricrea il video" se la creazione fallisce). Provato solo con simulazione locale: da provare sull'XR, in particolare la creazione del video con canvas e MediaRecorder su iOS 16.3.
+- [2026-10-15] Provato sull'XR (iOS 16.3.1): modalità automatica, 72 s di ripresa, 145 immagini (2 al secondo, circa 600 KB l'una), video 1080×1920 a 30 fps di 4,8 s (×15), 19 MB, creato in 9 s e salvato in Foto con "Salva in Foto / File". Funziona; aspetto diverso dalla camera nativa (esposizione e messa a fuoco automatiche, nessun blocco possibile in Safari 16.3), ma giudicato accettabile. Per ritmi più lenti usare la modalità manuale: velocità = intervallo × fps. Limite buffer 700 MB: circa 8-9 minuti a 2 immagini al secondo.
 
 ### Step 8 — App Comandi sull'XR (batteria)
 
@@ -146,6 +147,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-15 16:20] Prova del time-lapse sull'XR e specifiche
+
+**Riepilogo:** il time-lapse automatico è stato provato sull'XR con esito positivo (video creato e salvato in Foto) e sono state ricavate dal registro le specifiche per scegliere il ritmo nelle riprese successive.
+
+**Cosa è stato fatto:**
+- Analisi del registro avanzato: modalità automatica, fps 30, JPEG 0,92, 1080×1920; 145 immagini in 72 s (una ogni 0,5 s, nessuna saltata, nessun errore); video di 4,8 s (×15), 19 MB, creazione in 9 s.
+- Formula per regolarsi: velocità = intervallo × fps; intervallo = durata reale ÷ (durata video voluta × fps). Tabella di riferimento fornita all'utente (0,5 s ×15, 1 s ×30, 2 s ×60, 5 s ×150).
+- Confermato dal registro che l'anteprima 720p dell'XR ora applica i parametri (fix r4) e che REC di tre telefoni insieme funziona.
+- Osservazioni aperte: la pagina camera in background silenzia la camera e il telefono risulta offline (serve primo piano e blocco automatico "Mai"); i tre telefoni partono tutti con il nome "cam1" (da rendere unici); il PC risulta circa 0,67 s indietro rispetto ai telefoni.
+
+**Decisioni prese:**
+- Contesto: l'utente ritiene possibile che il ritmo di scatto fosse troppo alto.
+- Decisione: nessuna modifica al codice; per ritmi più lenti si usa la modalità manuale. L'automatica resta com'è (emula iPhone: raddoppio dopo 10 minuti).
+- Da rivedere se: i time-lapse lunghi riempiono il buffer o l'aspetto non convince (valutare qualità "Normale" o app nativa).
+
+**File consegnati/modificati:** `documento-sessione-video-system-gdc-studio.md` (versione 6).
+
+---
 
 ### [2026-10-15 15:35] Time-lapse e anteprime live nella home
 
