@@ -34,6 +34,13 @@
     <div id="fullProg" class="muted" style="margin-top:6px"></div>
   </section>
 
+  <section class="panel"><h2>Test approfondito (secondo giro)</h2>
+    <p class="muted" style="margin:0 0 8px">Ripresa lunga scritta a pezzi su disco, 60 fps, foto da 12 MP, velocità del canale dati, scrittura su disco e limite di spazio del browser. Dura circa 6 minuti e usa fino a qualche GB di spazio, che viene liberato alla fine. Se Safari chiede più spazio, consenti. Tieni lo schermo acceso e non cambiare app.</p>
+    <button class="primary" id="deep">▶ Esegui test approfondito</button>
+    <progress id="deepBar" max="100" value="0" style="width:100%;margin-top:8px"></progress>
+    <div id="deepTxt" class="muted"></div>
+  </section>
+
   <section class="panel"><h2>1 · Ambiente</h2><table id="env"></table></section>
 
   <section class="panel"><h2>2 · Fotocamera</h2>
@@ -79,7 +86,7 @@
   </section>
 
   <section class="panel"><h2>Report</h2><pre id="report">Esegui il test completo.</pre>
-    <button class="primary" id="copy" style="margin-top:8px">Copia report</button><button id="repShare" style="margin-top:8px">Condividi…</button><button id="repDl" style="margin-top:8px">Scarica .txt</button></section>
+    <button class="primary" id="copy" style="margin-top:8px">Copia report</button><button id="repShare" style="margin-top:8px">Condividi…</button><button id="repDl" style="margin-top:8px">Scarica .txt</button><button id="prevRep" style="margin-top:8px" hidden>Copia ultimo report salvato</button></section>
 </main>
 
 <script>
@@ -99,7 +106,9 @@ function buildReport() {
   for (const [sec, m] of R) { out.push("", `## ${sec}`); for (const [k, v] of m) out.push(`${k}: ${v}`); }
   return out.join("\n");
 }
-function updateReport() { $("report").textContent = buildReport(); }
+let persistReport = false;
+const prevReport = (() => { try { return localStorage.getItem("gdc-report"); } catch { return null; } })();
+function updateReport() { const t = buildReport(); $("report").textContent = t; if (persistReport) { try { localStorage.setItem("gdc-report", t); } catch { /* spazio pieno */ } } }
 const nErr = () => R.get("Errori")?.size ?? 0;
 addEventListener("error", (e) => rep("Errori", `err${nErr() + 1}`, `${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`));
 addEventListener("unhandledrejection", (e) => rep("Errori", `err${nErr() + 1}`, `promise: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`));
@@ -349,14 +358,14 @@ async function collectEnv() {
   if ("MediaRecorder" in window) for (const t of mimes) rep("Registrazione: formati", t, tf(MediaRecorder.isTypeSupported(t)));
   const v = document.createElement("video");
   for (const [n, t] of [["H.264", 'video/mp4; codecs="avc1.640028"'], ["HEVC/H.265", 'video/mp4; codecs="hvc1"'], ["VP9", 'video/webm; codecs="vp9"'], ["AV1", 'video/mp4; codecs="av01.0.05M.08"']]) rep("Riproduzione: codec", n, v.canPlayType(t) || "no");
-  await safe("Spazio", "Quota e uso del browser", async () => { const e = await navigator.storage.estimate(); return `uso ${(e.usage / 1048576).toFixed(0)} MB di quota ${(e.quota / 1048576).toFixed(0)} MB`; });
+  await safe("Spazio", "Quota e uso del browser", async () => { if (!navigator.storage?.estimate) return "non disponibile in questo Safari"; const e = await navigator.storage.estimate(); return `uso ${(e.usage / 1048576).toFixed(0)} MB di quota ${(e.quota / 1048576).toFixed(0)} MB`; });
   await safe("Spazio", "Archivio persistente", async () => String(await navigator.storage.persisted()));
 }
 
 async function probeCamera(facing, w, h, o = {}) {
   const t0 = performance.now(); let st;
   try {
-    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: o.exactFacing ? { exact: facing } : facing, width: o.exact ? { exact: w } : { ideal: w }, height: o.exact ? { exact: h } : { ideal: h }, frameRate: { ideal: o.fps || 30 } } });
+    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: o.exactFacing ? { exact: facing } : facing, width: o.exact ? { exact: w } : { ideal: w }, height: o.exact ? { exact: h } : { ideal: h }, frameRate: o.fpsExact ? { exact: o.fpsExact } : o.fpsMin ? { min: o.fpsMin, ideal: o.fpsMin + 10 } : { ideal: o.fps || 30 } } });
   } catch (e) { return errTxt(e); }
   const openMs = Math.round(performance.now() - t0), v = hiddenVideo(st);
   try {
@@ -431,7 +440,7 @@ async function netTest() {
 }
 
 async function runFull(btn) {
-  btn.disabled = true; try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume().catch(() => {}); } catch { actx = null; }
+  persistReport = true; btn.disabled = true; try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume().catch(() => {}); } catch { actx = null; }
   const prog = $("fullProg"), t00 = performance.now(), step = (t) => { prog.textContent = t; };
   stopStream(stream); stream = null; $("vid").srcObject = null;
   try {
@@ -462,6 +471,112 @@ async function runFull(btn) {
   step(`Fatto in ${((performance.now() - t00) / 1000).toFixed(0)} s. Tocca “Copia report” e incollalo in chat.`); btn.disabled = false; $("report").scrollIntoView({ behavior: "smooth" });
 }
 $("full").onclick = () => runFull($("full"));
+
+/* ===== Test approfondito ===== */
+const FAST = location.search.includes("fast");
+const delDb = (n) => new Promise((r) => { const q = indexedDB.deleteDatabase(n); q.onsuccess = q.onerror = q.onblocked = r; });
+const openDb = (n) => new Promise((res, rej) => { const r = indexedDB.open(n, 1); r.onupgradeneeded = () => r.result.createObjectStore("c"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const idbPut = (db, k, v) => new Promise((res, rej) => { const t = db.transaction("c", "readwrite"); t.objectStore("c").add(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("transazione annullata")); });
+const idbAll = (db) => new Promise((res, rej) => { const q = db.transaction("c").objectStore("c").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+function playFps(v, ms = 2500) {
+  return new Promise(async (res) => {
+    if (!v.requestVideoFrameCallback) return res("n/d");
+    const mt = [], t0 = performance.now();
+    const cb = (now, md) => { mt.push(md.mediaTime); if (performance.now() - t0 < ms) v.requestVideoFrameCallback(cb); else { v.pause(); res(mt.length > 1 ? +((mt.length - 1) / (mt[mt.length - 1] - mt[0])).toFixed(1) : "n/d"); } };
+    try { await v.play(); } catch { return res("play() rifiutata"); }
+    v.requestVideoFrameCallback(cb);
+  });
+}
+async function longRec(w, h, bps, secs, audio, tick) {
+  const name = "gdc-long-test"; await delDb(name); const db = await openDb(name);
+  const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } }, audio });
+  const pv = hiddenVideo(st); await pv.play(); const fps0 = await fpsOn(pv, 1500);
+  const pref = ["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+  const mr = new MediaRecorder(st, { ...(pref ? { mimeType: pref } : {}), videoBitsPerSecond: bps });
+  let n = 0, bytes = 0, pending = 0, maxPending = 0, errs = 0, lastErr = ""; const wr = [];
+  mr.ondataavailable = (e) => {
+    if (!e.data.size) return; const k = ++n, t = performance.now(); bytes += e.data.size; pending++; maxPending = Math.max(maxPending, pending);
+    idbPut(db, k, e.data).then(() => wr.push(performance.now() - t)).catch((x) => { errs++; lastErr = `${x?.name}: ${x?.message}`; }).finally(() => pending--);
+  };
+  const stopped = new Promise((r) => (mr.onstop = r)), tS = performance.now(); mr.start(1000);
+  const iv = setInterval(() => tick(Math.min(0.9, (performance.now() - tS) / 1000 / secs)), 500);
+  await sleep(secs * 1000); const fps1 = await fpsOn(pv, 1500); mr.stop(); await stopped; clearInterval(iv);
+  while (pending > 0) await sleep(50);
+  const real = (performance.now() - tS) / 1000; stopStream(st); pv.remove();
+  let out = `${w}x${h} · ${secs}s a ${bps / 1e6}Mbps${audio ? " + audio" : ""} · ${mr.mimeType} · ${n} pezzi, ${(bytes / 1048576).toFixed(0)} MB (${((bytes * 8) / real / 1e6).toFixed(1)}Mbps reali) · scrittura su disco per pezzo ${avg(wr).toFixed(0)}ms (max ${wr.length ? mx(wr).toFixed(0) : "?"}) · coda max ${maxPending} · errori scrittura ${errs}${lastErr ? " (" + lastErr + ")" : ""} · anteprima ${fps0} → ${fps1} fps`;
+  try {
+    const t1 = performance.now(), blobs = await idbAll(db), blob = new Blob(blobs, { type: mr.mimeType || pref }), asm = performance.now() - t1;
+    const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "metadata"; v.src = URL.createObjectURL(blob);
+    const meta = await new Promise((res) => { v.onloadedmetadata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(false), 15000); });
+    const pf = meta ? await playFps(v, 2500) : "n/d";
+    out += ` · riassemblaggio ${asm.toFixed(0)}ms · clip ${meta ? v.videoWidth + "x" + v.videoHeight + " durata " + (isFinite(v.duration) ? v.duration.toFixed(1) + "s" : "Infinity") : "NON LEGGIBILE"} · riproduzione ${pf} fps`;
+    URL.revokeObjectURL(v.src);
+  } catch (e) { out += ` · riassemblaggio ${errTxt(e)}`; }
+  db.close(); await delDb(name); return out;
+}
+async function dcTest(mb, tick) {
+  if (!window.RTCPeerConnection) return "WebRTC non supportato";
+  const pc1 = new RTCPeerConnection(), pc2 = new RTCPeerConnection(), total = mb * 1048576;
+  pc1.onicecandidate = (e) => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {}); pc2.onicecandidate = (e) => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
+  const ch = pc1.createDataChannel("t", { ordered: true }); let got = 0, tDone = 0;
+  const done = new Promise((res) => { pc2.ondatachannel = (e) => { e.channel.onmessage = (m) => { got += m.data.byteLength ?? m.data.size ?? 0; if (got >= total) { tDone = performance.now(); res(); } }; }; });
+  await pc1.setLocalDescription(await pc1.createOffer()); await pc2.setRemoteDescription(pc1.localDescription);
+  await pc2.setLocalDescription(await pc2.createAnswer()); await pc1.setRemoteDescription(pc2.localDescription);
+  await new Promise((r) => { ch.onopen = r; setTimeout(r, 8000); });
+  if (ch.readyState !== "open") { pc1.close(); pc2.close(); return "canale dati non aperto"; }
+  const chunk = new Uint8Array(16384), t0 = performance.now(); let sent = 0;
+  while (sent < total) { if (ch.bufferedAmount > 4 * 1048576) { await sleep(5); continue; } ch.send(chunk); sent += chunk.length; if ((sent / 16384) % 256 === 0) tick(sent / total); }
+  await Promise.race([done, sleep(40000)]); const dt = ((tDone || performance.now()) - t0) / 1000, ms = pc1.sctp?.maxMessageSize;
+  pc1.close(); pc2.close();
+  return `${(got / 1048576).toFixed(0)} MB su ${mb} in ${dt.toFixed(1)} s = ${((got * 8) / dt / 1e6).toFixed(0)} Mbps (prova sul telefono stesso: indica il limite di CPU, non la velocità del Wi-Fi) · maxMessageSize ${ms ?? "n/d"}`;
+}
+async function quotaTest(capGb, tick) {
+  const name = "gdc-quota-test"; await delDb(name); const db = await openDb(name), step = 32 * 1048576, buf = new Uint8Array(step);
+  for (let i = 0; i < buf.length; i += 4096) buf[i] = i & 255;
+  let written = 0, err = null; const t0 = performance.now(), cap = capGb * 1073741824;
+  while (written < cap) { try { await idbPut(db, written, new Blob([buf])); written += step; tick(written / cap); } catch (e) { err = e; break; } }
+  const dt = (performance.now() - t0) / 1000; db.close(); await delDb(name);
+  return `scritti ${(written / 1073741824).toFixed(2)} GB in ${dt.toFixed(0)} s (${(written / 1048576 / dt).toFixed(0)} MB/s) · ${err ? "FERMATO da errore " + err.name + ": " + err.message : "tetto di prova raggiunto senza errori"}`;
+}
+async function opfsTest() {
+  const out = { getDirectory: typeof navigator.storage?.getDirectory, createWritable: "createWritable" in (window.FileSystemFileHandle?.prototype || {}), showDirectoryPicker: typeof window.showDirectoryPicker, showSaveFilePicker: typeof window.showSaveFilePicker };
+  rep("Approfondito: archiviazione", "Funzioni file di sistema", out);
+  if (typeof navigator.storage?.getDirectory !== "function") return "OPFS non disponibile";
+  const src = `onmessage = async () => { try { const r = await navigator.storage.getDirectory(); const f = await r.getFileHandle("t.bin", { create: true }); const a = await f.createSyncAccessHandle(); a.write(new Uint8Array(1048576)); a.flush(); a.close(); await r.removeEntry("t.bin"); postMessage("ok: scrittura 1 MB in worker"); } catch (e) { postMessage("ERRORE " + e.name + ": " + e.message); } };`;
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+  const r = await new Promise((res) => { w.onmessage = (e) => res(e.data); w.onerror = (e) => res("ERRORE worker " + e.message); setTimeout(() => res("nessuna risposta"), 6000); w.postMessage(1); }); w.terminate(); return r;
+}
+async function runSteps(steps, ui) {
+  const total = steps.reduce((a, s) => a + s.est, 0); let doneEst = 0, rs = 0, rn = 0; const t0 = performance.now();
+  const show = (name, within, i) => { const cal = rn ? Math.min(3, Math.max(0.5, rs / rn)) : 1, rem = Math.max(0, (total - doneEst - within) * cal), pct = Math.min(99, Math.round(((doneEst + within) / total) * 100)); ui.bar.value = pct; ui.txt.textContent = `${pct}% · passo ${i + 1}/${steps.length}: ${name} · restano circa ${Math.floor(rem / 60)} min ${Math.round(rem % 60)} s`; };
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i], ts = performance.now(); show(s.name, 0, i);
+    try { await s.fn((f) => show(s.name, s.est * Math.min(1, f), i)); } catch (e) { rep("Errori", `err${nErr() + 1}`, `${s.name}: ${errTxt(e)}`); }
+    rs += (performance.now() - ts) / 1000 / s.est; rn++; doneEst += s.est; await sleep(300);
+  }
+  ui.bar.value = 100; ui.txt.textContent = `100% · finito in ${Math.round((performance.now() - t0) / 1000)} s. Tocca “Copia report” e incollalo in chat.`;
+}
+async function runDeep(btn) {
+  persistReport = true; btn.disabled = true; stopStream(stream); stream = null; $("vid").srcObject = null;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); actx.resume().catch(() => {}); } catch { actx = null; }
+  const P = "Approfondito", k = FAST ? 0.05 : 1, t00 = performance.now();
+  const steps = [
+    { name: "Archiviazione e file di sistema", est: 4, fn: async () => rep(P + ": archiviazione", "OPFS (scrittura in worker)", await opfsTest()) },
+    { name: "Frame rate esatti (24/30/60)", est: 18, fn: async (tick) => { let i = 0; const L = [["1080p esatti 60 fps", 1920, 1080, 60], ["720p esatti 60 fps", 1280, 720, 60], ["4K esatti 60 fps", 3840, 2160, 60], ["1080p esatti 24 fps", 1920, 1080, 24], ["1080p esatti 30 fps", 1920, 1080, 30], ["1080p minimo 50 fps", 1920, 1080, -50], ["720p minimo 50 fps", 1280, 720, -50]]; for (const [l, w, h, f] of L) { rep(P + ": frame rate (posteriore)", l, await probeCamera("environment", w, h, f < 0 ? { fpsMin: -f } : { fpsExact: f })); tick(++i / L.length); } } },
+    { name: "Foto da 12 MP (4032x3024)", est: 8, fn: async () => rep(P + ": foto 12 MP", "Cattura e salvataggio di 6 immagini", await tlTiming(4032, 3024, 6)) },
+    { name: "Registrazione lunga 4K (a pezzi su disco)", est: Math.round(150 * Math.max(k, 0.1)), fn: (tick) => safe(P + ": registrazione lunga", "4K a 40 Mbps con audio", () => longRec(3840, 2160, 40e6, Math.round(120 * k) || 6, true, tick)) },
+    { name: "Registrazione lunga 1080p (a pezzi su disco)", est: Math.round(80 * Math.max(k, 0.1)), fn: (tick) => safe(P + ": registrazione lunga", "1080p a 20 Mbps con audio", () => longRec(1920, 1080, 20e6, Math.round(60 * k) || 5, true, tick)) },
+    { name: "Velocità del canale dati WebRTC", est: 15, fn: (tick) => safe(P + ": canale dati", "Trasferimento di prova", () => dcTest(FAST ? 8 : 64, tick)) },
+    { name: "Limite di spazio del browser", est: Math.round(60 * Math.max(k, 0.2)), fn: (tick) => safe(P + ": archiviazione", "Scrittura fino all'errore (tetto 4 GB)", () => quotaTest(FAST ? 0.25 : 4, tick)) },
+  ];
+  await runSteps(steps, { bar: $("deepBar"), txt: $("deepTxt") });
+  rep("Esito approfondito", "Durata del test", `${((performance.now() - t00) / 1000).toFixed(0)} s`); rep("Esito approfondito", "Scarto massimo dei timer (1 s)", `${mon.drift.toFixed(0)} ms · ritardi >500ms: ${mon.late}`);
+  rep("Esito approfondito", "Pagina in background durante il test", mon.hidden); rep("Esito approfondito", "Errori registrati", nErr());
+  btn.disabled = false; $("report").scrollIntoView({ behavior: "smooth" });
+}
+$("deep").onclick = () => runDeep($("deep"));
+if (prevReport) { $("prevRep").hidden = false; $("prevRep").onclick = async () => { try { await navigator.clipboard.writeText(prevReport); $("prevRep").textContent = "Copiato ✓"; } catch { $("report").textContent = prevReport; } }; }
+
 collectEnv().catch(() => {});
 
 const saveText = async () => buildReport();
