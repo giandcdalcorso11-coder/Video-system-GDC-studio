@@ -99,7 +99,7 @@
   <header class="top">
     <div>
       <h1><a href="#/" style="color:inherit;text-decoration:none">GDC Multicam</a></h1>
-      <div class="sub">Dashboard riprese · modalità simulazione</div>
+      <div class="sub">Dashboard riprese · <span id="modeTxt">modalità simulazione</span></div>
     </div>
     <div class="row">
       <span class="pill" id="globalPill"><span class="dot"></span><span id="globalTxt">NESSUNA CAMERA</span></span>
@@ -109,9 +109,11 @@
     </div>
   </header>
   <main id="view"></main>
-  <footer>Prototipo: stream, stato, batteria e movimenti sono simulati. I comandi passano da un livello di trasporto (<code>transport</code>) da sostituire con la connessione reale.</footer>
+  <footer>Con le camere collegate (Supabase) stato, REC, impostazioni e anteprima sono reali. Batteria e movimenti pan/tilt non sono ancora disponibili. Senza abbinamento la dashboard mostra una simulazione.</footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="rt.js"></script>
 <script>
 "use strict";
 /* ===== Utilità ===== */
@@ -127,10 +129,18 @@ const store = {
 
 /* ===== Camere (nome dispositivo + nome camera, rinominabili) ===== */
 const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
-let cameras = store.get("gdc.cameras", null) || [
+const pairing = (window.GDC_RT && (GDC_RT.Pair.fromHash() || GDC_RT.Pair.load())) || null;
+const REAL = !!pairing, MOCK_RT = new URLSearchParams(location.search).has("mock");
+const CAM_KEY = REAL ? "gdc.cams.real" : "gdc.cameras";
+let cameras = store.get(CAM_KEY, null) || (REAL ? [] : [
   { id: "cam1", device: "iPhone XR", name: "cam1", os: "iOS 16.3.1", totalGb: 128, freeGb: 30.6 },
-];
-const saveCams = () => store.set("gdc.cameras", cameras);
+]);
+const saveCams = () => store.set(CAM_KEY, cameras);
+let connStatus = REAL ? "connessione…" : "—", curDetail = null;
+function setConn(s) {
+  connStatus = s; const el = $("#connTxt"); if (el) el.textContent = s;
+  const m = $("#modeTxt"); if (m) m.textContent = REAL ? (/^connesso/.test(s) ? "collegata · " + s : "collegamento · " + s) : "modalità simulazione";
+}
 const camById = (id) => cameras.find((c) => c.id === id);
 const camTitle = (c) => `${c.device} · ${c.name}`;
 
@@ -179,14 +189,67 @@ class MockTransport {
     st.clips.unshift({ file: `${cam.name.toUpperCase().replace(/\s+/g, "_")}_${String(st.n).padStart(3, "0")}`, dur: ms, mb: Math.round(ms / 60000 * MB_PER_MIN) });
   }
 }
-const transport = new MockTransport();
+class RealtimeTransport {
+  constructor(p) { this.p = p; this.cb = () => {}; this.s = {}; this.seen = {}; this.rt = null; this.id = store.get("gdc.dashId", null) || (() => { const v = "dash-" + Math.random().toString(36).slice(2, 8); store.set("gdc.dashId", v); return v; })(); }
+  onState(cb) { this.cb = cb; }
+  blank() { return { online: false, rec: false, recStart: 0, battery: null, charging: null, bufMB: null, maxBufMB: null, bps: 0, pan: 0, tilt: 0, rssi: null, latency: null, res: "—", orient: "—", clips: [], real: true, camReady: false, standby: false, err: "" }; }
+  add(cam) { this.s[cam.id] = this.blank(); this.push(cam.id); }
+  remove(id) { delete this.s[id]; delete this.seen[id]; }
+  push(id) { if (this.s[id]) this.cb(id, this.s[id]); }
+  start() {
+    this.rt = GDC_RT.connect({ pairing: this.p, role: "dashboard", id: this.id, meta: { name: "dashboard" }, mock: MOCK_RT });
+    this.rt.onStatus((s) => { setConn(s); if (/^connesso/.test(s)) this.rt.send("hello", { from: this.id }); });
+    this.rt.on("state", (m) => this.onCamState(m)); this.rt.on("rtc", (m) => Preview.onSignal(m));
+    setInterval(() => this.sweep(), 2000);
+  }
+  onCamState(m) {
+    if (!m || !m.id) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
+    if (!camById(m.id)) { cameras.push({ id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0 }); saveCams(); isNew = true; log(m.id, `${m.device || "Telefono"} · ${m.name || m.id}: camera collegata`); }
+    const st = this.s[m.id] || this.blank(), wasErr = st.err;
+    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "" });
+    this.s[m.id] = st; this.push(m.id);
+    if (st.err && st.err !== wasErr) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
+    if (isNew && curDetail == null) route();
+    Preview.ensure(m.id);
+  }
+  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
+  send(id, m) {
+    if (!this.rt) return;
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); return; }
+    this.rt.send("cmd", { ...m, to: id, from: this.id });
+  }
+}
+const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
+const Preview = {
+  pcs: {}, active: {},
+  start(id) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = true; transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start" }); },
+  stop(id) { if (!this.active[id] && !this.pcs[id]) return; if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop" }); this.reset(id); },
+  stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
+  reset(id) { this.active[id] = false; try { this.pcs[id]?.pc.close(); } catch { /* ok */ } delete this.pcs[id]; this.detach(id); },
+  ensure(id) { if (curDetail === id && state[id]?.online && state[id].camReady && !this.active[id]) this.start(id); },
+  detach(id) { const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`); if (vid && vid.dataset.live) { vid.srcObject = null; vid.hidden = true; delete vid.dataset.live; if (can) can.hidden = false; if (tag) tag.textContent = REAL ? "ANTEPRIMA NON ATTIVA" : "SIMULATA"; } },
+  attach(id, stream) { const vid = $(`[data-vid="${id}"]`), can = $(`[data-prev="${id}"]`), tag = $(`[data-tag="${id}"]`); if (!vid) return; vid.srcObject = stream; vid.dataset.live = "1"; vid.play().catch(() => {}); vid.hidden = false; if (can) can.hidden = true; if (tag) tag.textContent = "LIVE"; },
+  async onSignal(m) {
+    if (m.to !== transport.id) return; const e = (this.pcs[m.from] = this.pcs[m.from] || { pc: null, pending: [] });
+    if (m.kind === "offer") {
+      try { e.pc?.close(); } catch { /* ok */ }
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); e.pc = pc;
+      pc.onicecandidate = (ev) => ev.candidate && transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "cand", data: ev.candidate.toJSON() });
+      pc.ontrack = (ev) => this.attach(m.from, ev.streams[0]);
+      await pc.setRemoteDescription(m.data); for (const c of e.pending.splice(0)) await pc.addIceCandidate(c).catch(() => {});
+      await pc.setLocalDescription(await pc.createAnswer()); transport.rt.send("rtc", { to: m.from, from: transport.id, kind: "answer", data: plainDesc(pc.localDescription) });
+    } else if (m.kind === "cand") { if (e.pc && e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch(() => {}); else e.pending.push(m.data); }
+  },
+};
+const transport = REAL ? new RealtimeTransport(pairing) : new MockTransport();
 const state = {};
 const logs = []; // {t, id, msg}
 function log(id, msg) { logs.unshift({ t: stamp(), id, msg }); if (logs.length > 200) logs.pop(); renderLogs(); }
 
 function command(id, m) {
   const c = camById(id); if (!c) return;
-  const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)" }[m.cmd];
+  const say = { rec_start: "REC avviato", rec_stop: "REC fermato", connect: "connessa (simulazione)", disconnect: "disconnessa", charge: m.on ? "cavo di ricarica collegato (sim)" : "cavo di ricarica scollegato (sim)", standby: m.on ? "schermo nero attivato" : "schermo riattivato", config: "impostazioni inviate" }[m.cmd];
   if (say) log(id, `${camTitle(c)}: ${say}`);
   transport.send(id, m);
 }
@@ -198,23 +261,23 @@ const BIND = {
   title: (st, c, el) => { el.textContent = camTitle(c); },
   pill: (st, c, el) => { el.className = "pill " + (!st.online ? "" : st.rec ? "rec" : "idle"); el.innerHTML = `<span class="dot"></span>${!st.online ? "OFFLINE" : st.rec ? "IN REC" : "PRONTA"}`; },
   card: (st, c, el) => { el.classList.toggle("is-off", !st.online); el.classList.toggle("is-rec", st.rec); },
-  batTxt: (st, c, el) => { el.textContent = st.online ? Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "") : "—"; },
-  batBar: (st, c, el) => { el.className = "bar " + (st.online ? batClass(st.battery) : ""); $("i", el).style.width = (st.online ? st.battery : 0) + "%"; },
-  batWarn: (st, c, el) => { el.textContent = st.online && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
-  batState: (st, c, el) => { el.textContent = !st.online ? "—" : st.charging ? "In carica" : "A batteria"; },
-  free: (st, c, el) => { el.textContent = st.online ? st.freeGb.toFixed(1) + " GB" : "—"; },
-  freeLong: (st, c, el) => { el.textContent = st.online ? `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB` : "—"; },
-  freeEst: (st, c, el) => { el.textContent = st.online ? `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)` : "—"; },
+  batTxt: (st, c, el) => { el.textContent = st.online ? (st.battery == null ? "n/d" : Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "")) : "—"; },
+  batBar: (st, c, el) => { const has = st.online && st.battery != null; el.className = "bar " + (has ? batClass(st.battery) : ""); $("i", el).style.width = (has ? st.battery : 0) + "%"; },
+  batWarn: (st, c, el) => { el.textContent = st.online && st.battery != null && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
+  batState: (st, c, el) => { el.textContent = !st.online ? "—" : st.battery == null ? "Livello non disponibile (arriverà dall'app Comandi)" : st.charging ? "In carica" : "A batteria"; },
+  free: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} / ${st.maxBufMB} MB` : st.freeGb.toFixed(1) + " GB"; },
+  freeLong: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} MB usati su ${st.maxBufMB} MB di buffer sul telefono` : `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB`; },
+  freeEst: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? (st.bps ? `circa ${Math.max(0, Math.floor(((st.maxBufMB - st.bufMB) * 8) / (st.bps / 1e6) / 60))} min di ripresa prima di riempire il buffer` : "—") : `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)`; },
   timer: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "—"; },
   badge: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "00:00"; },
-  conn: (st, c, el) => { el.textContent = st.online ? `Wi-Fi ${Math.round(st.rssi)} dBm · ${st.latency} ms` : "—"; },
-  pos: (st, c, el) => { el.textContent = st.online ? `${st.pan}° / ${st.tilt}°` : "—"; },
+  conn: (st, c, el) => { el.textContent = !st.online ? "—" : st.rssi == null ? "Collegata (Supabase)" : `Wi-Fi ${Math.round(st.rssi)} dBm · ${st.latency} ms`; },
+  pos: (st, c, el) => { el.textContent = !st.online || st.real ? "—" : `${st.pan}° / ${st.tilt}°`; },
   res: (st, c, el) => { el.textContent = st.res; },
   orient: (st, c, el) => { el.textContent = st.orient; },
   recBtn: (st, c, el) => { el.disabled = !st.online || st.rec; },
   stopBtn: (st, c, el) => { el.disabled = !st.rec; },
-  connBtn: (st, c, el) => { el.textContent = st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
-  chargeBtn: (st, c, el) => { el.disabled = !st.online; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
+  connBtn: (st, c, el) => { el.disabled = !!st.real; el.textContent = st.real ? "Camera reale" : st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
+  chargeBtn: (st, c, el) => { el.disabled = !st.online || !!st.real; el.hidden = !!st.real; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
   clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${fmtTime(k.dur)} · ~${k.mb} MB</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
 };
 function refresh() {
@@ -232,8 +295,8 @@ function refresh() {
   if (sum) {
     $("#sOnline").textContent = `${online.length}/${cameras.length}`;
     $("#sRec").textContent = recs.length;
-    $("#sBat").textContent = online.length ? Math.round(Math.min(...online.map((s) => s.battery))) + "%" : "—";
-    $("#sFree").textContent = online.length ? Math.min(...online.map((s) => s.freeGb)).toFixed(1) + " GB" : "—";
+    { const bs = online.map((s) => s.battery).filter((v) => v != null); $("#sBat").textContent = bs.length ? Math.round(Math.min(...bs)) + "%" : online.length ? "n/d" : "—"; }
+    $("#sFree").textContent = !online.length ? "—" : online.some((s) => s.bufMB != null) ? Math.min(...online.filter((s) => s.bufMB != null).map((s) => s.maxBufMB - s.bufMB)) + " MB" : Math.min(...online.map((s) => s.freeGb)).toFixed(1) + " GB";
   }
 }
 function renderLogs() {
@@ -248,10 +311,17 @@ const previewHtml = (id, cls) => `
   <div class="view ${cls}" data-cam="${id}">
     <canvas data-prev="${id}" width="360" height="640"></canvas>
     <video data-vid="${id}" muted playsinline hidden></video>
-    <span class="tag" data-tag="${id}">SIMULATA</span>
+    <span class="tag" data-tag="${id}">${REAL ? "ANTEPRIMA NON ATTIVA" : "SIMULATA"}</span>
     <span class="recbadge"><i></i><span data-bind="badge" data-cam="${id}">00:00</span></span>
     <div class="off">Camera non connessa</div>
   </div>`;
+
+const connPanel = () => REAL
+  ? `<div class="kvs"><div class="kv"><small>Stato</small><span id="connTxt">${esc(connStatus)}</span></div><div class="kv"><small>Canale</small><span>…${esc(pairing.c.slice(-4))}</span></div></div>
+     <div class="row" style="margin-top:10px"><button id="cpCam">Copia link camera</button><button id="cpDash">Copia link dashboard</button><button class="ghost" id="newCh">Nuovo canale</button><button class="ghost" id="unpair">Scollega</button></div>
+     <div class="muted" style="margin-top:6px">I link contengono il codice segreto: non condividerli.</div>`
+  : `<div class="muted">Modalità simulazione. Per collegare camere vere apri il link di abbinamento oppure incolla qui il codice (inizia con gdc1.).</div>
+     <textarea id="pairTxt" rows="2" style="width:100%;margin-top:8px" placeholder="gdc1.…"></textarea><button id="pairBtn" style="margin-top:8px">Abbina</button>`;
 
 function showHome() {
   $("#view").innerHTML = `
@@ -271,7 +341,7 @@ function showHome() {
             <div class="kv"><small>Batteria</small>
               <div class="bat"><div class="bar" data-bind="batBar" data-cam="${c.id}"><i></i></div><b data-bind="batTxt" data-cam="${c.id}"></b></div>
               <div class="warn" data-bind="batWarn" data-cam="${c.id}"></div></div>
-            <div class="kv"><small>Spazio libero</small><span data-bind="free" data-cam="${c.id}"></span></div>
+            <div class="kv"><small>Memoria camera</small><span data-bind="free" data-cam="${c.id}"></span></div>
             <div class="kv"><small>Registrazione</small><span data-bind="timer" data-cam="${c.id}"></span></div>
           </div>
         </div>
@@ -281,10 +351,16 @@ function showHome() {
           <button class="ghost" data-go="${c.id}">Dettagli</button>
         </div>
       </article>`).join("")}
-      <button class="add" id="addCam">+ Aggiungi camera (simulata)</button>
+      ${REAL ? `<div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
+    <section class="panel" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     <section class="panel" style="margin-top:16px"><h2>Registro</h2><ol class="list" data-log=""></ol></section>`;
-  $("#view").onclick = (e) => {
+  curDetail = null; setConn(connStatus);
+  $("#view").onclick = async (e) => {
+    if (e.target.closest("#cpCam") || e.target.closest("#cpDash")) { const link = GDC_RT.Pair.link(e.target.closest("#cpCam") ? "camera.html" : "dashboard.html", pairing); try { await navigator.clipboard.writeText(link); e.target.textContent = "Copiato ✓"; } catch { prompt("Copia questo link", link); } return; }
+    if (e.target.closest("#newCh")) { if (confirm("Creo un nuovo canale: i link già inviati ai telefoni smetteranno di funzionare. Continuare?")) { GDC_RT.Pair.save({ ...pairing, c: GDC_RT.Pair.newChannel() }); location.reload(); } return; }
+    if (e.target.closest("#unpair")) { if (confirm("Scollego questa dashboard dal canale?")) { GDC_RT.Pair.clear(); location.reload(); } return; }
+    if (e.target.closest("#pairBtn")) { const p = GDC_RT.Pair.decode($("#pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); return; }
     const act = e.target.closest("[data-act]");
     if (act) { command(act.dataset.cam, { cmd: act.dataset.act }); return; }
     const go = e.target.closest("[data-go]");
@@ -309,7 +385,7 @@ function showDetail(id) {
             <div class="btns">
               <button class="primary" data-bind="recBtn" data-cam="${id}" data-act="rec_start">● REC</button>
               <button data-bind="stopBtn" data-cam="${id}" data-act="rec_stop">■ STOP</button>
-              <button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>
+              ${REAL ? `<button class="ghost" data-cam="${id}" data-act="standby">Schermo nero / Riattiva</button>` : `<button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>`}
             </div>
             <div>
               <div class="pad" role="group" aria-label="Movimento (segnaposto)">
@@ -340,7 +416,7 @@ function showDetail(id) {
           <div class="kvs">
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
             <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
-          </div><div class="muted" style="margin-top:6px">Le impostazioni saranno modificabili quando la camera sarà reale.</div></div>
+          </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
         <div class="panel"><h2>Impostazioni camera</h2>
           <label class="f">Dispositivo<input type="text" id="fDev" value="${esc(c.device)}" maxlength="40"></label>
           <label class="f">Nome camera<input type="text" id="fName" value="${esc(c.name)}" maxlength="30"></label>
@@ -362,18 +438,21 @@ function showDetail(id) {
     if (act === "toggleConn") command(id, { cmd: state[id].online ? "disconnect" : "connect" });
     else if (act === "charge") command(id, { cmd: "charge", on: !state[id].charging });
     else if (act === "webcam") toggleWebcam(id, a);
+    else if (act === "standby") command(id, { cmd: "standby", on: !state[id].standby });
     else command(id, { cmd: act });
   };
   const rename = () => {
     c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
-    saveCams(); refresh();
+    saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
   };
+  if (REAL) $("#cfgApply").onclick = () => command(id, { cmd: "config", res: $("#cfgRes").value, bps: Number($("#cfgBps").value) });
+  curDetail = id;
   $("#fDev").onchange = rename; $("#fName").onchange = rename;
   $("#rmCam").onclick = () => {
     if (!confirm(`Rimuovere ${camTitle(c)} dalla dashboard?`)) return;
     transport.remove(id); delete state[id]; cameras = cameras.filter((x) => x.id !== id); saveCams(); location.hash = "#/";
   };
-  renderLogs(); refresh();
+  renderLogs(); refresh(); if (REAL) Preview.ensure(id);
 }
 
 async function toggleWebcam(id, btn) {
@@ -396,6 +475,7 @@ function addCamera() {
 
 /* ===== Router ===== */
 function route() {
+  if (curDetail) { Preview.stopAll(); curDetail = null; }
   const m = location.hash.match(/^#\/cam\/(.+)$/);
   if (m && camById(m[1])) showDetail(m[1]); else showHome();
   window.scrollTo(0, 0);
@@ -420,6 +500,7 @@ function drawPreview(t) {
   $$("canvas[data-prev]").forEach((cv) => {
     if (cv.hidden) return;
     const id = cv.dataset.prev, st = state[id] || { pan: 0, tilt: 0 }, g = cv.getContext("2d"), W = cv.width, H = cv.height;
+    if (REAL) { g.fillStyle = "#14161a"; g.fillRect(0, 0, W, H); g.fillStyle = "rgba(255,255,255,.55)"; g.font = "15px sans-serif"; g.textAlign = "center"; g.fillText("Nessuna anteprima", W / 2, H / 2); g.textAlign = "start"; return; }
     const ox = (st.pan / PAN_LIMIT) * -120, oy = (st.tilt / TILT_LIMIT) * 120, hue = 200 + (cameras.findIndex((c) => c.id === id) % 4) * 45;
     const grad = g.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, `hsl(${hue} 35% 22%)`); grad.addColorStop(1, `hsl(${hue + 30} 30% 10%)`);
@@ -440,7 +521,7 @@ cameras.forEach((c, i) => transport.add(c, i === 0 ? 600 : null));
 transport.start();
 route();
 requestAnimationFrame(drawPreview);
-log("", "Dashboard avviata (simulazione)");
+setConn(connStatus); log("", REAL ? "Dashboard avviata (collegamento reale)" : "Dashboard avviata (simulazione)");
 </script>
 </body>
 </html>

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Camera GDC</title>
+<style>
+  :root { --bg:#f3f4f6; --panel:#fff; --panel-2:#eef0f3; --text:#14161a; --muted:#5f6672; --line:#d9dde3; --ok:#12875a; --bad:#d92d20; --accent:#2457d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1114; --panel:#181b20; --panel-2:#20242b; --text:#eceef2; --muted:#98a0ad; --line:#2b3038; --ok:#3ccf91; --bad:#ff5a4d; --accent:#7aa2ff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:12px max(12px, env(safe-area-inset-left)) 40px; }
+  main { max-width: 560px; margin: 0 auto; display: grid; gap: 12px; }
+  h1 { font-size: 19px; margin: 4px 0 0; } h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-height: 44px; margin: 0 6px 6px 0; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.rec { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; }
+  button:disabled { opacity: .45; }
+  input, select, textarea { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 40px; width: 100%; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  video { width: 100%; max-height: 40vh; background: #000; border-radius: 10px; display: block; object-fit: contain; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); } .pill.ok { color: var(--ok); border-color: var(--ok); } .pill.ok .dot { background: var(--ok); } .pill.rec { color: var(--bad); border-color: var(--bad); } .pill.rec .dot { background: var(--bad); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .25; } } @media (prefers-reduced-motion: reduce) { .pill.rec .dot { animation: none; } }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 4px 0; border-bottom: 1px dashed var(--line); } td:first-child { color: var(--muted); width: 45%; }
+  .muted { color: var(--muted); font-size: 13px; } .err { color: var(--bad); font-weight: 600; }
+  ol { list-style: none; margin: 0; padding: 0; } ol li { padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  #blackout { position: fixed; inset: 0; background: #000; z-index: 10; display: none; } #blackout.on { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <div class="row"><h1>Camera</h1><span class="pill" id="connPill"><span class="dot"></span><span id="connTxt">non collegata</span></span></div>
+
+  <section class="panel" id="pairBox" hidden>
+    <h2>Abbinamento</h2>
+    <p class="muted" style="margin-top:0">Apri il link di abbinamento ricevuto, oppure incolla qui il codice che inizia con <b>gdc1.</b></p>
+    <textarea id="pairTxt" rows="3" placeholder="gdc1.…"></textarea>
+    <button class="primary" id="pairBtn" style="margin-top:8px">Abbina</button>
+  </section>
+
+  <section class="panel" id="main" hidden>
+    <h2>Questo telefono</h2>
+    <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
+    <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
+      <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
+    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button>
+    <video id="vid" muted playsinline></video>
+  </section>
+
+  <section class="panel" id="statPanel" hidden>
+    <h2>Stato</h2>
+    <table id="stat"></table>
+    <button class="rec" id="recBtn" disabled style="margin-top:8px">● REC (prova locale)</button>
+    <div id="msg" class="muted"></div>
+  </section>
+
+  <section class="panel" id="clipPanel" hidden>
+    <h2>Registrazioni sul telefono</h2>
+    <ol id="clips"></ol>
+    <div class="muted" id="clipNote"></div>
+  </section>
+</main>
+<div id="blackout"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="rt.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ok */ } } };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ID = (() => { let v = store.get("gdc.camId", null); if (!v) { v = "cam-" + Math.random().toString(36).slice(2, 8); store.set("gdc.camId", v); } return v; })();
+const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment" }, store.get("gdc.camCfg", {}));
+const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
+const MAX_BUF = 700 * 1048576; // limite di sicurezza misurato nei test (circa 0,78 GB)
+const MOCK = new URLSearchParams(location.search).has("mock");
+const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
+let stream = null, rt = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0;
+const bat = { level: null, charging: null };
+
+/* ===== Archivio locale (IndexedDB): pezzi della registrazione e elenco registrazioni ===== */
+const db = (() => {
+  let h = null;
+  const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => { const r = indexedDB.open("gdc-camera", 1); r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("sessions", { keyPath: "id" }); }; r.onsuccess = () => res((h = r.result)); r.onerror = () => rej(r.error); });
+  const rq = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const tx = (store, mode, fn) => open().then((d) => { const t = d.transaction(store, mode); return new Promise((res, rej) => { const out = fn(t.objectStore(store)); t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("transazione annullata")); }); });
+  return {
+    putChunk: (k, b) => tx("chunks", "readwrite", (s) => s.put(b, k)),
+    putSession: (o) => tx("sessions", "readwrite", (s) => s.put(o)),
+    sessions: () => open().then((d) => rq(d.transaction("sessions").objectStore("sessions").getAll())),
+    chunks: (sid) => open().then((d) => rq(d.transaction("chunks").objectStore("chunks").getAll(IDBKeyRange.bound(sid + ":", sid + ":￿")))),
+    delSession: async (sid) => { const d = await open(); await new Promise((res, rej) => { const t = d.transaction(["chunks", "sessions"], "readwrite"); t.objectStore("chunks").delete(IDBKeyRange.bound(sid + ":", sid + ":￿")); t.objectStore("sessions").delete(sid); t.oncomplete = res; t.onerror = () => rej(t.error); }); },
+  };
+})();
+let sessions = [];
+const bufBytes = () => sessions.filter((s) => s.status !== "inviata").reduce((a, s) => a + (s.bytes || 0), 0) + (recording && !sessions.some((s) => s.id === recording.sid) ? recording.bytes : 0);
+async function loadSessions() { try { sessions = (await db.sessions()).sort((a, b) => b.start - a.start); } catch (e) { lastErr = "Archivio non disponibile: " + e.name; } renderClips(); }
+
+/* ===== Fotocamera ===== */
+async function openCam() {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  const [w, h] = RES[cfg.res] || RES["1080p"], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } };
+  try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: true }); }
+  catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); lastErr = "Microfono non disponibile: registro senza audio"; } catch (e2) { lastErr = "Camera non disponibile: " + e2.name; stream = null; publish(); throw e2; } }
+  const v = $("vid"); v.srcObject = stream; await v.play().catch(() => {}); lastErr = lastErr.startsWith("Camera") ? "" : lastErr;
+  $("camStop").disabled = false; $("recBtn").disabled = false; publish();
+}
+function stopCam() { if (recording) stopRec(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+
+/* ===== Registrazione: i pezzi vanno subito su disco ===== */
+async function startRec() {
+  if (recording) return;
+  if (!stream) { try { await openCam(); } catch { return; } }
+  const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+  const sid = "s" + Date.now().toString(36), start = Date.now();
+  let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; publish(); return; }
+  const rec = { mr, sid, start, seq: 0, bytes: 0, pending: 0, errs: 0, mime: mr.mimeType || mime || "video/mp4", stopping: false };
+  recording = rec; lastErr = "";
+  mr.ondataavailable = (e) => {
+    if (!e.data.size) return; const k = `${sid}:${String(++rec.seq).padStart(6, "0")}`; rec.bytes += e.data.size; rec.pending++;
+    db.putChunk(k, e.data).catch((x) => { rec.errs++; lastErr = "Scrittura su disco fallita: " + (x?.name || "errore"); }).finally(() => rec.pending--);
+    if (bufBytes() > MAX_BUF && !rec.stopping) { lastErr = "Buffer pieno: registrazione fermata"; stopRec(); }
+  };
+  mr.onstop = async () => {
+    while (rec.pending > 0) await sleep(50);
+    const s = { id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: rec.errs ? "errore" : "pronta" };
+    try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; }
+    if (recording === rec) recording = null; await loadSessions(); publish();
+  };
+  mr.start(1000); publish();
+}
+function stopRec() { if (!recording || recording.stopping) return; recording.stopping = true; try { recording.mr.stop(); } catch { /* già fermo */ } publish(); }
+
+/* ===== Stato verso la dashboard ===== */
+const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+function stateObj() {
+  const v = $("vid");
+  return { id: ID, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging,
+    vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status })), ts: Date.now() };
+}
+function publish() { try { rt?.send("state", stateObj()); } catch { /* collegamento non pronto */ } renderStat(); }
+function renderStat() {
+  const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
+  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Collegamento", $("connTxt").textContent);
+  $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
+  $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
+  $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
+}
+function renderClips() {
+  const el = $("clips"); $("clipPanel").hidden = !sessions.length;
+  el.innerHTML = sessions.map((s) => `<li><b>${cfg.name}_${s.id}</b><br><span class="muted">${new Date(s.start).toLocaleString("it-IT")} · ${fmtT(s.dur)} · ${(s.bytes / 1048576).toFixed(0)} MB · ${s.res} · ${s.status}</span><br><button data-save="${s.id}">Salva in Foto / File</button><button data-del="${s.id}">Elimina</button></li>`).join("");
+  $("clipNote").textContent = sessions.length ? "Le registrazioni restano qui finché non vengono trasferite o eliminate. Safari può cancellare i dati dopo 7 giorni senza uso." : "";
+}
+$("clips").onclick = async (e) => {
+  const sv = e.target.closest("[data-save]"), dl = e.target.closest("[data-del]");
+  if (sv) {
+    const s = sessions.find((x) => x.id === sv.dataset.save); sv.disabled = true; sv.textContent = "Preparo…";
+    try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], `${cfg.name}_${s.id}.mp4`, { type: s.mime }); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
+    catch (x) { if (x.name !== "AbortError") { lastErr = "Salvataggio: " + x.name; renderStat(); } }
+    sv.disabled = false; sv.textContent = "Salva in Foto / File";
+  }
+  if (dl && confirm("Eliminare questa registrazione dal telefono?")) { await db.delSession(dl.dataset.del); await loadSessions(); publish(); }
+};
+
+/* ===== Anteprima WebRTC verso la dashboard ===== */
+const pcs = {};
+const plain = (d) => ({ type: d.type, sdp: d.sdp });
+function closePreviews() { for (const k in pcs) { try { pcs[k].pc.close(); } catch { /* ok */ } delete pcs[k]; } }
+async function startPreview(dashId) {
+  if (!stream || !rt) { lastErr = "Anteprima: avvia prima la camera"; publish(); return; }
+  try { pcs[dashId]?.pc.close(); } catch { /* ok */ }
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [] };
+  stream.getVideoTracks().forEach((t) => {
+    const sender = pc.addTrack(t, stream);
+    try { const p = sender.getParameters(); p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 1500000; p.encodings[0].scaleResolutionDownBy = Math.max(1, (t.getSettings().height || 1080) / 720); sender.setParameters(p).catch(() => {}); } catch { /* parametri non supportati */ }
+  });
+  pc.onicecandidate = (e) => e.candidate && rt.send("rtc", { to: dashId, from: ID, kind: "cand", data: e.candidate.toJSON() });
+  await pc.setLocalDescription(await pc.createOffer()); rt.send("rtc", { to: dashId, from: ID, kind: "offer", data: plain(pc.localDescription) });
+}
+async function onRtc(m) {
+  if (m.to !== ID) return; const e = pcs[m.from]; if (!e) return;
+  if (m.kind === "answer") { await e.pc.setRemoteDescription(m.data); for (const c of e.pending.splice(0)) await e.pc.addIceCandidate(c).catch(() => {}); }
+  else if (m.kind === "cand") { if (e.pc.remoteDescription) e.pc.addIceCandidate(m.data).catch(() => {}); else e.pending.push(m.data); }
+}
+
+/* ===== Comandi dalla dashboard ===== */
+async function onCmd(m) {
+  if (m.to !== ID && m.to !== "*") return;
+  switch (m.cmd) {
+    case "rec_start": await startRec(); break;
+    case "rec_stop": stopRec(); break;
+    case "standby": standby = !!m.on; $("blackout").classList.toggle("on", standby); publish(); break;
+    case "config": if (!recording) { if (m.res && RES[m.res]) cfg.res = m.res; if (m.bps) cfg.bps = Number(m.bps); store.set("gdc.camCfg", cfg); syncForm(); if (stream) { try { await openCam(); } catch { /* errore già segnalato */ } } publish(); } else { lastErr = "Impostazioni non applicate: registrazione in corso"; publish(); } break;
+    case "rename": if (m.name) cfg.name = m.name; if (m.device) cfg.device = m.device; store.set("gdc.camCfg", cfg); syncForm(); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); break;
+    case "preview_start": await startPreview(m.from); break;
+    case "preview_stop": try { pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; break;
+    case "battery": bat.level = Number(m.level); bat.charging = m.charging == null ? bat.charging : !!m.charging; publish(); break;
+    default: break;
+  }
+}
+
+/* ===== Interfaccia ===== */
+function syncForm() { $("fDev").value = cfg.device; $("fName").value = cfg.name; $("fRes").value = cfg.res; $("fBps").value = String(cfg.bps); }
+$("fDev").onchange = $("fName").onchange = () => { cfg.device = $("fDev").value.trim() || cfg.device; cfg.name = $("fName").value.trim() || cfg.name; store.set("gdc.camCfg", cfg); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); };
+$("fRes").onchange = $("fBps").onchange = async () => { if (recording) { syncForm(); return; } cfg.res = $("fRes").value; cfg.bps = Number($("fBps").value); store.set("gdc.camCfg", cfg); if (stream) { try { await openCam(); } catch { /* ok */ } } publish(); };
+$("camBtn").onclick = async () => { try { await openCam(); } catch { /* errore già mostrato */ } };
+$("camStop").onclick = stopCam;
+$("recBtn").onclick = () => (recording ? stopRec() : startRec());
+$("blackBtn").onclick = () => { standby = true; $("blackout").classList.add("on"); publish(); };
+$("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) { standby = false; $("blackout").classList.remove("on"); publish(); } lastTapT = n; };
+$("pairBtn").onclick = () => { const p = GDC_RT.Pair.decode($("pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); };
+
+function start() {
+  pairing = (window.GDC_RT && (GDC_RT.Pair.fromHash() || GDC_RT.Pair.load())) || null;
+  $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing;
+  syncForm(); loadSessions(); renderStat();
+  if (!pairing) return;
+  rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device }, mock: MOCK });
+  rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
+  rt.on("cmd", onCmd); rt.on("rtc", onRtc);
+  rt.on("hello", () => publish());
+  setInterval(publish, 2000); publish();
+  setInterval(() => $("stat").children.length && renderStat(), 1000);
+}
+addEventListener("error", (e) => { lastErr = "Errore: " + e.message; renderStat(); });
+start();
+</script>
+</body>
+</html>
