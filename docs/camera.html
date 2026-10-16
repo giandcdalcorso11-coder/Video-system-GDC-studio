@@ -46,7 +46,7 @@
     <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
     <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
-    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button><button id="batInfo">Dati per Comandi (batteria)</button><button id="batTest">Prova invio batteria</button>
+    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button><button id="batInfo">Dati per Comandi (batteria)</button><button id="batTest">Prova invio batteria</button><button id="zoomTest">Test zoom digitale</button>
     <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
     <video id="vid" muted playsinline></video>
   </section>
@@ -76,7 +76,7 @@
 <script src="rt.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r6";
+const PAGE_VERSION = "camera r7";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -315,6 +315,106 @@ async function tlRender(sid, keys, fps, startTs, silent) {
   if (ok) { await db.delFrames(sid).catch((e) => dbg("warn", `pulizia immagini: ${e.name}`)); } else { lastErr = "Creazione del video non riuscita: le immagini restano sul telefono"; }
 }
 
+/* ===== Test zoom digitale (sperimentale) ===== */
+let zoomTesting = false;
+async function zoomTest() {
+  if (zoomTesting) return;
+  if (recording || (tl && tl.stage)) { lastErr = "Ferma registrazione e time-lapse prima del test zoom"; publish(); return; }
+  zoomTesting = true; const btn = $("zoomTest"), wasOpen = !!stream, T0 = performance.now(), results = [], Z = (m, x) => dbg("info", "ZOOM " + m, x), ZE = (m, x) => dbg("error", "ZOOM " + m, x);
+  const DUR = window.__zoomDur || 6000, pct = (a, p) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; }, avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0), r1 = (n) => Math.round(n * 10) / 10;
+  const lt = { n: 0, max: 0, sum: 0 }; let po = null;
+  try { po = new PerformanceObserver((l) => l.getEntries().forEach((e) => { lt.n++; lt.sum += e.duration; lt.max = Math.max(lt.max, e.duration); })); po.observe({ entryTypes: ["longtask"] }); } catch { Z("longtask non supportato da questo browser"); }
+  btn.disabled = true; btn.textContent = "Test zoom in corso…"; lastErr = ""; publish();
+  const getMedia = async (res) => {
+    const [w, h] = RES[res], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } }, t0 = performance.now();
+    let st; try { st = await navigator.mediaDevices.getUserMedia({ ...base, audio: true }); } catch (e) { Z(`apertura ${res} con audio fallita: ${e.name}: ${e.message}`); st = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); }
+    const vt = st.getVideoTracks()[0], at = st.getAudioTracks()[0]; Z(`aperta ${res} in ${Math.round(performance.now() - t0)} ms`, { video: vt.getSettings(), audio: at ? at.getSettings() : "assente" }); return st;
+  };
+  const run = async (name, st, z0, z1, withRtc) => {
+    const res = { name, z0, z1, rtc: !!withRtc };
+    const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.srcObject = new MediaStream(st.getVideoTracks()); await v.play().catch((e) => Z(`play sorgente: ${e.name}`));
+    for (let i = 0; i < 60 && !v.videoWidth; i++) await sleep(50);
+    const vw = v.videoWidth, vh = v.videoHeight; if (!vw) throw new Error("video sorgente senza dimensioni");
+    const port = vh >= vw, ow = port ? 1080 : 1920, oh = port ? 1920 : 1080, cv = document.createElement("canvas"); cv.width = ow; cv.height = oh; const g = cv.getContext("2d");
+    const cs = cv.captureStream(30), at = st.getAudioTracks()[0]; if (at) cs.addTrack(at);
+    const mime = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4"].find((x) => MediaRecorder.isTypeSupported(x));
+    const mr = new MediaRecorder(cs, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 20000000 }), chunks = []; mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); }; mr.onerror = (e) => ZE(`MediaRecorder: ${e.error?.name} ${e.error?.message}`);
+    const stopped = new Promise((r) => (mr.onstop = r));
+    let pc1 = null, pc2 = null, rtcInfo = null;
+    if (withRtc) {
+      try {
+        pc1 = new RTCPeerConnection(); pc2 = new RTCPeerConnection(); pc1.onicecandidate = (e) => e.candidate && pc2.addIceCandidate(e.candidate).catch(() => {}); pc2.onicecandidate = (e) => e.candidate && pc1.addIceCandidate(e.candidate).catch(() => {});
+        pc2.ontrack = () => {}; pc1.addTrack(cs.getVideoTracks()[0], cs); const o = await pc1.createOffer(); await pc1.setLocalDescription(o); await pc2.setRemoteDescription(o); const a = await pc2.createAnswer(); await pc2.setLocalDescription(a); await pc1.setRemoteDescription(a);
+      } catch (e) { rtcInfo = { errore: `${e.name}: ${e.message}` }; ZE(`WebRTC locale: ${e.name}: ${e.message}`); }
+    }
+    const dr = [], iv = [], secs = []; let frames = 0, lastT = 0, lastDraw = 0, srcF = 0, secStart = 0, secN = 0, stop = false;
+    if (v.requestVideoFrameCallback) { const cb = () => { srcF++; if (!stop) v.requestVideoFrameCallback(cb); }; v.requestVideoFrameCallback(cb); }
+    const ltBefore = { ...lt }; mr.start(1000); const t0 = performance.now(); secStart = t0;
+    await new Promise((resolve) => {
+      const tick = (now) => {
+        const el = performance.now() - t0; if (el >= DUR) { stop = true; resolve(); return; }
+        if (now - lastDraw >= 1000 / 30 - 4) {
+          const z = z0 + (z1 - z0) * Math.min(1, el / DUR), sw = vw / z, sh = vh / z, a = performance.now();
+          g.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, ow, oh); dr.push(performance.now() - a); if (lastT) iv.push(now - lastT); lastT = now; lastDraw = now; frames++; secN++;
+        }
+        if (performance.now() - secStart >= 1000) { secs.push(secN); secN = 0; secStart = performance.now(); }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const wall = (performance.now() - t0) / 1000;
+    if (pc1) { try { const s1 = await pc1.getStats(), s2 = await pc2.getStats(); rtcInfo = {}; s1.forEach((x) => { if (x.type === "outbound-rtp" && x.kind === "video") rtcInfo.invio = { frameCodificati: x.framesEncoded, larghezza: x.frameWidth, altezza: x.frameHeight, fps: x.framesPerSecond, limitazione: x.qualityLimitationReason, byte: x.bytesSent }; }); s2.forEach((x) => { if (x.type === "inbound-rtp" && x.kind === "video") rtcInfo.ricevuto = { frameDecodificati: x.framesDecoded, larghezza: x.frameWidth, altezza: x.frameHeight, fps: x.framesPerSecond, persi: x.packetsLost, byte: x.bytesReceived }; }); } catch (e) { rtcInfo = { errore: e.message }; } try { pc1.close(); pc2.close(); } catch { /* ok */ } }
+    await sleep(250); try { mr.requestData(); } catch { /* ok */ } await sleep(150); try { mr.stop(); await stopped; } catch (e) { ZE(`stop registratore: ${e.message}`); }
+    const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null; v.pause(); v.srcObject = null;
+    const blob = new Blob(chunks, { type: mr.mimeType || mime || "video/mp4" }), crop = { w: Math.round(vw / Math.max(z0, z1 === z0 ? z0 : (z0 + z1) / 2)), h: 0 }; crop.h = Math.round(crop.w * vh / vw);
+    Object.assign(res, { sorgente: `${vw}x${vh}`, uscita: `${ow}x${oh}`, ritaglioRealeMedio: `${crop.w}x${crop.h}`, secondi: r1(wall), fotogrammiDisegnati: frames, fpsUscita: r1(frames / wall), fpsPerSecondo: secs.join("/"), fpsSorgente: v.requestVideoFrameCallback ? r1(srcF / wall) : "n/d", disegno_ms: { medio: r1(avg(dr)), p95: r1(pct(dr, 0.95)), max: r1(Math.max(0, ...dr)) }, intervalli_ms: { medio: r1(avg(iv)), p95: r1(pct(iv, 0.95)), max: r1(Math.max(0, ...iv)) }, scartatiDalPlayer: q ? { totali: q.totalVideoFrames, persi: q.droppedVideoFrames } : "n/d", longTask: { n: lt.n - ltBefore.n, max_ms: Math.round(lt.max) }, file: { mime: mr.mimeType, MB: r1(blob.size / 1048576), pezzi: chunks.length, Mbps: r1((blob.size * 8) / wall / 1e6) } });
+    if (rtcInfo) res.webrtc = rtcInfo;
+    if (blob.size) {
+      const u = URL.createObjectURL(blob), p = document.createElement("video"); p.muted = true; p.playsInline = true; p.setAttribute("playsinline", ""); p.src = u;
+      try {
+        await new Promise((ok, ko) => { p.onloadedmetadata = ok; p.onerror = () => ko(new Error("file non riproducibile")); setTimeout(() => ko(new Error("timeout metadati")), 6000); });
+        await p.play().catch(() => {}); await sleep(1200);
+        res.riproduzione = { durata_s: r1(p.duration), previstaS: r1(wall), dimensioni: `${p.videoWidth}x${p.videoHeight}`, tracceAudio: p.audioTracks ? p.audioTracks.length : "n/d", byteAudioDecodificati: p.webkitAudioDecodedByteCount ?? "n/d", byteVideoDecodificati: p.webkitVideoDecodedByteCount ?? "n/d" };
+      } catch (e) { res.riproduzione = { errore: e.message }; }
+      p.pause(); p.removeAttribute("src"); URL.revokeObjectURL(u);
+    } else res.riproduzione = { errore: "file vuoto" };
+    const pb = [], fps = res.fpsUscita;
+    if (fps < 27) pb.push(`fps uscita bassi (${fps})`); if (res.intervalli_ms.p95 > 70) pb.push(`intervalli irregolari (p95 ${res.intervalli_ms.p95} ms)`); if (res.file.MB === 0) pb.push("file vuoto"); if (res.riproduzione && res.riproduzione.errore) pb.push("riproduzione: " + res.riproduzione.errore);
+    if (res.riproduzione && res.riproduzione.durata_s && Math.abs(res.riproduzione.durata_s - res.secondi) > 1) pb.push(`durata file ${res.riproduzione.durata_s}s diversa da ${res.secondi}s`);
+    if (at && res.riproduzione && res.riproduzione.tracceAudio === 0) pb.push("traccia audio assente nel file");
+    res.esito = pb.length ? "PROBLEMA: " + pb.join("; ") : "OK"; (pb.length ? ZE : Z)(`RISULTATO ${name}`, res); results.push(res); return res;
+  };
+  try {
+    Z("=== INIZIO TEST ZOOM DIGITALE ===", { pagina: PAGE_VERSION, ua: navigator.userAgent, core: navigator.hardwareConcurrency, ramGB: navigator.deviceMemory ?? "n/d", schermo: `${screen.width}x${screen.height}@${devicePixelRatio}`, visibilita: document.visibilityState, durataPerProva_s: DUR / 1000, supportati: navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : "n/d", canvasCapture: !!HTMLCanvasElement.prototype.captureStream, frameCallback: !!HTMLVideoElement.prototype.requestVideoFrameCallback, mp4: ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4"].map((m) => m + "=" + MediaRecorder.isTypeSupported(m)) });
+    if (wasOpen) stopCam(); await sleep(400);
+    const plan = [["1080p", [["1080p zoom 1x (base con canvas)", 1, 1], ["1080p zoom 2x", 2, 2]]], ["4K", [["4K zoom 1x (base con canvas)", 1, 1], ["4K zoom 2x", 2, 2], ["4K zoom 2x + anteprima WebRTC", 2, 2, true], ["4K zoom animato 1x→3x", 1, 3]]]], total = plan.reduce((a, p) => a + p[1].length, 0); let n = 0;
+    for (const [res, runs] of plan) {
+      btn.textContent = `Test zoom: apro ${res}…`; let st; try { st = await getMedia(res); } catch (e) { ZE(`impossibile aprire ${res}: ${e.name}: ${e.message}`); continue; }
+      if (res === "1080p") {
+        const vt = st.getVideoTracks()[0]; let caps = "getCapabilities assente"; try { caps = vt.getCapabilities ? vt.getCapabilities() : caps; } catch (e) { caps = "errore " + e.message; }
+        Z("zoom nativo del browser: capacità traccia", { capabilities: caps, zoomNelleCapacita: !!(caps && caps.zoom), settings: vt.getSettings() });
+        for (const [lab, c] of [["advanced zoom 2", { advanced: [{ zoom: 2 }] }], ["zoom 2", { zoom: 2 }]]) { try { await vt.applyConstraints(c); Z(`zoom nativo ${lab}: accettato`, vt.getSettings()); } catch (e) { Z(`zoom nativo ${lab}: rifiutato ${e.name}: ${e.message}`); } }
+        try { await vt.applyConstraints({}); } catch { /* ok */ }
+      }
+      for (const [name, z0, z1, rtc] of runs) {
+        n++; btn.textContent = `Test zoom ${n}/${total}: ${name}`;
+        try { await run(name, st, z0, z1, rtc); } catch (e) { ZE(`prova "${name}" fallita: ${e.name}: ${e.message}`); results.push({ name, esito: "ERRORE: " + e.message }); }
+        await sleep(600);
+      }
+      st.getTracks().forEach((t) => t.stop()); await sleep(600);
+    }
+    const ok = results.filter((r) => r.esito === "OK").length;
+    Z(`=== FINE TEST ZOOM: ${ok}/${results.length} prove OK in ${Math.round((performance.now() - T0) / 1000)} s ===`, { longTaskTotali: lt.n, longTaskMax_ms: Math.round(lt.max), sintesi: results.map((r) => `${r.name}: ${r.esito === "OK" ? "OK" : r.esito} · ${r.fpsUscita ?? "?"} fps · ${r.file ? r.file.Mbps + " Mbps" : ""}`) });
+  } catch (e) { ZE(`test interrotto: ${e.name}: ${e.message}`); }
+  finally {
+    if (po) try { po.disconnect(); } catch { /* ok */ }
+    zoomTesting = false; btn.disabled = false; btn.textContent = "Test zoom digitale";
+    if (wasOpen) { try { await openCam(); } catch (e) { ZE(`riapertura camera dopo il test: ${e.name}`); } }
+    for (let i = 0; i < 40 && dbgOut.length; i++) { flushDbg(); await sleep(350); }
+    lastErr = ""; publish();
+  }
+}
+
 /* ===== Schermo nero ===== */
 function setStandby(on) {
   standby = !!on; const b = $("blackout"); b.classList.toggle("on", standby); b.style.display = standby ? "block" : "none";
@@ -446,6 +546,7 @@ $("batTest").onclick = async () => {
   catch (e) { dbg("error", `prova invio batteria fallita: ${e.name}: ${e.message}`); $("batTest").textContent = "Errore: " + e.name; }
   setTimeout(() => ($("batTest").textContent = "Prova invio batteria"), 4000);
 };
+$("zoomTest").onclick = () => { zoomTest().catch((e) => dbg("error", `ZOOM test: ${e.name}: ${e.message}`)); };
 $("myLink").onclick = () => { if (!pairing) return; copyText(GDC_RT.Pair.link("camera.html", pairing, ID), $("myLink")); };
 $("pairBtn").onclick = () => { const p = GDC_RT.Pair.decode($("pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); };
 $("dbgToggle").onclick = () => { dbgOpen = !dbgOpen; $("dbgPre").hidden = !dbgOpen; $("dbgToggle").textContent = dbgOpen ? "Nascondi" : "Mostra"; if (dbgOpen) renderDbg(); };

@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 8
-**Ultimo aggiornamento:** 2026-10-15 17:40
+**Versione:** 9
+**Ultimo aggiornamento:** 2026-10-16 09:00
 
 ## Vision
 
@@ -149,6 +149,24 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-10-16 09:00] Test dello zoom digitale
+
+**Riepilogo:** richiesto uno zoom comandabile dalla dashboard; sull'XR non esiste zoom nativo nel browser, quindi si valuta lo zoom digitale (ritaglio su canvas) con un pulsante di test sulla camera (r7) che scrive tutto nel registro avanzato.
+
+**Cosa è stato fatto:**
+- Risposta all'utente: zoom ottico non disponibile (già verificato: nessun vincolo zoom in Safari 16.3); possibile zoom digitale; in 4K un ritaglio 2× resta 1080p reale; costi: prestazioni, calore, audio da verificare.
+- Camera r7: pulsante "Test zoom digitale". Controlla lo zoom nativo, poi registra 6 prove da 6 s (1080p 1×/2×; 4K 1×/2×/2× con anteprima WebRTC locale/zoom animato 1×→3×) misurando fps, tempi di disegno, regolarità, longtask, dimensione e riproducibilità del file, tracce audio. Riapre la camera alla fine.
+- Verificato in Chromium (camera finta a 20 fps): il test gira e riapre la camera. Soglie di esito: fps ≥ 27, p95 intervalli ≤ 70 ms.
+
+**Decisioni prese:**
+- Contesto: l'utente vuole lo zoom dalla dashboard.
+- Decisione: prima un test sull'XR, poi l'integrazione solo se regge.
+- Da rivedere se: il test mostra fps bassi, surriscaldamento o audio non sincronizzato.
+
+**File consegnati/modificati:** `docs/camera.html` (r7), `documento-sessione-video-system-gdc-studio.md` (versione 9).
+
+---
 
 ### [2026-10-15 17:40] Batteria reale tramite Comandi
 
