@@ -33,6 +33,7 @@
 <body>
 <main>
   <div class="row"><h1>Camera</h1><span class="pill" id="connPill"><span class="dot"></span><span id="connTxt">non collegata</span></span></div>
+  <div id="modeHost"></div>
 
   <section class="panel" id="pairBox" hidden>
     <h2>Abbinamento</h2>
@@ -46,7 +47,7 @@
     <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
     <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
-    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button id="myLink">Copia il mio link</button><button id="batInfo">Dati per Comandi (batteria)</button><button id="batTest">Prova invio batteria</button><button id="zoomTest">Test zoom digitale</button>
+    <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button class="adv-only" id="myLink">Copia il mio link</button><button class="adv-only" id="batInfo">Dati per Comandi (batteria)</button><button class="adv-only" id="batTest">Prova invio batteria</button><button class="adv-only" id="zoomTest">Test zoom digitale</button>
     <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
     <video id="vid" muted playsinline></video>
   </section>
@@ -54,7 +55,7 @@
   <section class="panel" id="statPanel" hidden>
     <h2>Stato</h2>
     <table id="stat"></table>
-    <button class="rec" id="recBtn" disabled style="margin-top:8px">● REC (prova locale)</button>
+    <button class="rec adv-only" id="recBtn" disabled style="margin-top:8px">● REC (prova locale)</button>
     <div id="msg" class="muted"></div>
   </section>
 
@@ -64,7 +65,7 @@
     <div class="muted" id="clipNote"></div>
   </section>
 
-  <section class="panel" id="dbgPanel" hidden>
+  <section class="panel adv-only" id="dbgPanel" hidden>
     <h2>Registro attività</h2>
     <button id="dbgToggle">Mostra</button><button id="dbgCopy">Copia tutto</button>
     <pre id="dbgPre" hidden></pre>
@@ -74,9 +75,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="rt.js"></script>
+<script src="dev.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r7";
+const PAGE_VERSION = "camera r8";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -88,7 +90,7 @@ const LOGMAX = 4000, dbgBuf = [], dbgOut = []; let dbgOpen = false, dbgTimer = 0
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 function dbg(level, msg, extra) {
   const line = { t: Date.now(), l: level, m: String(msg) + (extra !== undefined ? " " + sj(extra) : "") };
-  dbgBuf.push(line); if (dbgBuf.length > LOGMAX) dbgBuf.shift(); dbgOut.push(line); if (dbgOut.length > 600) dbgOut.shift();
+  dbgBuf.push(line); if (dbgBuf.length > LOGMAX) dbgBuf.shift(); if (window.GDC_DEV) GDC_DEV.push(line.t, level, line.m); dbgOut.push(line); if (dbgOut.length > 600) dbgOut.shift();
   if (dbgOpen && !dbgTimer) dbgTimer = setTimeout(() => { dbgTimer = 0; renderDbg(); }, 400);
 }
 const fmtLine = (x) => `${new Date(x.t).toISOString().slice(11, 23)} [${x.l}] ${x.m}`;
@@ -560,6 +562,7 @@ async function start() {
   try { if (navigator.storage?.persisted) dbg("info", `archivio persistente: ${await navigator.storage.persisted()}`); } catch { /* ok */ }
   pairing = hashPair || (window.GDC_RT && GDC_RT.Pair.load()) || null;
   dbg("info", `abbinamento: ${pairing ? "presente, canale …" + String(pairing.c).slice(-4) + (hashPair ? " (da link)" : " (memorizzato)") : "assente"}`);
+  if (window.GDC_DEV) GDC_DEV.init({ role: "camera", dev: () => ID, ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, m), backlog: () => dbgBuf.slice(-300), host: $("modeHost") });
   $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
   await db.selfTest(); await loadSessions();

@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 9
-**Ultimo aggiornamento:** 2026-10-16 09:00
+**Versione:** 10
+**Ultimo aggiornamento:** 2026-11-15 10:30
 
 ## Vision
 
@@ -10,6 +10,8 @@ Un sistema multicamera per riprendere i propri progetti da più punti di vista e
 Punto di partenza: due telefoni (iPhone XR e un secondo telefono) usati a mano; si vuole ridurre il tempo di preparazione del set. Obiettivo iniziale di 5 camere ridimensionato a 2 angolazioni, estendibile. Il PC è acceso solo quando si gira.
 
 Il software (dashboard, pagina camera, canale di comunicazione) è il valore principale del progetto; l'hardware extra (ESP32, servo) è opzionale.
+
+Direzione di prodotto (2026-11-15): oltre allo strumento personale, l'idea è portarla a un livello successivo, come app con piano gratuito (qualità massima e numero di dispositivi limitati, file solo sul dispositivo) e piano Pro (più dispositivi, qualità alta, slow-mo, time-lapse, archiviazione a scelta anche in cloud). Punti di forza da curare: uso senza installare nulla, multi-dispositivo (Apple, Android, PC; in prospettiva action cam), file sul dispositivo madre in una cartella scelta (anche disco esterno). Ancora da fare: lavorare sul funzionamento, sulla grafica e sui limiti di rete.
 
 ## Pipeline
 
@@ -104,6 +106,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Fattibilità chiarita per ogni destinazione.
+- [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
 
 ### Step 7 — Time-lapse nella pagina camera
 
@@ -135,6 +138,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Messo in pipeline. Circa 20 automazioni da creare a mano.
 - [2026-10-15] Scelto il canale: Comandi invia un POST all'API REST di Supabase Realtime (`/realtime/v1/api/broadcast`, evento `battery`, canale del progetto) con id camera e livello (e opzionalmente `charging`). Camera r6 riceve l'evento, salva e rimanda lo stato alla dashboard con l'ora della misura. Pulsanti "Dati per Comandi (batteria)" e "Prova invio batteria" nella pagina camera. Il POST REST non è stato provato dal vivo (rete della sandbox bloccata): da verificare sull'XR con "Prova invio batteria".
 
+### Step 10 — Modalità Base/Avanzata e log inviati a Claude
+
+**Stato:** in corso (implementato, da verificare sui dispositivi veri)
+
+**Obiettivo:** una sola web app con due modalità: Base (solo i comandi utili a tutti) e Avanzata (impostazioni, test, registri: quella di sviluppo); in Avanzata i log possono arrivare in un database che Claude legge, per evitare il passaggio copia e incolla.
+
+**Decisioni progettuali:** interruttore Base/Avanzata in cima a camera e dashboard, ricordato sul dispositivo; elementi avanzati marcati `adv-only`. Invio dei log solo con modalità Avanzata e interruttore "Invia i log a Claude" attivi; tabella `gdc_dev_logs` nel progetto Supabase del titolare (che contiene anche altre tabelle: non toccate), scrittura anonima, nessuna lettura con la chiave pubblica, cancellazione automatica dopo 7 giorni; link e chiavi vengono oscurati nel testo.
+
+**Criterio di completamento:** una prova sull'iPad e sull'iPhone 15 con invio attivo, e Claude che legge le righe dalla tabella.
+
+**Note (cronologia dello step):**
+- [2026-11-15] Creata la tabella con verifica dei permessi (insert anonimo ok, lettura anonima negata). Camera r8 e dashboard r6 con il nuovo interruttore. Provato in un browser di prova con rete simulata; la scrittura vera verso Supabase non è provabile dalla sandbox (proxy).
+
 ### Step 9 — Hardware opzionale
 
 **Stato:** rimandato
@@ -149,6 +165,29 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 10:30] Direzione di prodotto, limiti di rete, modalità Base/Avanzata e log su Supabase
+
+**Riepilogo:** valutato il mercato e il valore dell'idea (punti di forza: nessuna installazione, multi-dispositivo, file sul dispositivo madre con cartella a scelta), definiti i limiti di rete da affrontare e realizzata la modalità Base/Avanzata con invio facoltativo dei log a una tabella Supabase letta da Claude.
+
+**Cosa è stato fatto:**
+- Ricerca di app esistenti: Final Cut Camera + Live Multicam su iPad (gratis, fino a 4 angoli, richiede Final Cut Pro per iPad), Blackmagic Camera (gratis, multi-telefono Android), Unison (Apple, gratuita con acquisti in-app), MultiCameraSync (solo iPhone), Switcher Studio, Mevo Multicam, Camerama, Canon Live Switcher, 1Take Pro in beta. Prezzi e limiti non verificati.
+- Valutazione di fattibilità e limiti: Safari non dà fuoco/zoom/esposizione reali; il Pro (4K, slow-mo) richiede probabilmente app nativa; il cloud e il TURN sono costi reali. Consigliato un confronto di 1-2 giorni con Unison e Final Cut Camera prima di investire in grafica/prodotto.
+- Analisi dei limiti di rete: comandi via Supabase ok su qualsiasi rete; anteprima tra reti diverse richiede un server TURN (oggi solo STUN); i file voluminosi viaggiano meglio in diretta sulla stessa rete; Wi-Fi con isolamento dei client; iPad Safari non sceglie cartelle. Action cam (GoPro/Insta) da browser solo su PC Chrome/Edge, rimandate.
+- Rigenerati i link di abbinamento (canale nuovo) per la prova con iPad (dashboard) e iPhone 15 (camera), perché il file con i vecchi link era andato perso. Non verificato quale versione serve GitHub Pages: il ramo `main` contiene solo il commit iniziale.
+- Creata la tabella `gdc_dev_logs` (RLS: solo insert per la chiave pubblica; pulizia a 7 giorni); verificato con ruolo anon. Nuovo `docs/dev.js` con interruttore Base/Avanzata e invio a lotti; camera r8 e dashboard r6 lo usano. Test in browser di prova ok.
+
+**Decisioni prese:**
+- Contesto: evitare il giro "aggiorno, apro, provo, copio i log, incollo".
+- Decisione: modalità Base/Avanzata unica per tutta la web app; in Avanzata i log possono andare in `gdc_dev_logs` e li leggo con gli strumenti Supabase. Resta a carico dell'utente premere i pulsanti sui dispositivi e ricaricare la pagina.
+- Alternative scartate: nessun canale diretto verso i dispositivi (non possibile dalla sandbox); nessun invio automatico dei log in modalità Base.
+- Da rivedere se: il prodotto diventa pubblico (servono account per utente al posto della chiave pubblica condivisa) o il progetto Supabase viene usato per altro.
+
+**File consegnati/modificati:** `docs/dev.js` (nuovo), `docs/camera.html` (r8), `docs/dashboard.html` (r6), `documento-sessione-video-system-gdc-studio.md`; tabella `gdc_dev_logs` nel progetto Supabase.
+
+**Impatto su Vision/Pipeline:** aggiunta la direzione di prodotto alla Vision; nuovo Step 10; note su Step 6.
+
+---
 
 ### [2026-10-16 09:00] Test dello zoom digitale
 

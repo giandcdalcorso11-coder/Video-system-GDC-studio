@@ -113,12 +113,14 @@
       <button id="stopAll" disabled>■ STOP tutte</button>
     </div>
   </header>
+  <div id="modeHost"></div>
   <main id="view"></main>
-  <footer>Con le camere collegate (Supabase) stato, REC, impostazioni e anteprima sono reali. Batteria e movimenti pan/tilt non sono ancora disponibili. Senza abbinamento la dashboard mostra una simulazione.</footer>
+  <footer class="adv-only">Con le camere collegate (Supabase) stato, REC, impostazioni e anteprima sono reali. Batteria e movimenti pan/tilt non sono ancora disponibili. Senza abbinamento la dashboard mostra una simulazione.</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="rt.js"></script>
+<script src="dev.js"></script>
 <script>
 "use strict";
 /* ===== Utilità ===== */
@@ -133,12 +135,12 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r5";
+const PAGE_VERSION = "dashboard r6";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
 function scheduleAdv() { if (advOpen && !advTimer) advTimer = setTimeout(() => { advTimer = 0; renderAdv(); }, 400); }
-function dbg(level, src, msg, extra) { adv.push({ t: Date.now(), l: level, s: src, m: String(msg) + (extra !== undefined ? " " + sj(extra) : "") }); if (adv.length > ADVMAX) adv.shift(); scheduleAdv(); }
+function dbg(level, src, msg, extra) { const x = { t: Date.now(), l: level, s: src, m: String(msg) + (extra !== undefined ? " " + sj(extra) : "") }; adv.push(x); if (adv.length > ADVMAX) adv.shift(); if (window.GDC_DEV) GDC_DEV.push(x.t, x.l, `${x.s}: ${x.m}`); scheduleAdv(); }
 const fmtAdv = (x) => `${new Date(x.t).toISOString().slice(11, 23)} [${x.l}] ${x.s}: ${x.m}`;
 const advSorted = () => adv.map((x, i) => [x, i]).sort((a, b) => a[0].t - b[0].t || a[1] - b[1]).map((x) => x[0]);
 function advHeader() {
@@ -164,7 +166,7 @@ addEventListener("pageshow", (e) => dbg("info", "pagina", `pageshow persisted=${
 
 /* ===== Pannello registri unico (tab: Registro / Attività avanzata) ===== */
 let logTab = store.get("gdc.logTab", "basic"), logId = "";
-const logPanel = (id) => { logId = id || ""; return `<section class="panel" id="logPanel">
+const logPanel = (id) => { logId = id || ""; return `<section class="panel adv-only" id="logPanel">
   <div class="row" style="justify-content:space-between;margin-bottom:8px">
     <div class="tabs" role="tablist" aria-label="Registri"><button role="tab" data-tab="basic">Registro</button><button role="tab" data-tab="adv">Attività avanzata</button></div>
     <div class="row"><button class="ghost" data-logcopy>Copia</button><button class="ghost" data-logclear>Svuota</button></div>
@@ -189,6 +191,7 @@ document.addEventListener("click", (e) => {
 const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
 const pairing = (window.GDC_RT && (GDC_RT.Pair.fromHash() || GDC_RT.Pair.load())) || null;
 const REAL = !!pairing, MOCK_RT = new URLSearchParams(location.search).has("mock");
+if (window.GDC_DEV) GDC_DEV.init({ role: "dashboard", dev: () => "dashboard", ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, "ui", m), backlog: () => advSorted().filter((x) => !/^cam /.test(x.s)).slice(-300).map((x) => ({ t: x.t, l: x.l, m: `${x.s}: ${x.m}` })), host: $("#modeHost") });
 const CAM_KEY = REAL ? "gdc.cams.real" : "gdc.cameras";
 let cameras = store.get(CAM_KEY, null) || (REAL ? [] : [
   { id: "cam1", device: "iPhone XR", name: "cam1", os: "iOS 16.3.1", totalGb: 128, freeGb: 30.6 },
@@ -475,7 +478,7 @@ function showHome() {
       </article>`).join("")}
       ${REAL ? `<div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
-    <section class="panel" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
+    <section class="panel adv-only" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     ${logPanel("")}`;
   curDetail = null; setConn(connStatus);
   $("#view").onclick = async (e) => {
@@ -513,7 +516,7 @@ function showDetail(id) {
               <button data-bind="stopBtn" data-cam="${id}" data-act="rec_stop">■ STOP</button>
               ${REAL ? `<button class="ghost" data-bind="standbyBtn" data-cam="${id}" data-act="standby">Schermo nero</button>` : `<button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>`}
             </div>
-            <div>
+            <div class="adv-only">
               <div class="pad" role="group" aria-label="Movimento (segnaposto)">
                 <span></span><button data-m="0,${STEP}" aria-label="Su">▲</button><span></span>
                 <button data-m="-${STEP},0" aria-label="Sinistra">◀</button><button class="home" data-act="home">⌂</button><button data-m="${STEP},0" aria-label="Destra">▶</button>
@@ -529,7 +532,7 @@ function showDetail(id) {
           <div class="kvs">
             <div class="kv"><small>Registrazione in corso</small><span data-bind="timer" data-cam="${id}"></span></div>
             <div class="kv"><small>Connessione</small><span data-bind="conn" data-cam="${id}"></span></div>
-            <div class="kv"><small>Pan / Tilt</small><span data-bind="pos" data-cam="${id}"></span></div>
+            <div class="kv adv-only"><small>Pan / Tilt</small><span data-bind="pos" data-cam="${id}"></span></div>
             <div class="kv"><small>Schermo del telefono</small><span data-bind="screen" data-cam="${id}"></span></div>
           </div></div>
         <div class="panel"><h2>Batteria</h2>
@@ -558,7 +561,7 @@ function showDetail(id) {
         <div class="panel"><h2>Impostazioni camera</h2>
           <label class="f">Dispositivo<input type="text" id="fDev" value="${esc(c.device)}" maxlength="40"></label>
           <label class="f">Nome camera<input type="text" id="fName" value="${esc(c.name)}" maxlength="30"></label>
-          <div class="muted">Sistema: ${esc(c.os)}</div>
+          <div class="muted adv-only">Sistema: ${esc(c.os)}</div>
           <div class="row" style="margin-top:10px">
             <button class="ghost" data-bind="connBtn" data-cam="${id}" data-act="toggleConn"></button>
             ${REAL ? `<button class="ghost" id="cpThis">Copia link di questa camera</button>` : ""}<button class="ghost" id="rmCam">Rimuovi camera</button>
