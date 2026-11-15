@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 10
-**Ultimo aggiornamento:** 2026-11-15 10:30
+**Versione:** 11
+**Ultimo aggiornamento:** 2026-11-15 11:50
 
 ## Vision
 
@@ -165,6 +165,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 11:50] Primo test sull'iPhone 15: log arrivati, zoom nativo, test zoom bloccato
+
+**Riepilogo:** i log dell'iPhone 15 e dell'iPad arrivano nella tabella `gdc_dev_logs` e li leggo direttamente; sull'iPhone 15 (iOS 18.7, Safari 27.2) il browser offre zoom nativo, torcia e fuoco; il test zoom si è bloccato alla seconda prova e ho aggiunto una diagnosi per fase (camera r9).
+
+**Cosa è stato fatto:**
+- Verificata la scrittura vera dei log: sessioni di camera (iphone15) e dashboard presenti in tabella, lette con SQL.
+- **Scoperta:** su iPhone 15 con Safari 27.2 le capacità della traccia includono `zoom` da 0,5 a 10, `torch`, `focusDistance` (min 0,15) e `whiteBalanceMode` manuale; `applyConstraints({advanced:[{zoom:2}]})` accettato e riportato nelle impostazioni. Non vale per l'XR (iOS 16, nessuno di questi controlli): lì resta lo zoom digitale.
+- Prova 1 del test zoom (1080p, 1×): OK, 30 fps, intervalli p95 34 ms, 14,2 MB per 6 s (19,8 Mbps), file mp4 riproducibile con audio.
+
+**Bug: test zoom fermo alla seconda prova**
+
+**Sintomo:** dopo la prima prova nessuna riga per oltre 7 minuti; la pagina resta viva (stato inviato ogni 30 s).
+**Causa:** non accertata. Sospetti: `play()` della seconda sorgente o `stop` del registratore che non si risolvono, oppure la traccia audio riusata dal registratore precedente.
+**Fix applicato:** camera r9 con fasi registrate, timeout su play, stop e riproduzione, limite di durata per prova, traccia audio clonata per ogni prova, e nuova prova "zoom NATIVO 1×→3×". Provato solo in Chromium di prova (non riproduce il blocco): da verificare sull'iPhone 15.
+
+**File consegnati/modificati:** `docs/camera.html` (r9), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 10:30] Direzione di prodotto, limiti di rete, modalità Base/Avanzata e log su Supabase
 
