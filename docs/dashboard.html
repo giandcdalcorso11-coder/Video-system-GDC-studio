@@ -121,6 +121,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="rt.js"></script>
 <script src="dev.js"></script>
+<script src="xfer.js"></script>
 <script>
 "use strict";
 /* ===== Utilità ===== */
@@ -135,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r9";
+const PAGE_VERSION = "dashboard r10";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -261,7 +262,7 @@ class RealtimeTransport {
   start() {
     this.rt = GDC_RT.connect({ pairing: this.p, role: "dashboard", id: this.id, meta: { name: "dashboard" }, mock: MOCK_RT, log: (l, m) => dbg(l, "rt", m) });
     this.rt.onStatus((s) => { setConn(s); if (/^connesso/.test(s)) this.rt.send("hello", { from: this.id }); });
-    this.rt.on("state", (m) => this.onCamState(m)); this.rt.on("rtc", (m) => Preview.onSignal(m));
+    this.rt.on("state", (m) => this.onCamState(m)); this.rt.on("rtc", (m) => Preview.onSignal(m)); this.rt.on("xrtc", (m) => { if (m && m.to === this.id) GDC_XFER.signal(m); }); this.rt.on("xdone", (m) => Xfer.onDone(m));
     this.rt.on("ack", (m) => { dbg(m.ok ? "info" : "warn", "ack", `${m.cmd} da ${m.id}: ${m.ok ? "ok" : "NON RIUSCITO"}`, { rid: m.rid, detail: m.detail }); if (!m.ok) { const c = camById(m.id); log(m.id, `${c ? camTitle(c) : m.id}: comando "${m.cmd}" non riuscito${typeof m.detail === "string" ? " (" + m.detail + ")" : ""}`); } });
     this.rt.on("dbg", (m) => { const c = camById(m.id), src = "cam " + (c ? c.name : m.id); (m.lines || []).forEach((x) => adv.push({ t: x.t, l: x.l, s: src, m: x.m })); while (adv.length > ADVMAX) adv.shift(); scheduleAdv(); });
     setInterval(() => this.sweep(), 2000);
@@ -290,7 +291,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -360,8 +361,116 @@ transport.onState((id, st) => { state[id] = st; refresh(); });
 
 /* ===== Binding dei dati ai nodi (data-bind + data-cam) ===== */
 const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
+/* ===== Trasferimento file dalla camera (diretto, con controllo di integrità) ===== */
+const FS = typeof window.showDirectoryPicker === "function";
+const Dest = { mode: FS ? store.get("gdc.dest", "folder") : "device", handle: null };
+const kv = (() => {
+  let h = null; const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => { const r = indexedDB.open("gdc-dash", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res((h = r.result)); r.onerror = () => rej(r.error); });
+  return { get: (k) => open().then((d) => new Promise((res, rej) => { const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); })),
+    set: (k, v) => open().then((d) => new Promise((res, rej) => { const t = d.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); })) };
+})();
+if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); } }).catch(() => {});
+const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
+const Xfer = {
+  jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
+  active() { return [...this.jobs.values()].filter((j) => j.state === "attesa" || j.state === "in corso"); },
+  unsafe() { return this.active().length > 0 || [...this.jobs.values()].some((j) => j.state === "ok" && j.where === "memoria" && !j.saved && !j.test); },
+  async pick() {
+    try { Dest.handle = await window.showDirectoryPicker({ mode: "readwrite" }); await kv.set("dir", Dest.handle); dbg("info", "file", `cartella scelta: ${Dest.handle.name}`); this.refresh(); return true; }
+    catch (e) { if (e.name !== "AbortError") { dbg("error", "file", `scelta cartella: ${e.name}: ${e.message}`); log("", "Cartella non selezionabile: " + e.message); } return false; }
+  },
+  async ensureDest() {
+    if (Dest.mode !== "folder") return true;
+    if (!Dest.handle && !(await this.pick())) return false;
+    let p = await Dest.handle.queryPermission({ mode: "readwrite" }); if (p !== "granted") p = await Dest.handle.requestPermission({ mode: "readwrite" });
+    if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; } return true;
+  },
+  async start(camId, clip, opt = {}) {
+    if (!opt.test && !(await this.ensureDest())) return null;
+    const xid = "x" + rid() + rid(), c = camById(camId);
+    const job = { xid, camId, sid: clip ? clip.id : null, name: clip ? clip.file : "prova-rete.bin", size: opt.test ? opt.mb * 1048576 : (clip ? clip.mb * 1048576 : 0), got: 0, speed: 0, state: "attesa", at: Date.now(), saved: false, test: !!opt.test, path: "", error: "" };
+    this.jobs.set(xid, job);
+    const makeSink = opt.test ? GDC_XFER.nullSink() : Dest.mode === "folder" ? GDC_XFER.folderSink(Dest.handle) : GDC_XFER.memorySink();
+    const o = { rt: transport.rt, from: transport.id, to: camId, xid, makeSink, log: (l, m) => dbg(l, "trasferimento", m),
+      onProgress: (x) => { job.state = "in corso"; job.got = x.got; if (x.size) job.size = Math.max(job.size, x.got); job.speed = x.speed; this.refresh(); },
+      onInfo: (i) => { if (i.path) job.path = i.path; if (i.name && !job.test) job.fname = i.name; this.refresh(); } };
+    job.opts = o;
+    job.promise = GDC_XFER.receiveFile(o)
+      .then((r) => { Object.assign(job, { state: "ok", where: r.where, blob: r.blob, fname: r.name, got: r.bytes, size: r.bytes, mbps: r.mbps, ms: r.ms }); log(camId, `${c ? camTitle(c) : camId}: ${job.test ? "prova di rete" : "file " + r.name} ${job.test ? "" : "arrivato e verificato"} (${fmtMB(r.bytes)}, ${r.mbps.toFixed(1)} Mbps)`); })
+      .catch((e) => { job.state = "errore"; job.error = job.camError || e.message; log(camId, `${c ? camTitle(c) : camId}: trasferimento non riuscito: ${job.error}`); })
+      .finally(() => this.refresh());
+    command(camId, opt.test ? { cmd: "xfer_test", xid, mb: opt.mb } : { cmd: "xfer_start", xid, sid: clip.id, del: !!this.delAfter });
+    this.refresh(); return job;
+  },
+  onDone(m) { const j = this.jobs.get(m.xid); if (!j || m.ok) return; j.camError = m.error; if (j.opts && j.opts.cancel) j.opts.cancel(); },
+  async all(camId) {
+    if (this.queueRun) return; this.queueRun = true; this.refresh();
+    try { const clips = ((state[camId] && state[camId].clips) || []).filter((k) => k.status === "pronta" && k.id); if (!(await this.ensureDest())) return; for (const k of clips) { const j = await this.start(camId, k); if (!j) break; await j.promise; if (j.state !== "ok") break; } }
+    finally { this.queueRun = false; this.refresh(); }
+  },
+  async save(xid) {
+    const j = this.jobs.get(xid); if (!j || !j.blob) return;
+    const f = new File([j.blob], j.fname || j.name, { type: j.blob.type });
+    try { if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(j.blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); } j.saved = true; j.blob = null; }
+    catch (e) { if (e.name !== "AbortError") log(j.camId, "Salvataggio non riuscito: " + e.message); }
+    this.refresh();
+  },
+  cancel(xid) { const j = this.jobs.get(xid); if (j && j.opts && j.opts.cancel) j.opts.cancel(); },
+  refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); },
+  render(st, c, el) {
+    const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
+    const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso"), online = !!(st && st.online);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.xid, j.state, j.saved, j.error, j.path, j.where]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, online, FS, act, this.queueRun]);
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig;
+      const free = clips.filter((k) => k.status === "pronta").length;
+      el.innerHTML = `<h2>File</h2>
+        <div class="muted" style="margin-bottom:6px">Destinazione dei file</div>
+        <div class="row" style="gap:12px;align-items:center">
+          ${FS ? `<label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="folder" ${Dest.mode === "folder" ? "checked" : ""}> Cartella di questo computer</label>` : ""}
+          <label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="device" ${Dest.mode === "device" ? "checked" : ""}> Questo dispositivo (poi Salva / Condividi)</label>
+        </div>
+        ${Dest.mode === "folder" ? `<div class="row" style="margin-top:6px;gap:8px;align-items:center"><span class="muted">${Dest.handle ? "Cartella: <b>" + esc(Dest.handle.name) + "</b>" : "Nessuna cartella scelta"}</span><button class="ghost" data-xf="pick">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button></div>` : `<div class="muted" style="margin-top:6px">${FS ? "" : "Questo browser non può scegliere una cartella: i file restano in memoria finché non li salvi con “Salva”. "}Salva ogni file appena arriva.</div>`}
+        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
+        <div style="margin-top:10px"><b>Clip sul telefono</b></div>
+        <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
+        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (30 MB)</button></div>
+        ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.xid}"></span></div>
+          <div data-xp="${j.xid}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
+          <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : "Trasferimento…"} ${j.path ? "· " + esc(j.path) : ""}</div>
+          <div class="row" style="gap:8px">${j.state === "ok" && j.where === "memoria" && !j.saved ? `<button class="primary" data-xf="save" data-xid="${j.xid}">Salva</button>` : ""}${j.state === "attesa" || j.state === "in corso" ? `<button class="ghost" data-xf="cancel" data-xid="${j.xid}">Annulla</button>` : ""}</div></div>`).join("") : ""}
+        <div data-xs style="margin-top:12px;font-weight:600"></div>`;
+    }
+    jobs.forEach((j) => {
+      const pb = el.querySelector(`[data-xp="${j.xid}"] i`), tx = el.querySelector(`[data-xt="${j.xid}"]`); if (!pb) return;
+      const pct = j.state === "ok" ? 100 : j.size ? Math.min(100, Math.round(j.got / j.size * 100)) : 0; pb.style.width = pct + "%";
+      const left = j.speed > 0 && j.size > j.got ? Math.round((j.size - j.got) / j.speed) : 0;
+      tx.textContent = j.state === "in corso" || j.state === "attesa" ? `· ${pct}% · ${fmtMB(j.got)} · ${j.speed ? (j.speed * 8 / 1e6).toFixed(1) + " Mbps" : ""}${left ? " · circa " + (left >= 60 ? Math.round(left / 60) + " min" : left + " s") : ""}` : j.state === "ok" ? `· ${fmtMB(j.got)} · ${j.mbps ? j.mbps.toFixed(1) + " Mbps" : ""}` : "";
+    });
+    const s = el.querySelector("[data-xs]"); if (s) {
+      const all = clips.length && clips.every((k) => k.status === "inviata");
+      if (act) { s.textContent = "⏳ Trasferimento in corso: non chiudere questa pagina e lascia la camera aperta"; s.style.color = "var(--warn,#c77d00)"; }
+      else if (this.unsafe()) { s.textContent = "⚠ File in memoria non ancora salvati: tocca Salva prima di chiudere"; s.style.color = "var(--warn,#c77d00)"; }
+      else if (all && jobs.some((j) => j.state === "ok")) { s.textContent = "✓ Sicuro da chiudere: tutti i file sono arrivati e verificati"; s.style.color = "var(--ok,#2a9d5c)"; }
+      else { s.textContent = ""; }
+    }
+  },
+};
+addEventListener("beforeunload", (e) => { if (Xfer.unsafe()) { e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-xf]"); if (!b || b.tagName === "INPUT") return; const pn = b.closest("[data-cam]"), id = pn && pn.dataset.cam; if (!id) return;
+  const a = b.dataset.xf;
+  if (a === "pick") Xfer.pick(); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
+  else if (a === "go") { const k = ((state[id] && state[id].clips) || []).find((x) => x.id === b.dataset.sid); if (k) Xfer.start(id, k); }
+  else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid);
+});
+document.addEventListener("change", (e) => {
+  const m = e.target.closest("[data-xm]"); if (m) { Dest.mode = m.dataset.xm; store.set("gdc.dest", Dest.mode); dbg("info", "file", `destinazione: ${Dest.mode}`); Xfer.refresh(); return; }
+  if (e.target.matches('[data-xf="del"]')) { Xfer.delAfter = e.target.checked; store.set("gdc.xdel", Xfer.delAfter); dbg("info", "file", `elimina dal telefono dopo il trasferimento: ${Xfer.delAfter}`); Xfer.refresh(); }
+});
 let zDrag = false;
 const BIND = {
+  xferUi: (st, c, el) => Xfer.render(st, c, el),
   zoomUi: (st, c, el) => {
     const z = st.zoom, sl = $("#zSlider", el), val = $("#zVal", el), note = $("#zNote", el), ok = !!(st.online && st.camReady && z && z.native);
     if (ok) { sl.min = z.min; sl.max = z.max; }
@@ -556,6 +665,7 @@ function showDetail(id) {
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
             <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
           </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
+        ${REAL ? `<div class="panel" data-bind="xferUi" data-cam="${id}"></div>` : ""}
         ${REAL ? `<div class="panel" data-bind="zoomUi" data-cam="${id}"><h2>Zoom</h2>
           <div class="row" style="gap:10px;align-items:center"><input type="range" id="zSlider" min="1" max="3" step="0.1" value="1" style="flex:1" disabled><b id="zVal" style="min-width:52px;text-align:right">—</b></div>
           <div class="row" style="margin-top:8px">${[0.5, 1, 2, 3, 5].map((z) => `<button class="ghost zb" data-z="${z}" disabled>${z}×</button>`).join("")}</div>

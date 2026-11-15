@@ -76,9 +76,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="rt.js"></script>
 <script src="dev.js"></script>
+<script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r14";
+const PAGE_VERSION = "camera r15";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -169,6 +170,8 @@ const db = (() => {
     delFrameKeys: (keys) => storageMode === "memoria" ? Promise.resolve(keys.forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"), st = t.objectStore("frames"); keys.forEach((k) => st.delete(k)); await done(t); }),
     delFrames: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.frames.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"); t.objectStore("frames").delete(range(sid)); await done(t); }),
     putChunk: (k, b) => storageMode === "memoria" ? Promise.resolve(void mem.chunks.set(k, b)) : run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(b, k); await done(t); }),
+    chunkKeys: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.chunks.keys()].filter((k) => k.startsWith(sid + ":")).sort()) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAllKeys(range(sid)))),
+    getChunk: (k) => storageMode === "memoria" ? Promise.resolve(mem.chunks.get(k)) : run((d) => rq(d.transaction("chunks").objectStore("chunks").get(k))),
     putSession: (o) => storageMode === "memoria" ? Promise.resolve(void mem.sessions.set(o.id, o)) : run(async (d) => { const t = d.transaction("sessions", "readwrite"); t.objectStore("sessions").put(o); await done(t); }),
     sessions: () => storageMode === "memoria" ? Promise.resolve([...mem.sessions.values()]) : run((d) => rq(d.transaction("sessions").objectStore("sessions").getAll())),
     chunks: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.chunks.entries()].filter(([k]) => k.startsWith(sid + ":")).sort((a, b) => (a[0] < b[0] ? -1 : 1)).map((x) => x[1])) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAll(range(sid)))),
@@ -476,12 +479,12 @@ function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
-    vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
+    vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
   const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
+  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
@@ -549,6 +552,47 @@ async function onRtc(m) {
   } catch (x) { dbg("error", `segnale rtc ${m.kind}: ${x.name}: ${x.message}`); }
 }
 
+/* ===== Trasferimento file verso la dashboard ===== */
+let xferBusy = null;
+const xferFail = (m, err) => { try { rt?.send("xdone", { id: ID, xid: m.xid, sid: m.sid || null, ok: false, error: err }); } catch { /* ok */ } throw new Error(err); };
+function xferRun(m, { name, mime, size, source, sid, test }) {
+  xferBusy = { sid: sid || "prova", xid: m.xid, pct: 0 }; publish();
+  GDC_XFER.sendFile({ rt, from: ID, to: m.from, xid: m.xid, name, mime, size, source, log: (l, t) => dbg(l, t),
+    onProgress: (p) => { xferBusy.pct = size ? Math.min(100, Math.round(p.sent / size * 100)) : 0; } })
+    .then(async (r) => {
+      dbg("info", `trasferimento riuscito: ${name}`, { MB: +(r.bytes / 1048576).toFixed(1), Mbps: +r.mbps.toFixed(1), secondi: Math.round(r.ms / 1000) });
+      rt.send("xdone", { id: ID, xid: m.xid, sid: sid || null, ok: true, bytes: r.bytes, mbps: r.mbps });
+      if (!test) {
+        const s = sessions.find((x) => x.id === sid);
+        if (m.del) { await db.delSession(sid); dbg("info", `registrazione ${sid} eliminata dal telefono dopo la verifica`); await loadSessions(); }
+        else if (s) { s.status = "inviata"; s.sentAt = Date.now(); await db.putSession(s); renderClips(); }
+      }
+    })
+    .catch((e) => { lastErr = "Trasferimento: " + e.message; dbg("error", `trasferimento fallito: ${e.message}`); try { rt.send("xdone", { id: ID, xid: m.xid, sid: sid || null, ok: false, error: e.message }); } catch { /* ok */ } })
+    .finally(() => { xferBusy = null; publish(); });
+}
+async function xferStart(m) {
+  if (!rt || !m.xid || !m.from) throw new Error("richiesta di trasferimento incompleta");
+  if (xferBusy) xferFail(m, "un altro trasferimento è già in corso");
+  const s = sessions.find((x) => x.id === m.sid); if (!s) xferFail(m, "registrazione non trovata sul telefono");
+  if (recording && recording.sid === s.id) xferFail(m, "registrazione ancora in corso");
+  const keys = await db.chunkKeys(s.id); if (!keys.length) xferFail(m, "nessun dato nella registrazione");
+  const ext = /mp4/.test(s.mime || "") ? "mp4" : /webm/.test(s.mime || "") ? "webm" : "mp4";
+  let i = 0; const source = { next: async () => { if (i >= keys.length) return null; const b = await db.getChunk(keys[i++]); return b ? await b.arrayBuffer() : null; } };
+  dbg("info", `trasferimento di ${s.id} verso ${m.from}`, { pezzi: keys.length, MBstimati: Math.round((s.bytes || 0) / 1048576), eliminaDopo: !!m.del });
+  xferRun(m, { name: `${cfg.name}_${s.id}.${ext}`, mime: s.mime, size: s.bytes || 0, source, sid: s.id });
+  return "trasferimento avviato";
+}
+async function xferTest(m) {
+  if (!rt || !m.xid || !m.from) throw new Error("richiesta incompleta");
+  if (xferBusy) xferFail(m, "un altro trasferimento è già in corso");
+  const mb = Math.max(1, Math.min(200, Number(m.mb) || 30)), blk = new Uint8Array(1048576); for (let o = 0; o < blk.length; o += 65536) crypto.getRandomValues(blk.subarray(o, o + 65536));
+  let n = 0; const source = { next: async () => (n++ < mb ? blk.slice().buffer : null) };
+  dbg("info", `prova di velocità: ${mb} MB verso ${m.from}`);
+  xferRun(m, { name: "prova-rete.bin", mime: "application/octet-stream", size: mb * 1048576, source, test: true });
+  return "prova avviata";
+}
+
 /* ===== Comandi dalla dashboard ===== */
 async function onCmd(m) {
   if (m.to !== ID && m.to !== "*") return;
@@ -566,6 +610,8 @@ async function onCmd(m) {
       case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
       case "zoom": detail = await setZoom(m.z); break;
+      case "xfer_start": detail = await xferStart(m); break;
+      case "xfer_test": detail = await xferTest(m); break;
       case "battery": ok = setBat(m.level, m.charging, "dashboard"); detail = ok ? bat : "valore non valido"; break;
       default: ok = false; detail = "comando sconosciuto"; break;
     }
@@ -615,7 +661,7 @@ async function start() {
   if (!pairing) return;
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
-  rt.on("battery", (m) => { if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
+  rt.on("battery", (m) => { if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
   setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));

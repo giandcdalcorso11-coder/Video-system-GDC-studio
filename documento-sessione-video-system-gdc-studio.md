@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 16
-**Ultimo aggiornamento:** 2026-11-15 16:30
+**Versione:** 17
+**Ultimo aggiornamento:** 2026-11-15 18:00
 
 ## Vision
 
@@ -96,7 +96,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 6 — Trasferimento file e destinazioni
 
-**Stato:** da fare
+**Stato:** in corso (prima versione implementata, da provare sui dispositivi veri)
 
 **Obiettivo:** arrivo dei file nella cartella del PC (Edge, File System Access) con barra di avanzamento e "sicuro da chiudere"; poi destinazioni alternative.
 
@@ -106,6 +106,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Fattibilità chiarita per ogni destinazione.
+- [2026-11-15] Prima versione: invio diretto camera → dashboard con WebRTC data channel (segnalazione su Supabase, evento `xrtc`), a blocchi da 60 KB con controllo della coda, controllo finale di dimensione e CRC32; destinazioni: cartella del computer (File System Access, solo Edge/Chrome desktop; la cartella è ricordata) oppure memoria del dispositivo + Salva/Condividi; opzione "elimina dal telefono dopo il trasferimento verificato" (spenta di default); barra di avanzamento con velocità e tempo residuo; indicatore "Sicuro da chiudere"; prova di velocità da 30 MB con tipo di percorso (rete locale/relay). Provato in Chromium con camera e dashboard simulate: SHA-256 identico sia in memoria sia con cartella simulata, eliminazione dopo la verifica ok. Non ancora fatta: ripresa dopo interruzione, coda in background, TURN.
 - [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
 
 ### Step 7 — Time-lapse nella pagina camera
@@ -165,6 +166,26 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 18:00] Trasferimento file: prima versione (camera r15, dashboard r10)
+
+**Riepilogo:** i file registrati sul telefono si possono trasferire alla dashboard in diretta, con progress bar, verifica di integrità, destinazione a scelta (cartella del computer o memoria + Salva) e prova di velocità della rete.
+
+**Cosa è stato fatto:**
+- Nuovo `docs/xfer.js` (invio e ricezione con WebRTC data channel, CRC32, destinazioni cartella/memoria/nulla), integrato in camera r15 (comandi `xfer_start` e `xfer_test`, lettura dei pezzi dall'archivio uno alla volta, stato "inviata" o eliminazione dopo la verifica) e dashboard r10 (pannello File, coda "tutte le clip", Salva, Annulla, avvisi di chiusura).
+- Test in Chromium con camera e dashboard simulate: due clip trasferite, SHA-256 identico alla copia sul telefono sia in memoria sia verso una cartella simulata; eliminazione dopo la verifica; prova di velocità 30 MB (37 Mbps nel test locale, percorso host/host).
+
+**Decisioni prese:**
+- Contesto: serviva un percorso per portare i file sul dispositivo madre senza passare da cloud.
+- Decisione: trasferimento diretto sulla stessa rete (WebRTC), controllo di dimensione e CRC32 (WebCrypto non offre SHA incrementale), la cancellazione dal telefono solo dopo conferma e solo se l'utente lo sceglie.
+- Alternative scartate: passare i file da Supabase o da un cloud (costo e lentezza); ripresa del trasferimento nella prima versione.
+- Da rivedere se: la rete reale è lenta o isola i dispositivi (serve TURN o un relay), o i file diventano molto grandi per la memoria di iPad (serve scrittura su disco o suddivisione).
+
+**File consegnati/modificati:** `docs/xfer.js` (nuovo), `docs/camera.html` (r15), `docs/dashboard.html` (r10), `documento-sessione-video-system-gdc-studio.md`.
+
+**Impatto su Vision/Pipeline:** Step 6 passa a "in corso".
+
+---
 
 ### [2026-11-15 16:30] Zoom ancora a scatti: la camera non era aggiornata; versione visibile in Avanzata
 
