@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 17
-**Ultimo aggiornamento:** 2026-11-15 18:00
+**Versione:** 18
+**Ultimo aggiornamento:** 2026-11-15 18:40
 
 ## Vision
 
@@ -166,6 +166,26 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 18:40] Spostamento di tutto su Supabase "GDC-project 2"
+
+**Riepilogo:** il canale in tempo reale e la tabella dei log passano dal progetto Supabase GDC-WEBAPP (`pnzabwfsgkvejnrtrjcp`, che contiene un'altra web app) al progetto "GDC-project 2" (`mjcnvpwjvwrucwjptgiu`), come chiesto dal titolare.
+
+**Cosa è stato fatto:**
+- Chiarito dove si usava Supabase: (1) canale Realtime (comandi, stato, segnali del trasferimento) scritto nei link di abbinamento; (2) tabella `gdc_dev_logs`. Nel codice non ci sono indirizzi o chiavi scritti a mano.
+- Nel progetto "GDC-project 2" (contiene solo tabelle `thumb_*`): creata `gdc_dev_logs` con RLS (solo scrittura dalla chiave pubblica, nessuna lettura), pulizia automatica a 7 giorni; verificata con il ruolo anon.
+- Dal progetto GDC-WEBAPP: rimossa soltanto `gdc_dev_logs` con la sua funzione di pulizia (4.951 righe di log di prova, 17 sessioni), senza toccare le altre tabelle. Le righe non sono state copiate: i risultati utili sono già nel documento.
+- Rigenerati i link di abbinamento (canale nuovo, URL e chiave del nuovo progetto). I dispositivi devono aprire i nuovi link, che sostituiscono l'abbinamento memorizzato.
+- Da verificare sui dispositivi: che il Realtime pubblico funzioni sul nuovo progetto (se compare un errore di canale, controllare nelle impostazioni Realtime del progetto che l'accesso pubblico sia consentito).
+
+**Decisioni prese:**
+- Contesto: il progetto GDC-WEBAPP è dedicato a un'altra web app.
+- Decisione: tutto il sistema multicamera vive su "GDC-project 2".
+- Da rivedere se: il progetto viene usato per altri scopi o il sistema diventa pubblico (servono account per utente e policy più strette).
+
+**File consegnati/modificati:** `documento-sessione-video-system-gdc-studio.md`; database: tabella e funzione `gdc_dev_logs` create su GDC-project 2 e rimosse da GDC-WEBAPP.
+
+---
 
 ### [2026-11-15 18:00] Trasferimento file: prima versione (camera r15, dashboard r10)
 
