@@ -78,7 +78,7 @@
 <script src="dev.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r9";
+const PAGE_VERSION = "camera r10";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -333,13 +333,13 @@ async function zoomTest() {
     let st; try { st = await navigator.mediaDevices.getUserMedia({ ...base, audio: true }); } catch (e) { Z(`apertura ${res} con audio fallita: ${e.name}: ${e.message}`); st = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); }
     const vt = st.getVideoTracks()[0], at = st.getAudioTracks()[0]; Z(`aperta ${res} in ${Math.round(performance.now() - t0)} ms`, { video: vt.getSettings(), audio: at ? at.getSettings() : "assente" }); return st;
   };
-  const run = async (name, st, z0, z1, withRtc, native) => {
-    const res = { name, z0, z1, rtc: !!withRtc, nativo: !!native }; curPhase = "avvio"; abortRun = false; const vt0 = st.getVideoTracks()[0]; let lastZ = 0;
+  const run = async (name, st, z0, z1, withRtc, native, noAudio) => {
+    const res = { name, z0, z1, rtc: !!withRtc, nativo: !!native, senzaAudio: !!noAudio }; curPhase = "avvio"; abortRun = false; const vt0 = st.getVideoTracks()[0]; let lastZ = 0;
     const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.srcObject = new MediaStream(st.getVideoTracks()); curPhase = "play sorgente"; await tmo(v.play(), 4000, "play sorgente").catch((e) => Z(`play sorgente: ${e.name || ""} ${e.message}`));
     for (let i = 0; i < 60 && !v.videoWidth; i++) await sleep(50);
     const vw = v.videoWidth, vh = v.videoHeight; if (!vw) throw new Error("video sorgente senza dimensioni");
     const port = vh >= vw, ow = port ? 1080 : 1920, oh = port ? 1920 : 1080, cv = document.createElement("canvas"); cv.width = ow; cv.height = oh; const g = cv.getContext("2d");
-    const cs = cv.captureStream(30), at0 = st.getAudioTracks()[0], at = at0 ? at0.clone() : null; if (at) cs.addTrack(at); curPhase = "avvio registratore";
+    const cs = cv.captureStream(30), at0 = st.getAudioTracks()[0], at = (at0 && !noAudio) ? at0.clone() : null; if (at) cs.addTrack(at); curPhase = "avvio registratore";
     const mime = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4"].find((x) => MediaRecorder.isTypeSupported(x));
     const mr = new MediaRecorder(cs, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 20000000 }), chunks = []; mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); }; mr.onerror = (e) => ZE(`MediaRecorder: ${e.error?.name} ${e.error?.message}`);
     const stopped = new Promise((r) => (mr.onstop = r));
@@ -392,21 +392,22 @@ async function zoomTest() {
   try {
     Z("=== INIZIO TEST ZOOM DIGITALE ===", { pagina: PAGE_VERSION, ua: navigator.userAgent, core: navigator.hardwareConcurrency, ramGB: navigator.deviceMemory ?? "n/d", schermo: `${screen.width}x${screen.height}@${devicePixelRatio}`, visibilita: document.visibilityState, durataPerProva_s: DUR / 1000, supportati: navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : "n/d", canvasCapture: !!HTMLCanvasElement.prototype.captureStream, frameCallback: !!HTMLVideoElement.prototype.requestVideoFrameCallback, mp4: ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4"].map((m) => m + "=" + MediaRecorder.isTypeSupported(m)) });
     if (wasOpen) stopCam(); await sleep(400);
-    const plan = [["1080p", [["1080p zoom 1x (base con canvas)", 1, 1], ["1080p zoom 2x", 2, 2], ["1080p zoom NATIVO 1x→3x", 1, 3, false, true]]], ["4K", [["4K zoom 1x (base con canvas)", 1, 1], ["4K zoom 2x", 2, 2], ["4K zoom 2x + anteprima WebRTC", 2, 2, true], ["4K zoom animato 1x→3x", 1, 3]]]], total = plan.reduce((a, p) => a + p[1].length, 0); let n = 0;
-    for (const [res, runs] of plan) {
-      btn.textContent = `Test zoom: apro ${res}…`; let st; try { st = await getMedia(res); } catch (e) { ZE(`impossibile aprire ${res}: ${e.name}: ${e.message}`); continue; }
-      if (res === "1080p") {
-        const vt = st.getVideoTracks()[0]; let caps = "getCapabilities assente"; try { caps = vt.getCapabilities ? vt.getCapabilities() : caps; } catch (e) { caps = "errore " + e.message; }
-        Z("zoom nativo del browser: capacità traccia", { capabilities: caps, zoomNelleCapacita: !!(caps && caps.zoom), settings: vt.getSettings() });
-        for (const [lab, c] of [["advanced zoom 2", { advanced: [{ zoom: 2 }] }], ["zoom 2", { zoom: 2 }]]) { try { await vt.applyConstraints(c); Z(`zoom nativo ${lab}: accettato`, vt.getSettings()); } catch (e) { Z(`zoom nativo ${lab}: rifiutato ${e.name}: ${e.message}`); } }
-        try { await vt.applyConstraints({}); } catch { /* ok */ }
-      }
-      for (const [name, z0, z1, rtc, nat] of runs) {
+    const plan = [
+      ["1080p", true, [["1080p zoom 1x (flusso nuovo)", 1, 1], ["1080p zoom 2x (flusso nuovo)", 2, 2], ["1080p zoom NATIVO 1x→3x (flusso nuovo)", 1, 3, false, true]]],
+      ["4K", true, [["4K zoom 2x (flusso nuovo)", 2, 2], ["4K zoom 2x + anteprima WebRTC (flusso nuovo)", 2, 2, true], ["4K zoom animato 1x→3x (flusso nuovo)", 1, 3]]],
+      ["1080p", false, [["1080p zoom 2x con audio (flusso condiviso, 1ª)", 2, 2], ["1080p zoom 2x SENZA audio (flusso condiviso, 2ª)", 2, 2, false, false, true]]],
+    ], total = plan.reduce((a, p) => a + p[2].length, 0); let n = 0;
+    for (const [res, perRun, runs] of plan) {
+      let st = null;
+      if (!perRun) { btn.textContent = `Test zoom: apro ${res}…`; try { st = await getMedia(res); } catch (e) { ZE(`impossibile aprire ${res}: ${e.name}: ${e.message}`); continue; } }
+      for (const [name, z0, z1, rtc, nat, noAudio] of runs) {
         n++; btn.textContent = `Test zoom ${n}/${total}: ${name}`;
-        try { await tmo(run(name, st, z0, z1, rtc, nat), DUR + 25000, "prova intera"); } catch (e) { abortRun = true; ZE(`prova "${name}" fallita nella fase "${curPhase}": ${e.name}: ${e.message}`); results.push({ name, esito: `ERRORE (fase ${curPhase}): ${e.message}` }); }
-        await sleep(600);
+        if (perRun) { try { st = await getMedia(res); } catch (e) { ZE(`impossibile aprire ${res}: ${e.name}: ${e.message}`); results.push({ name, esito: "ERRORE: camera non aperta" }); continue; } }
+        try { await tmo(run(name, st, z0, z1, rtc, nat, noAudio), DUR + 25000, "prova intera"); } catch (e) { abortRun = true; ZE(`prova "${name}" fallita nella fase "${curPhase}": ${e.name}: ${e.message}`); results.push({ name, esito: `ERRORE (fase ${curPhase}): ${e.message}` }); }
+        if (perRun) { st.getTracks().forEach((t) => t.stop()); st = null; }
+        await sleep(700);
       }
-      st.getTracks().forEach((t) => t.stop()); await sleep(600);
+      if (st) { st.getTracks().forEach((t) => t.stop()); await sleep(600); }
     }
     const ok = results.filter((r) => r.esito === "OK").length;
     Z(`=== FINE TEST ZOOM: ${ok}/${results.length} prove OK in ${Math.round((performance.now() - T0) / 1000)} s ===`, { longTaskTotali: lt.n, longTaskMax_ms: Math.round(lt.max), sintesi: results.map((r) => `${r.name}: ${r.esito === "OK" ? "OK" : r.esito} · ${r.fpsUscita ?? "?"} fps · ${r.file ? r.file.Mbps + " Mbps" : ""}`) });

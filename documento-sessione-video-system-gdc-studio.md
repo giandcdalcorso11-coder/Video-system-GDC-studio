@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 11
-**Ultimo aggiornamento:** 2026-11-15 11:50
+**Versione:** 12
+**Ultimo aggiornamento:** 2026-11-15 12:10
 
 ## Vision
 
@@ -165,6 +165,28 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 12:10] Test zoom su iPhone 15: causa del blocco e dati su zoom nativo e 4K
+
+**Riepilogo:** letti i log del test zoom (camera r9) sull'iPhone 15: lo zoom nativo funziona a 30 fps, ma il registratore produce file vuoti dalla seconda prova sullo stesso flusso della camera; il 4K con ritaglio su canvas si ferma a circa 22 fps. Preparata la camera r10 per isolare la causa.
+
+**Cosa è stato fatto:**
+- **Zoom nativo (Safari 27.2, iOS 18.7):** accettato e seguito durante la ripresa: da 1× a 3× in 6 s, zoom finale 2,96×, 29,9 fps, nessun fotogramma scartato. Intervallo zoom 0,5-10×.
+- **1080p con ritaglio digitale:** 30 fps stabili, disegno 3,4 ms, 20-28 Mbps; la prova 1× è registrata e riproducibile.
+- **4K con ritaglio digitale (canvas):** solo circa 22 fps (sorgente 22 fps, disegno 17 ms, intervalli p95 55 ms) anche a 1×: sull'iPhone 15 il ritaglio su canvas a 4K non regge i 30 fps. 4K 1× registrato: 9 MB in 6 s (12,6 Mbps).
+- WebRTC: nella prova 4K + anteprima il registratore non ha prodotto dati e le statistiche in invio sono a zero (limitazione "bandwidth"), coerente con il registratore fermo.
+
+**Bug: registratore senza dati dalla seconda prova sullo stesso flusso**
+
+**Sintomo:** la prima prova dopo ogni apertura della camera registra bene; le successive sullo stesso flusso hanno file vuoto e `stop` che non arriva (timeout a 6 s), pur disegnando 30 fps.
+**Causa:** non accertata. Sospetti: audio del microfono già usato da un registratore precedente (r8 senza clone e r9 con clone danno lo stesso esito), oppure stato del flusso della camera dopo la prima registrazione.
+**Fix applicato:** nessuno definitivo. Camera r10: ogni prova apre un flusso nuovo, e due prove finali sullo stesso flusso (con audio, poi senza audio) per isolare la causa. Da verificare sull'iPhone 15.
+
+**Impatto sul prodotto:** zoom comandato dalla dashboard = nativo dove il browser lo offre (iPhone con Safari recente), digitale su 1080p come ripiego (XR). A 4K il digitale non regge a 30 fps. Se la registrazione ripetuta sullo stesso flusso fallisce anche fuori dal test, serve capire come lo evita la REC normale (che registra direttamente il flusso della camera).
+
+**File consegnati/modificati:** `docs/camera.html` (r10), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 11:50] Primo test sull'iPhone 15: log arrivati, zoom nativo, test zoom bloccato
 
