@@ -135,7 +135,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r6";
+const PAGE_VERSION = "dashboard r7";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -276,7 +276,7 @@ class RealtimeTransport {
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -290,7 +290,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -360,7 +360,16 @@ transport.onState((id, st) => { state[id] = st; refresh(); });
 
 /* ===== Binding dei dati ai nodi (data-bind + data-cam) ===== */
 const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
+let zDrag = false;
 const BIND = {
+  zoomUi: (st, c, el) => {
+    const z = st.zoom, sl = $("#zSlider", el), val = $("#zVal", el), note = $("#zNote", el), ok = !!(st.online && st.camReady && z && z.native);
+    if (ok) { sl.min = z.min; sl.max = z.max; }
+    sl.disabled = !ok; if (!zDrag && ok && z.cur != null) sl.value = z.cur;
+    val.textContent = ok && z.cur != null ? Number(z.cur).toFixed(1) + "×" : "—";
+    $$(".zb", el).forEach((b) => { const v = Number(b.dataset.z); b.disabled = !ok || v < z.min - 0.001 || v > z.max + 0.001; b.classList.toggle("primary", ok && z.cur != null && Math.abs(z.cur - v) < 0.06); });
+    note.textContent = !st.online ? "" : !st.camReady ? "Camera spenta." : !ok ? "Zoom non disponibile su questo dispositivo (serve un Safari recente)." : `Zoom nativo da ${z.min}× a ${z.max}×. Si può cambiare anche durante la registrazione.`;
+  },
   title: (st, c, el) => { el.textContent = camTitle(c); },
   pill: (st, c, el) => { const tlOn = !!(st.tl && st.tl.stage); el.className = "pill " + (!st.online ? "" : st.rec || tlOn ? "rec" : "idle"); el.innerHTML = `<span class="dot"></span>${!st.online ? "OFFLINE" : st.rec ? "IN REC" : tlOn ? (st.tl.stage === "rendering" ? "CREO VIDEO" : "TIME-LAPSE") : "PRONTA"}`; },
   card: (st, c, el) => { el.classList.toggle("is-off", !st.online); el.classList.toggle("is-rec", !!(st.rec || st.tl)); },
@@ -547,6 +556,10 @@ function showDetail(id) {
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
             <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
           </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
+        ${REAL ? `<div class="panel" data-bind="zoomUi" data-cam="${id}"><h2>Zoom</h2>
+          <div class="row" style="gap:10px;align-items:center"><input type="range" id="zSlider" min="1" max="3" step="0.1" value="1" style="flex:1" disabled><b id="zVal" style="min-width:52px;text-align:right">—</b></div>
+          <div class="row" style="margin-top:8px">${[0.5, 1, 2, 3, 5].map((z) => `<button class="ghost zb" data-z="${z}" disabled>${z}×</button>`).join("")}</div>
+          <div class="muted" id="zNote" style="margin-top:6px"></div></div>` : ""}
         ${REAL ? `<div class="panel"><h2>Time-lapse</h2>
           <div class="row" style="gap:8px;align-items:flex-end">
             <label class="f" style="flex:1;min-width:150px">Modalità<select id="tlMode"><option value="auto">Automatica (come iPhone)</option><option value="man">Manuale</option></select></label>
@@ -590,6 +603,10 @@ function showDetail(id) {
   };
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
+  if (REAL) { let zT = 0; const zs = $("#zSlider"); const sendZ = () => command(id, { cmd: "zoom", z: Number(zs.value) });
+    zs.oninput = () => { zDrag = true; $("#zVal").textContent = Number(zs.value).toFixed(1) + "×"; if (!zT) zT = setTimeout(() => { zT = 0; sendZ(); }, 150); };
+    zs.onchange = () => { zDrag = false; sendZ(); };
+    $$(".zb").forEach((b) => { b.onclick = () => command(id, { cmd: "zoom", z: Number(b.dataset.z) }); }); }
   if (REAL) $("#cfgApply").onclick = () => command(id, { cmd: "config", res: $("#cfgRes").value, bps: Number($("#cfgBps").value) });
   curDetail = id;
   $("#fDev").onchange = rename; $("#fName").onchange = rename;

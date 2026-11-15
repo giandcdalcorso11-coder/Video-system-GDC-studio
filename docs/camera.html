@@ -78,7 +78,7 @@
 <script src="dev.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r11";
+const PAGE_VERSION = "camera r12";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -198,6 +198,7 @@ async function openCam() {
   const v = $("vid"); v.srcObject = stream; await v.play().catch((e) => dbg("warn", `play anteprima locale: ${e.name}`));
   const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];
   dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
+  if (zoomWanted !== 1 && zoomInfo().native) { try { await vt.applyConstraints({ advanced: [{ zoom: zoomWanted }] }); dbg("info", `zoom ripristinato a ${zoomWanted}×`); } catch (e) { dbg("warn", `zoom non ripristinato: ${e.name}`); } }
   lastErr = lastErr.startsWith("Camera") ? "" : lastErr; $("camStop").disabled = false; $("recBtn").disabled = false; publish();
 }
 let opening = false;
@@ -431,10 +432,24 @@ function setStandby(on) {
 
 /* ===== Stato verso la dashboard ===== */
 const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
+let zoomWanted = 1;
+function zoomInfo() {
+  const vt = stream && stream.getVideoTracks()[0]; let c = null, cur = null;
+  try { c = vt && vt.getCapabilities ? vt.getCapabilities().zoom : null; } catch { /* ok */ }
+  if (!c) return { native: false };
+  try { cur = vt.getSettings().zoom; } catch { /* ok */ }
+  return { native: true, min: c.min, max: c.max, cur: cur ?? zoomWanted };
+}
+async function setZoom(z) {
+  const vt = stream && stream.getVideoTracks()[0]; if (!vt) throw new Error("camera spenta");
+  const i = zoomInfo(); if (!i.native) throw new Error("zoom non disponibile su questo dispositivo");
+  z = Math.max(i.min, Math.min(i.max, Number(z))); if (!isFinite(z)) throw new Error("valore di zoom non valido");
+  await vt.applyConstraints({ advanced: [{ zoom: z }] }); zoomWanted = z; dbg("info", `zoom nativo impostato a ${z.toFixed(2)}×`, { settings: vt.getSettings().zoom }); publish(); return zoomInfo();
+}
 function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
-    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, storage: storageMode, tl: tlState(),
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, clips: sessions.slice(0, 8).map((s) => ({ file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
@@ -524,6 +539,7 @@ async function onCmd(m) {
       case "tl_stop": tlStop(); detail = "stop richiesto"; break;
       case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
+      case "zoom": detail = await setZoom(m.z); break;
       case "battery": ok = setBat(m.level, m.charging, "dashboard"); detail = ok ? bat : "valore non valido"; break;
       default: ok = false; detail = "comando sconosciuto"; break;
     }

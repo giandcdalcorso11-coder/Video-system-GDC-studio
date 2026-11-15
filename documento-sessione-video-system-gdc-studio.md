@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 13
-**Ultimo aggiornamento:** 2026-11-15 12:40
+**Versione:** 14
+**Ultimo aggiornamento:** 2026-11-15 13:20
 
 ## Vision
 
@@ -165,6 +165,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 13:20] Registrazione diretta, REC ripetuta e zoom nativo dalla dashboard
+
+**Riepilogo:** il test r11 sull'iPhone 15 conferma che il 4K diretto (senza canvas) regge 30 fps e che lo zoom nativo funziona anche a 4K e con l'anteprima; la REC normale registra bene due volte di fila, quindi il difetto riguarda solo il test; integrato il comando di zoom nativo nella dashboard (camera r12, dashboard r7).
+
+**Cosa è stato fatto:**
+- Test r11 (iPhone 15): 4K diretto fisso 30 fps / 20 Mbps, 2160×3840 con audio; zoom nativo 1→3× a 4K 30 fps (con WebRTC 29 fps); la seconda registrazione sullo stesso flusso nel test è vuota.
+- Prova della REC normale dalla dashboard: due registrazioni consecutive valide (17,1 MB in 8 s e 19,5 MB in 9 s, nessun errore). La REC usa il tipo `video/mp4;codecs=avc1`, il test `...avc1,mp4a.40.2`: differenza possibile ma non verificata.
+- Camera r12: comando `zoom` (nativo, clamp a min/max della traccia), stato con `zoom {native, min, max, cur}`, ripristino dello zoom dopo la riapertura della camera. Dashboard r7: pannello Zoom (slider + 0,5×, 1×, 2×, 3×, 5×), attivo solo se la camera lo espone. Provato in Chromium con zoom simulato (camera + dashboard in simulazione locale): comandi e stato corretti.
+
+**Decisioni prese:**
+- Contesto: serviva decidere come fornire lo zoom.
+- Decisione: zoom nativo dove il browser lo offre (iPhone con Safari recente: 0,5-10×); sull'XR e dove manca il pannello resta disattivato con un avviso.
+- Alternative scartate: zoom digitale su canvas a 4K (19-20 fps, non regge); registrare via canvas (richiede un percorso di registrazione diverso).
+- Da rivedere se: serve lo zoom anche sull'XR (iOS 16): andrebbe fatto digitale e solo a 1080p, con un percorso di registrazione su canvas.
+
+**File consegnati/modificati:** `docs/camera.html` (r12), `docs/dashboard.html` (r7), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 12:40] Test zoom r10 su iPhone 15: causa probabile del registratore vuoto e limite del 4K
 
