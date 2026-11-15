@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 15
-**Ultimo aggiornamento:** 2026-11-15 13:50
+**Versione:** 16
+**Ultimo aggiornamento:** 2026-11-15 16:30
 
 ## Vision
 
@@ -165,6 +165,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 16:30] Zoom ancora a scatti: la camera non era aggiornata; versione visibile in Avanzata
+
+**Riepilogo:** nei log l'ultima prova di zoom risulta fatta con camera r12 (non r13): l'iPhone non aveva caricato la versione con l'interpolazione; addolcita ancora la curva (camera r14) e resa visibile la versione di ogni pagina in modalità Avanzata.
+
+**Cosa è stato fatto:**
+- Verifica dai log: sessione camera 15:11-15:13 con `camera r12` e dashboard r8; nessuna riga "zoom arrivato" (che scrive solo r13+). Il telefono usava ancora la pagina in cache.
+- Camera r14: velocità massima 1,3 ln/s e costante di tempo 260 ms (da 1× a 5× in circa 1,3 s). Provato in Chromium con zoom simulato (salto massimo 7%).
+- `dev.js`: in modalità Avanzata appare accanto all'interruttore il numero di versione della pagina (es. "camera r14"), per capire subito se la cache è stata aggiornata. Dashboard r9.
+
+**File consegnati/modificati:** `docs/camera.html` (r14), `docs/dashboard.html` (r9), `docs/dev.js`, `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 13:50] Zoom a scatti: interpolazione morbida sulla camera
 

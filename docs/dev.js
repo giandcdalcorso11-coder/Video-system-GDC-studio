@@ -50,10 +50,11 @@ body.adv #gdcMode label{display:inline-flex}
     css();
     const box = document.createElement("div"); box.id = "gdcMode";
     box.innerHTML = `<span class="seg" role="group" aria-label="Modalità"><button data-mode="base" aria-pressed="false">Base</button><button data-mode="adv" aria-pressed="false">Avanzata</button></span>
-<label><input type="checkbox" id="gdcSend"> Invia i log a Claude</label><span class="st" id="gdcSendSt"></span>`;
+<label><input type="checkbox" id="gdcSend"> Invia i log a Claude</label><span class="st" id="gdcSendSt"></span><span class="st adv-only" id="gdcVer"></span>`;
     host.appendChild(box);
     box.addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (b) setMode(b.dataset.mode); });
     box.querySelector("#gdcSend").addEventListener("change", (e) => setSending(e.target.checked));
+    box.querySelector("#gdcVer").textContent = cfg && cfg.ver ? cfg.ver : "";
     apply();
   }
 
