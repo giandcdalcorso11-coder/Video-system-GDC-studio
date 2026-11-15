@@ -135,7 +135,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r7";
+const PAGE_VERSION = "dashboard r8";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -604,7 +604,7 @@ function showDetail(id) {
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
   if (REAL) { let zT = 0; const zs = $("#zSlider"); const sendZ = () => command(id, { cmd: "zoom", z: Number(zs.value) });
-    zs.oninput = () => { zDrag = true; $("#zVal").textContent = Number(zs.value).toFixed(1) + "×"; if (!zT) zT = setTimeout(() => { zT = 0; sendZ(); }, 150); };
+    zs.oninput = () => { zDrag = true; $("#zVal").textContent = Number(zs.value).toFixed(1) + "×"; if (!zT) zT = setTimeout(() => { zT = 0; sendZ(); }, 100); };
     zs.onchange = () => { zDrag = false; sendZ(); };
     $$(".zb").forEach((b) => { b.onclick = () => command(id, { cmd: "zoom", z: Number(b.dataset.z) }); }); }
   if (REAL) $("#cfgApply").onclick = () => command(id, { cmd: "config", res: $("#cfgRes").value, bps: Number($("#cfgBps").value) });

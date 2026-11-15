@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 14
-**Ultimo aggiornamento:** 2026-11-15 13:20
+**Versione:** 15
+**Ultimo aggiornamento:** 2026-11-15 13:50
 
 ## Vision
 
@@ -165,6 +165,20 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-15 13:50] Zoom a scatti: interpolazione morbida sulla camera
+
+**Riepilogo:** la prova dello zoom nativo sull'iPhone 15 conferma video corretto, zoom e audio presenti, ma con scatti; aggiunta sulla camera un'interpolazione morbida verso il valore richiesto (camera r13, dashboard r8).
+
+**Bug: zoom a scatti**
+
+**Sintomo:** durante il movimento dello slider (e con i pulsanti) lo zoom procede a gradini visibili nel video registrato.
+**Causa:** i log mostrano comandi di zoom a salti di 0,3-0,9× ogni circa 150 ms (2,2 → 2,7 → 2,9 → 3,3…), applicati di colpo dalla camera. Possibile contributo non verificato: cambio di obiettivo fisico dell'iPhone alle soglie di zoom.
+**Fix applicato:** la camera tiene un obiettivo di zoom e lo raggiunge con un passo in scala logaritmica (costante di tempo 140 ms, velocità massima 1,8 ln/s, circa da 1× a 5× in 0,9 s), applicando i valori in sequenza; la dashboard invia ogni 100 ms. Provato in Chromium con zoom simulato (salto massimo 7,5% per passo); da verificare sull'iPhone 15 (il registro scrive "zoom arrivato a N× in X ms (K passaggi)").
+
+**File consegnati/modificati:** `docs/camera.html` (r13), `docs/dashboard.html` (r8), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 13:20] Registrazione diretta, REC ripetuta e zoom nativo dalla dashboard
 

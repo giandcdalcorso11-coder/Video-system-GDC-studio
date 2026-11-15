@@ -78,7 +78,7 @@
 <script src="dev.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r12";
+const PAGE_VERSION = "camera r13";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -440,11 +440,37 @@ function zoomInfo() {
   try { cur = vt.getSettings().zoom; } catch { /* ok */ }
   return { native: true, min: c.min, max: c.max, cur: cur ?? zoomWanted };
 }
+/* Lo zoom si avvicina al valore richiesto con un movimento morbido (in scala logaritmica, velocità massima limitata),
+   invece di saltare ai valori che arrivano a scatti dalla dashboard. */
+const ZOOM_MAX_RATE = 1.8, ZOOM_TAU = 140; // 1,8 = ln(zoom) al secondo (da 1× a 5× in circa 0,9 s); 140 ms = costante di tempo
+let zoomTarget = null, zoomRunning = false;
+async function zoomRun() {
+  if (zoomRunning) return; zoomRunning = true;
+  const t0 = performance.now(); let steps = 0, fails = 0, cur = 0;
+  try {
+    const vt0 = stream && stream.getVideoTracks()[0]; cur = Number(vt0 && vt0.getSettings().zoom) || zoomWanted || 1;
+    let last = performance.now();
+    while (zoomTarget != null && stream) {
+      const vt = stream.getVideoTracks()[0], now = performance.now(), dt = Math.min(120, Math.max(1, now - last)); last = now;
+      const diff = Math.log(zoomTarget / cur);
+      let step = diff * (1 - Math.exp(-dt / ZOOM_TAU)); const lim = ZOOM_MAX_RATE * dt / 1000; step = Math.max(-lim, Math.min(lim, step));
+      const done = Math.abs(diff) < 0.003; cur = done ? zoomTarget : cur * Math.exp(step);
+      try { await vt.applyConstraints({ advanced: [{ zoom: cur }] }); steps++; } catch (e) { if (++fails > 3) { dbg("warn", `zoom: ${e.name}: ${e.message}`); break; } }
+      if (done) { if (Math.abs(Math.log(zoomTarget / cur)) < 0.003) zoomTarget = null; break; }
+      await sleep(12);
+    }
+  } finally {
+    zoomRunning = false;
+    dbg("info", `zoom arrivato a ${cur.toFixed(2)}× in ${Math.round(performance.now() - t0)} ms (${steps} passaggi)`);
+    publish();
+    if (zoomTarget != null && stream && Math.abs(Math.log(zoomTarget / cur)) >= 0.003) zoomRun();
+  }
+}
 async function setZoom(z) {
   const vt = stream && stream.getVideoTracks()[0]; if (!vt) throw new Error("camera spenta");
   const i = zoomInfo(); if (!i.native) throw new Error("zoom non disponibile su questo dispositivo");
   z = Math.max(i.min, Math.min(i.max, Number(z))); if (!isFinite(z)) throw new Error("valore di zoom non valido");
-  await vt.applyConstraints({ advanced: [{ zoom: z }] }); zoomWanted = z; dbg("info", `zoom nativo impostato a ${z.toFixed(2)}×`, { settings: vt.getSettings().zoom }); publish(); return zoomInfo();
+  zoomWanted = z; zoomTarget = z; dbg("trace", `zoom richiesto ${z.toFixed(2)}×`); zoomRun(); return { ...i, target: z };
 }
 function stateObj() {
   const v = $("vid");
