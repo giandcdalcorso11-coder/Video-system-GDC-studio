@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 18
-**Ultimo aggiornamento:** 2026-11-15 18:40
+**Versione:** 19
+**Ultimo aggiornamento:** 2026-11-16 15:10
 
 ## Vision
 
@@ -166,6 +166,27 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-16 15:10] Prima prova del trasferimento su rete lenta; avanzamento nei log, prova a tempo, anteprima sospesa
+
+**Riepilogo:** la prova di velocità da 30 MB su un telefono con connessione molto lenta è stata annullata dal titolare; nei log il collegamento diretto si stabilisce bene ma mancava il conteggio dei byte, quindi ho aggiunto l'avanzamento nei log, reso la prova a tempo e sospeso l'anteprima video durante i trasferimenti (camera r16, dashboard r11).
+
+**Cosa è stato fatto:**
+- Verificato che il Realtime funziona sul nuovo progetto "GDC-project 2" (sessioni camera e dashboard nella tabella dei log).
+- Lettura dei log con l'ora vera dell'evento (`t_ms`; `ts` è l'ora di arrivo nel database e con un telefono lento inganna sull'ordine): comando `xfer_test` inviato 14:35:37.997, ricevuto dalla camera 14:35:40.076 (circa 2 s); canale dati aperto in 670 ms; percorso `srflx/prflx udp` (diretto, non relay, reti diverse); intestazione ricevuta dalla dashboard; nessun errore di trasferimento. Il trasferimento è finito per l'annullamento manuale a 14:36:37 ("canale chiuso durante l'invio").
+- Contemporaneamente l'anteprima video verso la dashboard si disconnetteva più volte (RTT 130-1314 ms), la camera ci ha messo 24 s ad aprirsi, e la dashboard ha segnato la camera offline per mancanza di stato: collegamento del telefono molto debole.
+- Non è possibile dire quanti byte siano passati: mancavano righe di avanzamento.
+- Modifiche: avanzamento ogni 5 s nei log di mittente e ricevente (MB, Mbps, coda), prova di velocità limitata a 8 secondi (o 30 MB), anteprima sospesa mentre un trasferimento è attivo e ripresa alla fine.
+
+**Bug: prova di rete troppo pesante su collegamento lento**
+
+**Sintomo:** 30 MB non finiscono in tempo ragionevole su un telefono con rete lenta e instabile; l'utente annulla.
+**Causa:** la prova inviava sempre 30 MB mentre l'anteprima video usava la stessa banda in uscita; collegamento debole (RTT fino a 1,3 s, ICE "disconnected").
+**Fix applicato:** prova a tempo (8 s), anteprima sospesa durante i trasferimenti, avanzamento nei log. Da verificare con una rete migliore.
+
+**File consegnati/modificati:** `docs/xfer.js`, `docs/camera.html` (r16), `docs/dashboard.html` (r11), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-15 18:40] Spostamento di tutto su Supabase "GDC-project 2"
 

@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r15";
+const PAGE_VERSION = "camera r16";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -587,8 +587,8 @@ async function xferTest(m) {
   if (!rt || !m.xid || !m.from) throw new Error("richiesta incompleta");
   if (xferBusy) xferFail(m, "un altro trasferimento è già in corso");
   const mb = Math.max(1, Math.min(200, Number(m.mb) || 30)), blk = new Uint8Array(1048576); for (let o = 0; o < blk.length; o += 65536) crypto.getRandomValues(blk.subarray(o, o + 65536));
-  let n = 0; const source = { next: async () => (n++ < mb ? blk.slice().buffer : null) };
-  dbg("info", `prova di velocità: ${mb} MB verso ${m.from}`);
+  let n = 0; const tEnd = performance.now() + 8000, source = { next: async () => (n++ < mb && performance.now() < tEnd ? blk.slice().buffer : null) };
+  dbg("info", `prova di velocità: fino a ${mb} MB o 8 secondi verso ${m.from}`);
   xferRun(m, { name: "prova-rete.bin", mime: "application/octet-stream", size: mb * 1048576, source, test: true });
   return "prova avviata";
 }

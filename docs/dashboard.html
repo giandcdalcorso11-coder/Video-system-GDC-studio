@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r10";
+const PAGE_VERSION = "dashboard r11";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -298,7 +298,7 @@ class RealtimeTransport {
 const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
 const Preview = {
   pcs: {}, active: {},
-  want(id) { if (!REAL) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
+  want(id) { if (!REAL) return null; if (typeof Xfer !== "undefined" && Xfer.active().length) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
   start(id, mode) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = mode || "full"; dbg("info", "anteprima", `richiedo l'anteprima ${this.active[id]} a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", q: this.active[id], rid: rid() }); },
   stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
   stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
@@ -398,7 +398,8 @@ const Xfer = {
     job.promise = GDC_XFER.receiveFile(o)
       .then((r) => { Object.assign(job, { state: "ok", where: r.where, blob: r.blob, fname: r.name, got: r.bytes, size: r.bytes, mbps: r.mbps, ms: r.ms }); log(camId, `${c ? camTitle(c) : camId}: ${job.test ? "prova di rete" : "file " + r.name} ${job.test ? "" : "arrivato e verificato"} (${fmtMB(r.bytes)}, ${r.mbps.toFixed(1)} Mbps)`); })
       .catch((e) => { job.state = "errore"; job.error = job.camError || e.message; log(camId, `${c ? camTitle(c) : camId}: trasferimento non riuscito: ${job.error}`); })
-      .finally(() => this.refresh());
+      .finally(() => { this.refresh(); Preview.ensureAll(); });
+    Preview.ensureAll();
     command(camId, opt.test ? { cmd: "xfer_test", xid, mb: opt.mb } : { cmd: "xfer_start", xid, sid: clip.id, del: !!this.delAfter });
     this.refresh(); return job;
   },
@@ -434,7 +435,7 @@ const Xfer = {
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
-        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (30 MB)</button></div>
+        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button></div>
         ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.xid}"></span></div>
           <div data-xp="${j.xid}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
           <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : "Trasferimento…"} ${j.path ? "· " + esc(j.path) : ""}</div>

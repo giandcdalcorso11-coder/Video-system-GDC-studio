@@ -57,7 +57,7 @@
       await Promise.race([start, done]); L("info", `canale aperto dopo ${Math.round(performance.now() - t0)} ms`);
       pathInfo(pc).then((p) => L("info", `percorso: ${p}`));
       dc.send(JSON.stringify({ t: "hdr", name, size, mime })); lastAct = Date.now();
-      let sent = 0, crc = 0, lastP = 0; const t1 = performance.now();
+      let sent = 0, crc = 0, lastP = 0, lastLog = 0; const t1 = performance.now();
       for (;;) {
         const ab = await source.next(); if (!ab) break; const u8 = new Uint8Array(ab);
         for (let off = 0; off < u8.length; off += PIECE) {
@@ -67,6 +67,7 @@
           dc.send(piece); sent += piece.length;
         }
         lastAct = Date.now(); const now = performance.now(); if (now - lastP > 250) { lastP = now; onProgress({ sent, size, speed: sent / ((now - t1) / 1000) }); }
+        if (now - lastLog > 5000) { lastLog = now; L("info", `avanzamento: ${(sent / 1048576).toFixed(1)} MB inviati in ${Math.round((now - t1) / 1000)} s (${(sent * 8 / (now - t1) / 1000).toFixed(2)} Mbps), in coda ${Math.round(dc.bufferedAmount / 1024)} KB`); }
         await sleep(0);
       }
       while (dc.bufferedAmount > 0 && dc.readyState === "open") { await waitLow(); lastAct = Date.now(); }
@@ -104,7 +105,7 @@
   /* ---------- Dashboard: riceve un file ---------- */
   function receiveFile(o) {
     const { rt, from, to, xid, makeSink, log = () => {}, onProgress = () => {}, onInfo = () => {} } = o;
-    const pc = new RTCPeerConnection(ICE), pend = []; let sink = null, hdr = null, got = 0, crc = 0, t1 = 0, lastP = 0, chain = Promise.resolve(), lastAct = Date.now(), watch = 0, settled = false, dcRef = null;
+    const pc = new RTCPeerConnection(ICE), pend = []; let sink = null, hdr = null, got = 0, crc = 0, t1 = 0, lastP = 0, lastLog = 0, chain = Promise.resolve(), lastAct = Date.now(), watch = 0, settled = false, dcRef = null;
     const L = (l, m) => log(l, `xfer ${xid}: ${m}`);
     let fin; const done = new Promise((res, rej) => { fin = { res, rej }; });
     const cleanup = () => { clearInterval(watch); handlers.delete(xid); early.delete(xid); try { dcRef && dcRef.close(); } catch { /* ok */ } try { pc.close(); } catch { /* ok */ } };
@@ -138,6 +139,7 @@
           } else {
             const u8 = new Uint8Array(e.data); crc = crc32(u8, crc); got += u8.length; await sink.write(e.data);
             const now = performance.now(); if (now - lastP > 250) { lastP = now; onProgress({ got, size: hdr.size, speed: got / ((now - t1) / 1000) }); }
+            if (now - lastLog > 5000) { lastLog = now; L("info", `avanzamento: ${(got / 1048576).toFixed(1)} MB ricevuti in ${Math.round((now - t1) / 1000)} s (${(got * 8 / (now - t1) / 1000).toFixed(2)} Mbps)`); }
           }
         }).catch((x) => fail(x));
       };
