@@ -42,10 +42,22 @@
     <button class="primary" id="pairBtn" style="margin-top:8px">Abbina</button>
   </section>
 
+  <section class="panel" id="welcome" hidden>
+    <h2>Questo telefono sarà una camera</h2>
+    <p class="muted" style="margin-top:0">Riprendi con la fotocamera mentre la regia (iPad o computer) ti comanda: REC, STOP e zoom partono da lì.</p>
+    <label>Come vuoi chiamare questa camera?<input id="wName" maxlength="30" placeholder="Es. Davanti, Pista, Pubblico"></label>
+    <ul class="muted" style="margin:10px 0 10px 18px;padding:0;line-height:1.5">
+      <li>Il browser chiederà il permesso per <b>fotocamera e microfono</b>: tocca <b>Consenti</b>. Senza non si può riprendere.</li>
+      <li>Tieni questa pagina <b>aperta</b> e lo schermo acceso durante la sessione.</li>
+      <li>I video restano su questo telefono finché la regia li trasferisce.</li>
+    </ul>
+    <button class="primary" id="wGo">Avvia camera</button>
+  </section>
+
   <section class="panel" id="main" hidden>
     <h2>Questo telefono</h2>
-    <div class="row"><div style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
-    <div class="row"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
+    <div class="row"><div class="adv-only" style="flex:1;min-width:130px"><label>Dispositivo<input id="fDev" maxlength="40"></label></div><div style="flex:1;min-width:130px"><label>Nome camera<input id="fName" maxlength="30"></label></div></div>
+    <div class="row adv-only"><div style="flex:1;min-width:130px"><label>Qualità<select id="fRes"><option value="720p">720p</option><option value="1080p">1080p</option><option value="4K">4K</option></select></label></div>
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
     <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button class="adv-only" id="myLink">Copia il mio link</button><button class="adv-only" id="batInfo">Dati per Comandi (batteria)</button><button class="adv-only" id="batTest">Prova invio batteria</button><button class="adv-only" id="zoomTest">Test zoom digitale</button><button class="adv-only" id="spaceTest">Misura spazio reale</button>
     <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
@@ -79,7 +91,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r23";
+const PAGE_VERSION = "camera r24";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -120,6 +132,8 @@ const idSrc = (() => {
 })();
 const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
 const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
+const FIRST = !store.get("gdc.camCfg", null) && !store.get("gdc.welcomed", false) && !new URLSearchParams(location.search).get("name");
+let welcomePending = false;
 const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
 { const qp = new URLSearchParams(location.search); // ?name=...&device=... dal link: nome della camera e del dispositivo
   if (qp.get("name") || qp.get("device")) { if (qp.get("name")) cfg.name = qp.get("name").slice(0, 30); if (qp.get("device")) cfg.device = qp.get("device").slice(0, 40); store.set("gdc.camCfg", cfg); } }
@@ -129,6 +143,14 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platfo
 const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
 let joinState = "attesa", joinAt = Date.now();
+// nome dei file: <Camera N assegnata dalla regia>_<nome scelto su questo telefono>_<data>_<ora di inizio, corretta con l'orologio della regia>
+let label = store.get("gdc.label", ""), clockOff = Number(store.get("gdc.clockOff", 0)) || 0;
+const safeN = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "").slice(0, 24);
+function clipFile(s, ext) {
+  const d = new Date(s.start - clockOff), p2 = (n) => String(n).padStart(2, "0"), stamp = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}-${p2(d.getSeconds())}`;
+  const a = safeN(label), b = safeN(cfg.name), parts = [a, b && b !== a ? b : ""].filter(Boolean);
+  return `${parts.length ? parts.join("_") : "camera"}_${stamp}${s.kind === "timelapse" ? "_timelapse" : ""}${ext ? "." + ext : ""}`;
+}
 const joinText = () => joinState === "ok" ? "accettata" : joinState === "no" ? "NON accettata dalla regia: chiedi di rientrare" : (Date.now() - joinAt > 10000 ? "in attesa della risposta della regia (può servire una conferma)" : "collegamento…");
 let stream = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0, storageMode = "indexeddb";
 const bat = { level: null, charging: null, at: 0 };
@@ -289,7 +311,7 @@ async function wakeOn() {
 function wakeOff() { try { wl && wl.release(); } catch { /* ok */ } wl = null; }
 let opening = false;
 async function autoOpen(why) {
-  if (!cfg.autoCam || stream || opening || recording || !pairing) return; opening = true; dbg("info", `avvio automatico della camera (${why})`);
+  if (!cfg.autoCam || stream || opening || recording || !pairing || welcomePending) return; opening = true; dbg("info", `avvio automatico della camera (${why})`);
   try { await openCam(); dbg("info", "avvio automatico riuscito"); }
   catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }
   opening = false;
@@ -596,19 +618,19 @@ function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
-    vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
+    vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
-  const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-  $("stat").innerHTML = row("Regia", joinText()) + row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
+  const s = stateObj(), row = (a, b, adv) => `<tr${adv ? ' class="adv-only"' : ""}><td>${a}</td><td>${b}</td></tr>`;
+  $("stat").innerHTML = row("Regia", joinText() + (label ? " · " + label : "")) + row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`, 1) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>', storageMode === "indexeddb") + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no", !s.tl) + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent, 1) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`, 1);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
 }
 function renderClips() {
   const el = $("clips"); $("clipPanel").hidden = !sessions.length;
-  el.innerHTML = sessions.map((s) => `<li><b>${cfg.name}_${s.id}</b><br><span class="muted">${new Date(s.start).toLocaleString("it-IT")} · ${fmtT(s.dur)} · ${(s.bytes / 1048576).toFixed(0)} MB · ${s.res} · ${s.status}</span><br>${s.kind === "timelapse" ? `<span class="muted">time-lapse · ${s.frames} immagini a ${s.fps} fps</span><br>` : ""}${s.status === "video non creato" ? `<button data-redo="${s.id}">Ricrea il video</button>` : `<button data-save="${s.id}">Salva in Foto / File</button>`}<button data-del="${s.id}">Elimina</button></li>`).join("");
+  el.innerHTML = sessions.map((s) => `<li><b>${clipFile(s)}</b><br><span class="muted">${new Date(s.start).toLocaleString("it-IT")} · ${fmtT(s.dur)} · ${(s.bytes / 1048576).toFixed(0)} MB · ${s.res} · ${s.status}</span><br>${s.kind === "timelapse" ? `<span class="muted">time-lapse · ${s.frames} immagini a ${s.fps} fps</span><br>` : ""}${s.status === "video non creato" ? `<button data-redo="${s.id}">Ricrea il video</button>` : `<button data-save="${s.id}">Salva in Foto / File</button>`}<button data-del="${s.id}">Elimina</button></li>`).join("");
   $("clipNote").textContent = sessions.length ? "Le registrazioni restano qui finché non vengono trasferite o eliminate. Safari può cancellare i dati dopo 7 giorni senza uso." : "";
 }
 $("clips").onclick = async (e) => {
@@ -620,7 +642,7 @@ $("clips").onclick = async (e) => {
   }
   if (sv) {
     const s = sessions.find((x) => x.id === sv.dataset.save); sv.disabled = true; sv.textContent = "Preparo…"; dbg("info", `salvataggio di ${s.id} richiesto`);
-    try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], `${cfg.name}_${s.id}.mp4`, { type: s.mime }); dbg("info", `file pronto ${(blob.size / 1048576).toFixed(0)} MB`); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
+    try { const blob = new Blob(await db.chunks(s.id), { type: s.mime }), f = new File([blob], clipFile(s, "mp4"), { type: s.mime }); dbg("info", `file pronto ${(blob.size / 1048576).toFixed(0)} MB`); if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = f.name; a.click(); } }
     catch (x) { if (x.name !== "AbortError") { lastErr = "Salvataggio: " + x.name; dbg("error", `salvataggio fallito: ${x.name}: ${x.message}`); renderStat(); } else dbg("info", "salvataggio annullato dall'utente"); }
     sv.disabled = false; sv.textContent = "Salva in Foto / File";
   }
@@ -703,7 +725,7 @@ async function xferStart(m) {
     skipTo: async (off) => { let crc = 0, left = off; i = 0; rest = null; while (left > 0) { if (i >= keys.length) throw new Error("ripresa oltre la fine del file"); const b = await db.getChunk(keys[i++]); const u8 = new Uint8Array(await b.arrayBuffer()); if (u8.length <= left) { crc = GDC_XFER.crc32(u8, crc); left -= u8.length; } else { crc = GDC_XFER.crc32(u8.subarray(0, left), crc); rest = u8.subarray(left); left = 0; } } return crc; },
   };
   dbg("info", `trasferimento di ${s.id} verso ${m.from}`, { pezzi: keys.length, MBstimati: Math.round((s.bytes || 0) / 1048576), eliminaDopo: !!m.del });
-  xferRun(m, { name: `${cfg.name}_${s.id}.${ext}`, mime: s.mime, size: s.bytes || 0, source, sid: s.id });
+  xferRun(m, { name: clipFile(s, ext), mime: s.mime, size: s.bytes || 0, source, sid: s.id });
   return "trasferimento avviato";
 }
 async function xferTest(m) {
@@ -723,7 +745,9 @@ async function onCmd(m) {
   let ok = true, detail = null;
   try {
     switch (m.cmd) {
-      case "join_result": joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
+      case "join_result": if (m.label && m.label !== label) { label = String(m.label).slice(0, 30); store.set("gdc.label", label); dbg("info", `la regia ha assegnato il nome: ${label}`); renderClips(); } joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
+      case "ping": detail = { t0: m.t0 }; break;
+      case "clock": clockOff = Number(m.off) || 0; store.set("gdc.clockOff", clockOff); dbg("info", `orologio: questo telefono è ${clockOff > 0 ? "avanti" : "indietro"} di ${Math.abs(clockOff)} ms rispetto alla regia (precisione ±${Math.round((Number(m.rtt) || 0) / 2)} ms): i nomi dei file lo correggono`); renderClips(); publish(); detail = { off: clockOff }; break;
       case "rec_start": await startRec(); ok = !!recording; detail = ok ? "registrazione avviata" : lastErr || "non avviata"; break;
       case "rec_stop": stopRec(); detail = "stop richiesto"; break;
       case "standby": setStandby(!!m.on); detail = { standby }; break;
@@ -782,11 +806,16 @@ async function start() {
   dbg("info", `abbinamento: ${pairing ? "presente, canale …" + String(pairing.c).slice(-4) + (hashPair ? " (da link)" : " (memorizzato)") : "assente"}`);
   if (window.GDC_DEV) GDC_DEV.init({ role: "camera", dev: () => ID, ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, m), backlog: () => dbgBuf.slice(-300), host: $("modeHost") });
   batProbe(); deviceProbe().catch((e) => dbg("warn", `sonda dispositivo: ${e.name}: ${e.message}`));
-  $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing; $("dbgPanel").hidden = false;
+  welcomePending = !!(pairing && FIRST);
+  $("pairBox").hidden = !!pairing; $("welcome").hidden = !welcomePending; $("main").hidden = !pairing || welcomePending; $("statPanel").hidden = !pairing || welcomePending; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
   await db.selfTest(); await loadSessions();
   spaceTick(); setInterval(spaceTick, 8000);
   if (!pairing) return;
+  if (welcomePending) { dbg("info", "prima apertura: mostro la schermata di benvenuto (nome e permessi)"); return; }
+  await goOnline();
+}
+async function goOnline() {
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
   rt.on("battery", (m) => { if (m && m.test) { dbg("info", "prova di invio ricevuta dal canale: valore di prova, non salvato"); return; } if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
@@ -795,6 +824,11 @@ async function start() {
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
   autoOpen("apertura pagina");
 }
+$("wGo").onclick = async () => {
+  const n = $("wName").value.trim(); if (n) cfg.name = n.slice(0, 30); cfg.autoCam = true; store.set("gdc.camCfg", cfg); store.set("gdc.welcomed", true); welcomePending = false;
+  dbg("info", `benvenuto completato: nome "${cfg.name}"`); $("welcome").hidden = true; $("main").hidden = false; $("statPanel").hidden = false; syncForm(); renderStat();
+  await goOnline(); try { await openCam(); } catch { /* errore già mostrato */ }
+};
 start();
 </script>
 </body>

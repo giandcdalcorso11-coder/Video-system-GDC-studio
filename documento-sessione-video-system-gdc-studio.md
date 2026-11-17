@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 36
-**Ultimo aggiornamento:** 2026-11-18 21:00
+**Versione:** 37
+**Ultimo aggiornamento:** 2026-11-18 22:00
 
 ## Vision
 
@@ -171,6 +171,8 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
+- [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
+- **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
 
 ### Step 9 — Hardware opzionale
 
@@ -186,6 +188,27 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 22:00] Nomi dei file, orologio, nomi unici, "file sui telefoni", benvenuto e Base/Avanzata
+
+**Riepilogo:** preparazione del test interno con più telefoni: file con nome completo (Camera N + nome scelto dal telefono + data e ora di inizio corrette), misura dello scarto degli orologi, camere con numero unico, modalità "i file restano sui telefoni", benvenuto della camera (nome e permessi), pulizia delle camere vecchie e separazione Base/Avanzata (dashboard r23, camera r24).
+
+**Cosa è stato fatto:**
+- Nome file: `Camera2_Davanti_2026-11-18_14-03-22.mp4` (numero assegnato dalla regia + nome scelto sul telefono, senza spazi né accenti + data e ora di inizio; i time-lapse hanno `_timelapse`). L'ora di inizio è corretta con lo scarto dell'orologio rispetto alla regia (si presume lo stesso fuso orario).
+- Orologio: la regia manda 6 ping a distanza di 0,7 s, tiene la misura con il tempo di andata e ritorno più breve, comunica lo scarto alla camera (comando `clock`) e lo scrive nel registro; si ripete ogni 10 minuti. In Avanzata, nel dettaglio camera, riga "Orologio". Provato con un orologio sfasato di 5 s: misurato +5,00 s (±1 ms in simulazione).
+- Numeri unici: ogni camera nuova prende il numero libero più basso ("Camera 1 · Telefono · nome"), assegnato anche alle camere già note; il numero è mostrato sul telefono nella riga "Regia".
+- Pulizia: avviso in home per le camere non collegate da più di un giorno, con "Rimuovi dall'elenco".
+- Modalità "Tieni i file sui telefoni": spunta nel pannello File; blocca il trasferimento automatico e l'eliminazione dal telefono; il trasferimento a mano resta.
+- Benvenuto della camera (solo alla prima apertura): nome della camera, spiegazione di permessi, schermo acceso e dove restano i video; la camera si collega alla regia solo dopo, così la richiesta di ingresso mostra già il nome scelto. Chi aveva già usato la camera o usa `?name=` salta la schermata.
+- Base/Avanzata: in Base la camera mostra solo nome, avvio/stop, regia, camera, trasferimento, registrazione, spazio e batteria; in Avanzata dispositivo, qualità e bitrate, buffer, archivio, time-lapse, schermo nero, collegamento e ID. Sulla dashboard in Avanzata anche schermo del telefono, orientamento, "Camera reale" e "Copia link di questa camera".
+
+**Decisioni prese:**
+- Contesto: il montatore deve avere tutte le informazioni nel nome del file. Decisione: nome = numero assegnato dalla regia + nome scelto dal telefono + data e ora. Alternative scartate: solo nome del telefono (duplicati) o solo numero (si perde l'informazione scelta sul telefono).
+- Contesto: codice a 8 caratteri. Decisione dell'utente: rimandato al primo test esterno, con un nuovo account Supabase dedicato (da ricordargli quando sarà il momento).
+
+**File consegnati/modificati:** docs/dashboard.html (r23), docs/camera.html (r24); documento v37.
+
+---
 
 ### [2026-11-18 21:00] QR per aggiungere un telefono e conferma accetta/rifiuta
 

@@ -137,7 +137,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r22";
+const PAGE_VERSION = "dashboard r23";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -205,7 +205,10 @@ function setConn(s) {
   const m = $("#modeTxt"); if (m) m.textContent = REAL ? (/^connesso/.test(s) ? "collegata · " + s : "collegamento · " + s) : "modalità simulazione";
 }
 const camById = (id) => cameras.find((c) => c.id === id);
-const camTitle = (c) => `${c.device} · ${c.name}`;
+const camTitle = (c) => `${c.num ? "Camera " + c.num + " · " : ""}${c.device} · ${c.name}`;
+const nextNum = () => { const u = new Set(cameras.map((c) => c.num).filter(Boolean)); let n = 1; while (u.has(n)) n++; return n; };
+const labelOf = (id) => { const c = camById(id); return c && c.num ? "Camera " + c.num : ""; };
+if (REAL) { let ch = false; cameras.forEach((c) => { if (!c.num) { c.num = nextNum(); ch = true; } if (!c.seen) { c.seen = Date.now(); ch = true; } }); if (ch) saveCams(); }
 
 /* ===== Trasporto =====
    Interfaccia: transport.send(camId, {cmd,...}) e transport.onState(cb(camId, stato)).
@@ -264,7 +267,7 @@ class RealtimeTransport {
     this.rt = GDC_RT.connect({ pairing: this.p, role: "dashboard", id: this.id, meta: { name: "dashboard" }, mock: MOCK_RT, log: (l, m) => dbg(l, "rt", m) });
     this.rt.onStatus((s) => { setConn(s); if (/^connesso/.test(s)) this.rt.send("hello", { from: this.id }); });
     this.rt.on("state", (m) => this.onCamState(m)); this.rt.on("rtc", (m) => Preview.onSignal(m)); this.rt.on("xrtc", (m) => { if (m && m.to === this.id) GDC_XFER.signal(m); }); this.rt.on("xdone", (m) => Xfer.onDone(m));
-    this.rt.on("ack", (m) => { dbg(m.ok ? "info" : "warn", "ack", `${m.cmd} da ${m.id}: ${m.ok ? "ok" : "NON RIUSCITO"}`, { rid: m.rid, detail: m.detail }); if (!m.ok) { const c = camById(m.id); log(m.id, `${c ? camTitle(c) : m.id}: comando "${m.cmd}" non riuscito${typeof m.detail === "string" ? " (" + m.detail + ")" : ""}`); } });
+    this.rt.on("ack", (m) => { if (m.cmd === "ping") { Clock.onAck(m); return; } dbg(m.ok ? "info" : "warn", "ack", `${m.cmd} da ${m.id}: ${m.ok ? "ok" : "NON RIUSCITO"}`, { rid: m.rid, detail: m.detail }); if (!m.ok) { const c = camById(m.id); log(m.id, `${c ? camTitle(c) : m.id}: comando "${m.cmd}" non riuscito${typeof m.detail === "string" ? " (" + m.detail + ")" : ""}`); } });
     this.rt.on("dbg", (m) => { const c = camById(m.id), src = "cam " + (c ? c.name : m.id); (m.lines || []).forEach((x) => adv.push({ t: x.t, l: x.l, s: src, m: x.m })); while (adv.length > ADVMAX) adv.shift(); scheduleAdv(); });
     setInterval(() => this.sweep(), 2000);
   }
@@ -272,9 +275,9 @@ class RealtimeTransport {
     if (!m || !m.id) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
     let cam = camById(m.id);
     if (REAL && !cam && !Join.ok.has(m.id)) { if (Join.rejected.has(m.id)) { Join.deny(m.id); return; } if (Join.approve) { Join.hold(m); return; } }
-    if (REAL && cam) Join.greet(m.id);
+    if (REAL && cam) { Join.greet(m.id); Clock.maybe(m.id); if (now - (cam.seen || 0) > 60000) { cam.seen = now; saveCams(); } }
     if (!cam) {
-      cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp }; cameras.push(cam); saveCams(); isNew = true;
+      cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp, num: REAL ? nextNum() : 0, seen: now }; cameras.push(cam); saveCams(); isNew = true;
       log(m.id, `${cam.device} · ${cam.name}: camera collegata`); dbg("info", "camere", `nuova camera ${m.id}`, { device: m.device, name: m.name, os: m.os, fp: m.fp });
       const twin = m.fp && cameras.find((c) => c.id !== m.id && c.fp && c.fp === m.fp && !(this.s[c.id] && this.s[c.id].online));
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
@@ -286,7 +289,7 @@ class RealtimeTransport {
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
     this.rxN = this.rxN || {}; this.rxN[m.id] = (this.rxN[m.id] || 0) + 1;
     if (ch.length || this.rxN[m.id] % 15 === 1) dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
-    this.s[m.id] = st; this.push(m.id); if (REAL && isNew) Join.greet(m.id);
+    this.s[m.id] = st; this.push(m.id); if (REAL && isNew) { Join.greet(m.id); Clock.maybe(m.id); }
     if (st.err && st.err !== before.err) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id); if (REAL) Xfer.autoTick(m.id);
@@ -294,7 +297,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -391,11 +394,11 @@ setInterval(() => { if (typeof Xfer !== "undefined" && Dest.mode === "folder" &&
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
 const Xfer = {
   jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
-  keepPrev: store.get("gdc.xprev", true), auto: store.get("gdc.xauto", false), autoTry: {}, autoNext: {}, autoBusy: {}, autoWarned: false,
+  keepPrev: store.get("gdc.xprev", true), hold: store.get("gdc.xhold", false), auto: store.get("gdc.xauto", false), autoTry: {}, autoNext: {}, autoBusy: {}, autoWarned: false,
   // trasferimento automatico: ogni clip pronta parte da sola (la più vecchia per prima) quando la camera non sta registrando.
   // Con "elimina dal telefono" attivo il telefono tiene solo ciò che non è ancora arrivato (buffer a rotazione).
   async autoTick(camId) {
-    if (!this.auto || this.autoBusy[camId] || this.queueRun) return;
+    if (!this.auto || this.hold || this.autoBusy[camId] || this.queueRun) return;
     const st = state[camId]; if (!st || !st.online || st.rec || st.tl) return;
     if (Dest.mode !== "folder" || !Dest.handle || (Dest.health && !Dest.health.ok)) return;
     if (this.active().some((j) => j.camId === camId)) return;
@@ -470,7 +473,7 @@ const Xfer = {
       onInfo: (i) => { if (i.path) job.path = i.path; if (i.name && !job.test) job.fname = i.name; this.refresh(); } };
     job.opts = o;
     const p = GDC_XFER.receiveFile(o).then((r) => { Object.assign(job, { state: "ok", where: r.where, blob: r.blob, fname: r.name, got: r.bytes, size: r.bytes, mbps: r.mbps, ms: r.ms, note: "" }); log(job.camId, `${c ? camTitle(c) : job.camId}: ${job.test ? "prova di rete" : "file " + r.name + " arrivato e verificato"} (${fmtMB(r.bytes)}, ${r.mbps.toFixed(2)} Mbps)`); });
-    command(job.camId, job.test ? { cmd: "xfer_test", xid, mb: job.opt.mb } : { cmd: "xfer_start", xid, sid: job.sid, del: !!this.delAfter });
+    command(job.camId, job.test ? { cmd: "xfer_test", xid, mb: job.opt.mb } : { cmd: "xfer_start", xid, sid: job.sid, del: !!(this.delAfter && !this.hold) });
     return p;
   },
   async runJob(job) {
@@ -520,7 +523,7 @@ const Xfer = {
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.memState, Dest.health && Dest.health.msg, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.memState, Dest.health && Dest.health.msg, this.hold, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -532,8 +535,10 @@ const Xfer = {
         </div>
         ${Dest.mode === "folder" ? `<div class="row" style="margin-top:6px;gap:8px;align-items:center"><span class="muted">${Dest.handle ? "Cartella: <b>" + esc(Dest.handle.name) + "</b>" : "Nessuna cartella scelta"}</span><button class="ghost" data-xf="pick">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button>${Dest.handle ? `<button class="ghost" data-xf="chk">Verifica cartella</button>` : ""}</div>${Dest.handle && Dest.health ? `<div style="margin-top:4px;font-size:13px;color:${Dest.health.ok ? "var(--ok,#2a9d5c)" : "var(--bad,#d93025)"}">${Dest.health.ok ? "✓ " : "⚠ "}${esc(Dest.health.msg)}</div>` : ""}` : `<div class="muted" style="margin-top:6px">${FS ? "" : "Questo browser non può scegliere una cartella: i file restano in memoria finché non li salvi con “Salva”. "}Salva ogni file appena arriva.</div>`}
         ${Dest.mode === "device" && this.pendingMem() > 0 ? `<div style="margin-top:8px;font-size:13px;color:${this.pendingMem() > this.MEMMAX * 0.7 ? "var(--bad,#d93025)" : "var(--warn,#c77d00)"}">In memoria da salvare: ${fmtMB(this.pendingMem())} su ${fmtMB(this.MEMMAX)}${this.pendingMem() > this.MEMMAX * 0.7 ? ". Tocca Salva prima di trasferire altro." : "."}</div>` : ""}
-        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
-        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
+        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="hold" style="width:auto;min-height:0" ${this.hold ? "checked" : ""}> Tieni i file sui telefoni: non trasferire durante la sessione</label>
+        <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.hold ? "Nessun trasferimento parte da solo e nulla viene eliminato dai telefoni. Scarichi tutto dopo, con “Trasferisci tutte le clip pronte”." : "Utile con una rete debole o con l'iPad come regia."}</div>
+        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter && !this.hold ? "checked" : ""} ${this.hold ? "disabled" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
+        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto && !this.hold ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle && !this.hold ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${Dest.mode !== "folder" || !Dest.handle ? "Serve una cartella di questo computer: sull'iPad i file vanno salvati a mano." : this.auto && this.delAfter ? "Buffer a rotazione attivo: il telefono tiene solo le clip non ancora arrivate." : this.auto ? "Attiva anche “Elimina dal telefono” per liberare spazio man mano." : "Parte quando nessuna ripresa è in corso."}${this.auto ? (this.autoBusy[id] ? " · trasferimento automatico in corso" : "") : ""}</div>
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="prev" style="width:auto;min-height:0" ${this.keepPrev ? "checked" : ""}> Tieni l'anteprima accesa durante i trasferimenti</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.keepPrev ? "⚠ Con una rete debole il trasferimento può rallentare o interrompersi, ma nessun file va perso: resta sul telefono finché non è arrivato e verificato, e il trasferimento riprende da dove si era fermato (se si ferma del tutto, tocca Riprendi). Se rallenta troppo, spegni questa spunta." : "Durante un trasferimento l'anteprima si ferma per lasciare tutta la rete al file e riparte alla fine."}</div>
@@ -572,12 +577,14 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   const m = e.target.closest("[data-xm]"); if (m) { Dest.mode = m.dataset.xm; store.set("gdc.dest", Dest.mode); dbg("info", "file", `destinazione: ${Dest.mode}`); Xfer.refresh(); return; }
   if (e.target.matches('[data-xf="prev"]')) { Xfer.keepPrev = e.target.checked; store.set("gdc.xprev", Xfer.keepPrev); dbg("info", "file", `anteprima durante i trasferimenti: ${Xfer.keepPrev ? "accesa" : "sospesa"}`); Xfer.refresh(); Preview.ensureAll(); return; }
+  if (e.target.matches('[data-xf="hold"]')) { Xfer.hold = e.target.checked; store.set("gdc.xhold", Xfer.hold); dbg("info", "file", `i file restano sui telefoni: ${Xfer.hold}`); Xfer.refresh(); if (!Xfer.hold) Xfer.autoAll(); return; }
   if (e.target.matches('[data-xf="auto"]')) { Xfer.auto = e.target.checked; store.set("gdc.xauto", Xfer.auto); dbg("info", "file", `trasferimento automatico: ${Xfer.auto}`); Xfer.refresh(); Xfer.autoAll(); return; }
   if (e.target.matches('[data-xf="del"]')) { Xfer.delAfter = e.target.checked; store.set("gdc.xdel", Xfer.delAfter); dbg("info", "file", `elimina dal telefono dopo il trasferimento: ${Xfer.delAfter}`); Xfer.refresh(); }
 });
 let zDrag = false;
 const spColor = (el, st) => { const lv = st.online && st.space && st.space.known ? st.space.level : "ok"; el.style.color = lv === "crit" ? "var(--bad,#d93025)" : lv === "warn" ? "var(--warn,#c77d00)" : ""; };
 const BIND = {
+  clockNote: (st, c, el) => { el.textContent = Clock.note(c.id); },
   xferUi: (st, c, el) => Xfer.render(st, c, el),
   autoFreeUi: (st, c, el) => { const cb = $("#autoFree", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!(st.space && st.space.autoFree); cb.disabled = !st.online; },
   spaceNote: (st, c, el) => { const sp = st.space; el.textContent = !st.online || !sp ? "" : `Base di calcolo: ${sp.basis || "n/d"}${sp.measuredMB ? " · limite misurato " + sp.measuredMB + " MB" : ""}${sp.quotaMB != null ? " · quota browser " + sp.quotaMB + " MB (usati " + sp.usageMB + " MB)" : ""} · liberati finora: ${sp.freedMB || 0} MB`; },
@@ -695,9 +702,9 @@ const Join = {
     const now = Date.now(), p = this.pending[m.id]; this.pending[m.id] = { m, first: p ? p.first : now, seen: now };
     if (!p) { dbg("info", "camere", `richiesta di ingresso da ${m.id}`, { device: m.device, name: m.name, os: m.os, batteria: m.battery }); log("", `“${m.name || m.id}” (${m.device || "telefono"}) chiede di entrare`); this.render(); }
   },
-  accept(id) { const p = this.pending[id]; if (!p) return; delete this.pending[id]; this.ok.add(id); this.greeted[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: true }); dbg("info", "camere", `accettata ${id}`); transport.onCamState(p.m); this.render(); },
+  accept(id) { const p = this.pending[id]; if (!p) return; delete this.pending[id]; this.ok.add(id); this.greeted[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: true, label: labelOf(id) }); dbg("info", "camere", `accettata ${id}`); transport.onCamState(p.m); this.render(); },
   reject(id) { delete this.pending[id]; this.rejected.add(id); store.set("gdc.rejected", [...this.rejected]); this.denied[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: false }); dbg("info", "camere", `rifiutata ${id}`); log("", "Telefono rifiutato"); this.render(); if (curDetail == null) route(); },
-  greet(id) { const now = Date.now(); if (now - (this.greeted[id] || 0) > 60000) { this.greeted[id] = now; transport.send(id, { cmd: "join_result", ok: true }); } },
+  greet(id) { const now = Date.now(); if (now - (this.greeted[id] || 0) > 60000) { this.greeted[id] = now; transport.send(id, { cmd: "join_result", ok: true, label: labelOf(id) }); } },
   deny(id) { const now = Date.now(); if (now - (this.denied[id] || 0) > 20000) { this.denied[id] = now; transport.send(id, { cmd: "join_result", ok: false }); } },
   sweep() { const now = Date.now(); let ch = false; for (const id in this.pending) if (now - this.pending[id].seen > 8000) { delete this.pending[id]; ch = true; } if (ch) this.render(); },
   render() {
@@ -725,6 +732,20 @@ document.addEventListener("click", async (e) => {
 });
 document.addEventListener("change", (e) => { if (e.target.id === "apprChk") { Join.approve = e.target.checked; store.set("gdc.approve", Join.approve); dbg("info", "camere", `conferma prima di far entrare: ${Join.approve}`); if (!Join.approve) Object.keys(Join.pending).forEach((id) => Join.accept(id)); Xfer.refresh(); const t = e.target.parentNode.nextElementSibling; if (t) t.textContent = Join.approve ? "Un telefono nuovo compare qui con Accetta e Rifiuta. Quelli già collegati rientrano da soli." : "Chi apre il link entra subito, senza chiedere."; } });
 
+// orologio delle camere: scarto di ogni telefono rispetto alla regia (si prende il campione con il tempo di andata e ritorno più breve)
+const Clock = {
+  at: {}, run: {}, off: {},
+  maybe(id) { const now = Date.now(); if (this.run[id] || now - (this.at[id] || 0) < 600000) return; this.at[id] = now; this.run[id] = { best: null, n: 0 }; for (let i = 0; i < 6; i++) setTimeout(() => { if (this.run[id]) transport.send(id, { cmd: "ping", t0: Date.now() }); }, i * 700); setTimeout(() => this.finish(id), 6200); },
+  onAck(m) { const r = this.run[m.id], t0 = m.detail && m.detail.t0; if (!r || !t0 || !m.ts) return; const t2 = Date.now(), rtt = t2 - t0, off = m.ts - (t0 + t2) / 2; r.n++; if (!r.best || rtt < r.best.rtt) r.best = { rtt, off }; },
+  finish(id) { const r = this.run[id]; delete this.run[id]; if (!r || !r.best) { this.at[id] = 0; return; } const off = Math.round(r.best.off), rtt = Math.round(r.best.rtt); this.off[id] = { off, rtt, at: Date.now() }; const c = camById(id);
+    dbg("info", "orologio", `${c ? camTitle(c) : id}: scarto ${off} ms (±${Math.round(rtt / 2)} ms, ${r.n} misure)`); if (Math.abs(off) > 1500) log(id, `${c ? camTitle(c) : id}: l'orologio del telefono è sfasato di ${(off / 1000).toFixed(1)} s (i nomi dei file lo correggono)`);
+    transport.send(id, { cmd: "clock", off, rtt }); refresh(); },
+  note(id) { const o = this.off[id]; return o ? `Orologio: ${o.off > 0 ? "+" : ""}${(o.off / 1000).toFixed(2)} s rispetto alla regia (±${Math.round(o.rtt / 2)} ms)` : "Orologio: non ancora misurato"; },
+};
+const staleCams = () => cameras.filter((c) => { const st = state[c.id]; return !(st && st.online) && c.seen && Date.now() - c.seen > 24 * 3600 * 1000; });
+const staleBanner = () => { if (!REAL) return ""; const l = staleCams(); return l.length ? `<section class="panel" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><div style="flex:1;min-width:220px"><b>Camere non collegate da più di un giorno</b><div class="muted">${l.map((c) => esc(camTitle(c))).join("; ")}</div></div><button class="ghost" id="staleRm">Rimuovi dall'elenco</button></section>` : ""; };
+document.addEventListener("click", (e) => { if (e.target.closest("#staleRm")) { const ids = staleCams().map((c) => c.id); ids.forEach((id) => { transport.remove(id); delete state[id]; }); cameras = cameras.filter((c) => !ids.includes(c.id)); saveCams(); dbg("info", "camere", `rimosse ${ids.length} camere non collegate`); route(); } });
+
 const mergeBanner = () => {
   const x = suggestMerge; if (!x || !camById(x.oldId) || !camById(x.newId)) return "";
   const o = esc(camTitle(camById(x.oldId))), n = esc(camTitle(camById(x.newId)));
@@ -740,6 +761,7 @@ function showHome() {
   Preview.stopAll();
   $("#view").innerHTML = `
     ${mergeBanner()}
+    ${staleBanner()}
     ${Join.panel()}
     <section class="panel" id="preflight" hidden></section>
     <section class="tiles" id="sum" aria-label="Riepilogo">
@@ -825,7 +847,7 @@ function showDetail(id) {
             <div class="kv"><small>Registrazione in corso</small><span data-bind="timer" data-cam="${id}"></span></div>
             <div class="kv"><small>Connessione</small><span data-bind="conn" data-cam="${id}"></span></div>
             <div class="kv adv-only"><small>Pan / Tilt</small><span data-bind="pos" data-cam="${id}"></span></div>
-            <div class="kv"><small>Schermo del telefono</small><span data-bind="screen" data-cam="${id}"></span></div>
+            <div class="kv adv-only"><small>Schermo del telefono</small><span data-bind="screen" data-cam="${id}"></span></div>
           </div></div>
         <div class="panel"><h2>Batteria</h2>
           <div class="bat"><div class="bar" data-bind="batBar" data-cam="${id}"><i></i></div><b data-bind="batTxt" data-cam="${id}"></b></div>
@@ -840,7 +862,7 @@ function showDetail(id) {
         <div class="panel"><h2>Ripresa</h2>
           <div class="kvs">
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
-            <div class="kv"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
+            <div class="kv adv-only"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
           </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
         ${REAL ? `<div class="panel" data-bind="xferUi" data-cam="${id}"></div>` : ""}
         ${REAL ? `<div class="panel" data-bind="zoomUi" data-cam="${id}"><h2>Zoom</h2>
@@ -861,10 +883,10 @@ function showDetail(id) {
         <div class="panel"><h2>Impostazioni camera</h2>
           <label class="f">Dispositivo<input type="text" id="fDev" value="${esc(c.device)}" maxlength="40"></label>
           <label class="f">Nome camera<input type="text" id="fName" value="${esc(c.name)}" maxlength="30"></label>
-          <div class="muted adv-only">Sistema: ${esc(c.os)}</div>
+          <div class="muted adv-only">Sistema: ${esc(c.os)}</div><div class="muted adv-only" data-bind="clockNote" data-cam="${id}"></div>
           <div class="row" style="margin-top:10px">
-            <button class="ghost" data-bind="connBtn" data-cam="${id}" data-act="toggleConn"></button>
-            ${REAL ? `<button class="ghost" id="cpThis">Copia link di questa camera</button>` : ""}<button class="ghost" id="rmCam">Rimuovi camera</button>
+            <button class="ghost adv-only" data-bind="connBtn" data-cam="${id}" data-act="toggleConn"></button>
+            ${REAL ? `<button class="ghost adv-only" id="cpThis">Copia link di questa camera</button>` : ""}<button class="ghost" id="rmCam">Rimuovi camera</button>
           </div></div>
         <div class="panel"><h2>Clip della sessione</h2><ol class="list" data-bind="clips" data-cam="${id}"></ol></div>
         ${logPanel(id)}
