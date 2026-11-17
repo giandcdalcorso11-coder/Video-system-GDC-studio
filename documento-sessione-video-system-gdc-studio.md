@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 39
-**Ultimo aggiornamento:** 2026-11-18 22:45
+**Versione:** 40
+**Ultimo aggiornamento:** 2026-11-18 23:30
 
 ## Vision
 
@@ -189,6 +189,22 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 23:30] Revisione del codice e segnali per il montaggio
+
+**Riepilogo:** rilettura del codice aggiunto oggi con quattro correzioni (dashboard r24, camera r24), poi nuova funzione "Segna" per ritrovare i momenti nel montaggio (dashboard r25, camera r25).
+
+**Cosa è stato fatto:**
+- Revisione, correzioni: (1) con più dashboard sullo stesso canale (iPad poi PC) ogni camera riparte da zero e chiedeva di nuovo l'ingresso, con numeri diversi: ora la camera ricorda il suo numero (`Camera N`) e lo comunica, la regia lo riusa se libero; aggiunto "Accetta tutte" quando le richieste sono più di una. (2) Se durante l'attesa della cartella si cambia destinazione, il trasferimento si ferma con un messaggio invece di restare in attesa all'infinito. (3) Benvenuto: tolto il doppio avvio della camera (race tra avvio automatico e avvio manuale). (4) Nome file nello stato con estensione corretta (mp4 o webm).
+- Segnali: pulsante "⚑ Segna" nell'intestazione della regia (anche tasto M). Un tocco registra l'istante su tutte le camere che stanno registrando, come posizione dentro la clip (la camera ora comunica l'id della registrazione in corso). Pannello "Segnali" in home con elenco, note modificabili, "Esporta segnali" e "Cancella". Esportazione: un CSV (segnale, ora della regia, nota, camera, file, posizione hh:mm:ss:ff a 30 fps e secondi) e, per ogni camera, un file dei marcatori per DaVinci Resolve (formato EDL dei marcatori, tempo che parte da 01:00:00:00: **da provare in Resolve**). I file vanno nella cartella dei file se disponibile, altrimenti si scaricano.
+- Precisione: circa mezzo secondo (ritardo del canale). Non dipende dagli orologi dei telefoni.
+- Provato in Chromium: segnali con e senza registrazione, scorciatoia M, note, CSV ed EDL corretti, regressioni join/QR/nomi ok.
+
+**Limiti noti:** l'EDL dei marcatori non è stato provato in DaVinci Resolve; se non si importa, si usa il CSV. I segnali sono salvati nel browser della regia (ultimi 500).
+
+**File consegnati/modificati:** docs/dashboard.html (r25), docs/camera.html (r25); documento v40.
+
+---
 
 ### [2026-11-18 22:45] Correzione del promemoria: project 2 si pulisce, non si elimina
 

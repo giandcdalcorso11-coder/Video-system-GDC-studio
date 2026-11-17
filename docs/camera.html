@@ -91,7 +91,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r24";
+const PAGE_VERSION = "camera r25";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -616,9 +616,9 @@ async function batProbe() {
 }
 function stateObj() {
   const v = $("vid");
-  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
+  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
-    vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
+    vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s, /webm/.test(s.mime || "") ? "webm" : "mp4"), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
@@ -827,7 +827,7 @@ async function goOnline() {
 $("wGo").onclick = async () => {
   const n = $("wName").value.trim(); if (n) cfg.name = n.slice(0, 30); cfg.autoCam = true; store.set("gdc.camCfg", cfg); store.set("gdc.welcomed", true); welcomePending = false;
   dbg("info", `benvenuto completato: nome "${cfg.name}"`); $("welcome").hidden = true; $("main").hidden = false; $("statPanel").hidden = false; syncForm(); renderStat();
-  await goOnline(); try { await openCam(); } catch { /* errore già mostrato */ }
+  await goOnline(); // l'avvio della camera parte da goOnline (stesso tocco)
 };
 start();
 </script>
