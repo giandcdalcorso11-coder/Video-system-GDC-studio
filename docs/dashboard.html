@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r12";
+const PAGE_VERSION = "dashboard r13";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -409,7 +409,7 @@ const Xfer = {
     for (;;) {
       let err = null; try { await this.attempt(job); } catch (e) { err = e; }
       if (!err) break;
-      const busy = /già in corso|sostituito/.test(job.camError || ""), fatalCam = job.camError && !busy;
+      const fatalCam = /non trovata|nessun dato|registrazione ancora in corso|incompleta|annullato dalla dashboard/.test(job.camError || ""); // solo gli errori sulla registrazione sono definitivi; quelli di rete si riprovano
       if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
       if (!job.test && !fatalCam && job.attempt < this.MAXTRY) {
         job.attempt++; job.state = "interrotto"; job.note = `interrotto (${job.camError || err.message}). Riprendo da ${fmtMB(job.st.got)}: tentativo ${job.attempt}/${this.MAXTRY}`;

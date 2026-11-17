@@ -35,8 +35,9 @@
      handle (facoltativo): oggetto in cui viene messo abort() per interrompere l'invio dall'esterno. */
   async function sendFile(o) {
     const { rt, from, to, xid, name, mime, size, source, log = () => {}, onProgress = () => {}, handle = {} } = o;
-    const pc = new RTCPeerConnection(ICE), pend = [], outq = []; let dc = null, offerSent = false, lastAct = Date.now(), fin = null, watch = 0, goRes = null;
+    const pc = new RTCPeerConnection(ICE), pend = [], outq = []; let dc = null, offerSent = false, lastAct = Date.now(), fin = null, watch = 0, goRes = null, dead = null, wake = null;
     const done = new Promise((res, rej) => { fin = { res, rej }; });
+    { const r = fin.rej; fin.rej = (e) => { if (!dead) dead = e; r(e); if (wake) wake(); }; } // ogni interruzione sveglia e ferma il ciclo di invio
     const goP = new Promise((res) => (goRes = res));
     const L = (l, m) => log(l, `xfer ${xid}: ${m}`);
     handle.abort = () => fin.rej(new Error("sostituito o interrotto"));
@@ -57,7 +58,7 @@
       try { const m = JSON.parse(e.data); if (m.t === "go") goRes(m); else if (m.t === "ok") fin.res(m); else if (m.t === "err") fin.rej(new Error("la dashboard ha rifiutato il file: " + m.reason)); } catch { /* ok */ }
     };
     dc.onclose = () => fin.rej(new Error("canale chiuso"));
-    const waitLow = () => new Promise((r) => { const t = setTimeout(r, 4000); dc.bufferedAmountLowThreshold = LOW; dc.onbufferedamountlow = () => { clearTimeout(t); r(); }; });
+    const waitLow = () => new Promise((r) => { const t = setTimeout(r, 4000); wake = () => { clearTimeout(t); r(); }; dc.bufferedAmountLowThreshold = LOW; dc.onbufferedamountlow = () => { clearTimeout(t); r(); }; });
     const t0 = performance.now(), start = new Promise((res) => (dc.onopen = res));
     watch = setInterval(() => { if (Date.now() - lastAct > 25000) fin.rej(new Error("nessuna risposta per 25 secondi (rete?)")); }, 2000);
     try {
@@ -76,10 +77,12 @@
       }
       const from0 = sent; let lastP = 0, lastLog = 0; const t1 = performance.now();
       for (;;) {
+        if (dead) throw dead;
         const ab = await source.next(); if (!ab) break; const u8 = ab instanceof Uint8Array ? ab : new Uint8Array(ab);
         for (let off = 0; off < u8.length; off += PIECE) {
           const piece = u8.subarray(off, Math.min(u8.length, off + PIECE)); crc = crc32(piece, crc);
           if (dc.bufferedAmount > HIGH) await waitLow();
+          if (dead) throw dead;
           if (dc.readyState !== "open") throw new Error("canale chiuso durante l'invio");
           dc.send(piece); sent += piece.length;
         }
@@ -88,7 +91,7 @@
         if (now - lastLog > 5000) { lastLog = now; L("info", `avanzamento: ${(arrived / 1048576).toFixed(1)} MB consegnati in ${Math.round((now - t1) / 1000)} s (${((arrived - from0) * 8 / (now - t1) / 1000).toFixed(2)} Mbps), in coda ${Math.round(dc.bufferedAmount / 1024)} KB`); }
         await sleep(0);
       }
-      while (dc.bufferedAmount > 0 && dc.readyState === "open") { await waitLow(); lastAct = Date.now(); }
+      while (dc.bufferedAmount > 0 && dc.readyState === "open") { await waitLow(); if (dead) throw dead; lastAct = Date.now(); }
       dc.send(JSON.stringify({ t: "end", size: sent, crc })); L("info", `dati inviati: ${sent} byte, CRC32 ${crc.toString(16)}`); onProgress({ sent, size, speed: (sent - from0) / ((performance.now() - t1) / 1000) });
       const reply = await done, ms = performance.now() - t1;
       L("info", `verificato dalla dashboard: ${reply.size} byte in ${Math.round(ms)} ms (${((sent - from0) * 8 / ms / 1000).toFixed(2)} Mbps)`);

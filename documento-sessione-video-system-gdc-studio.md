@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 20
-**Ultimo aggiornamento:** 2026-11-17 15:00
+**Versione:** 21
+**Ultimo aggiornamento:** 2026-11-17 16:20
 
 ## Vision
 
@@ -167,6 +167,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 16:20] "Un altro trasferimento è già in corso" a ogni ripresa: invio rimasto appeso (camera r18, dashboard r13)
+
+**Riepilogo:** durante una caduta di rete la camera lasciava un vecchio invio "appeso" e rifiutava tutti i tentativi di ripresa con "un altro trasferimento è già in corso"; corretto il ciclo di invio, la classificazione degli errori e i doppioni nei log.
+
+**Bug: tentativi di ripresa rifiutati dalla camera**
+
+**Sintomo:** dopo la caduta della connessione (14:34:01-09 `disconnected` → `failed`) i 6 tentativi automatici della dashboard ricevevano tutti "un altro trasferimento è già in corso" dalla camera, nonostante fosse la stessa registrazione.
+**Causa:** su iOS (Safari 27.2) il canale dati risultava ancora "open" dopo la caduta della connessione ICE; il vecchio invio continuava ad accodare dati (log 14:35:11: "0,4 MB consegnati in 80 s, in coda 2057 KB") e il ciclo di invio non controllava mai l'interruzione richiesta dal nuovo tentativo, quindi `xferBusy` restava impostato. Contributo minore: gli errori segnalati dalla camera (anche quelli di rete) erano trattati come definitivi.
+**Fix applicato:** ogni interruzione ora sveglia e ferma il ciclo di invio (flag `dead` e `wake`), la camera attende fino a 8 s la fine del vecchio invio, e solo gli errori sulla registrazione (non trovata, senza dati, ancora in registrazione) sono definitivi. Provato in Chromium con un canale che resta aperto ma non consegna più nulla: il vecchio invio termina, la ripresa parte dal byte 121 222 con CRC ok, file identico (SHA-256). Da verificare sull'iPhone.
+
+**Altro:**
+- Righe di log duplicate (identiche allo stesso millisecondo) da invii ripetuti dopo una risposta persa: aggiunto un numero di riga per sessione (`n`) e un controllo nel database (`gdc_dev_logs_dedupe`, scarta le righe già presenti; la chiave pubblica non può leggere nulla). Migrazioni applicate a GDC-project 2.
+- Dai log: la camera segnala "traccia video silenziata dal sistema" (14:34:53 e 14:36:08): iOS ha sospeso o silenziato la camera durante il trasferimento, probabile effetto del carico e della rete debole; da tenere d'occhio.
+- Velocità osservate: 0,2-0,5 Mbps nei primi secondi, poi caduta; rete del telefono insufficiente per il test.
+
+**File consegnati/modificati:** `docs/xfer.js`, `docs/camera.html` (r18), `docs/dashboard.html` (r13), `docs/dev.js`, `documento-sessione-video-system-gdc-studio.md`; database GDC-project 2 (colonna `n`, indice univoco, trigger di deduplica).
+
+---
 
 ### [2026-11-17 15:00] Trasferimento su rete molto lenta: funziona e verifica, ora con ripresa automatica (camera r17, dashboard r12)
 

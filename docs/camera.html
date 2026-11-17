@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r17";
+const PAGE_VERSION = "camera r18";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -573,7 +573,7 @@ function xferRun(m, { name, mime, size, source, sid, test }) {
 }
 async function xferStart(m) {
   if (!rt || !m.xid || !m.from) throw new Error("richiesta di trasferimento incompleta");
-  if (xferBusy && xferBusy.sid === m.sid) { dbg("info", "nuovo tentativo per la stessa registrazione: interrompo il precedente"); xferBusy.abort(); for (let i = 0; i < 30 && xferBusy; i++) await sleep(100); }
+  if (xferBusy && xferBusy.sid === m.sid) { dbg("info", "nuovo tentativo per la stessa registrazione: interrompo il precedente"); xferBusy.abort(); for (let i = 0; i < 80 && xferBusy; i++) await sleep(100); }
   if (xferBusy) xferFail(m, "un altro trasferimento è già in corso");
   const s = sessions.find((x) => x.id === m.sid); if (!s) xferFail(m, "registrazione non trovata sul telefono");
   if (recording && recording.sid === s.id) xferFail(m, "registrazione ancora in corso");

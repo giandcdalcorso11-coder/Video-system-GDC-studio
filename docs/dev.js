@@ -15,7 +15,7 @@
   const SESS = `${String(d0.getFullYear()).slice(2)}${pad(d0.getMonth() + 1)}${pad(d0.getDate())}-${pad(d0.getHours())}${pad(d0.getMinutes())}-${Math.random().toString(36).slice(2, 6)}`;
 
   let cfg = null, mode = store.get("gdc.mode", "base") === "adv" ? "adv" : "base", sending = store.get("gdc.devsend", false) === true;
-  const queue = []; let timer = 0, sent = 0, failed = 0, lastErr = "", backoff = 0, busy = false, started = false;
+  const queue = []; let seq = 0, timer = 0, sent = 0, failed = 0, lastErr = "", backoff = 0, busy = false, started = false;
   const QMAX = 3000;
 
   function css() {
@@ -71,7 +71,7 @@ body.adv #gdcMode label{display:inline-flex}
   }
 
   function enqueue(t, lv, msg) {
-    queue.push({ sess: SESS, role: cfg.role, dev: String(cfg.dev()).slice(0, 60), ver: cfg.ver, t_ms: Math.round(t), lv: String(lv).slice(0, 10), msg: hide(msg).slice(0, 4000) });
+    queue.push({ sess: SESS, n: ++seq, role: cfg.role, dev: String(cfg.dev()).slice(0, 60), ver: cfg.ver, t_ms: Math.round(t), lv: String(lv).slice(0, 10), msg: hide(msg).slice(0, 4000) });
     if (queue.length > QMAX) queue.splice(0, queue.length - QMAX);
   }
   function push(t, lv, msg) {
