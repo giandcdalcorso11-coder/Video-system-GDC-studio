@@ -127,9 +127,11 @@
      o.state: oggetto che resta tra un tentativo e l'altro ({ sink, got, crc }): permette la ripresa dopo un'interruzione.
      La destinazione parziale viene annullata solo se o.cancelled, se il controllo finale fallisce (errore fatale) o a richiesta del chiamante. */
   function receiveFile(o) {
-    const { rt, from, to, xid, makeSink, log = () => {}, onProgress = () => {}, onInfo = () => {} } = o, st = (o.state = o.state || { sink: null, got: 0, crc: 0 });
+    const { rt, from, to, xid, makeSink: mk0, log = () => {}, onProgress = () => {}, onInfo = () => {} } = o, st = (o.state = o.state || { sink: null, got: 0, crc: 0 });
     const pc = new RTCPeerConnection(ICE), pend = []; let hdr = null, t1 = 0, from0 = st.got, lastP = 0, lastLog = 0, chain = Promise.resolve(), lastAct = Date.now(), watch = 0, settled = false, dcRef = null;
     const L = (l, m) => log(l, `xfer ${xid}: ${m}`);
+    const sk = (p) => Promise.resolve(p).catch((e) => { if (e && typeof e === "object") e.sink = true; throw e; }); // errori della destinazione (cartella/disco), distinti da quelli di rete
+    const makeSink = (a) => sk(mk0(a));
     let fin; const done = new Promise((res, rej) => { fin = { res, rej }; });
     const cleanup = () => { clearInterval(watch); handlers.delete(xid); early.delete(xid); try { dcRef && dcRef.close(); } catch { /* ok */ } try { pc.close(); } catch { /* ok */ } };
     const fail = async (e) => { if (settled) return; settled = true; if (o.cancelled || e.fatal) { try { st.sink && await st.sink.abort(); } catch { /* ok */ } st.sink = null; st.got = 0; st.crc = 0; } fin.rej(e); };
@@ -160,12 +162,12 @@
               L("info", st.got ? `riprendo ${m.name} dal byte ${st.got}` : `ricevo ${m.name} (${m.size} byte stimati)`); onInfo({ name: st.sink.name, size: m.size });
             } else if (m.t === "end") {
               if (!hdr || st.got !== m.size || st.crc !== m.crc) { const why = `dimensione o CRC non coincidono (ricevuti ${st.got}/${m.size} byte, CRC ${st.crc.toString(16)}/${(m.crc >>> 0).toString(16)})`; dc.send(JSON.stringify({ t: "err", reason: why })); const x = new Error(why); x.fatal = true; throw x; }
-              const res = await st.sink.finish(); st.sink = null; settled = true; dc.send(JSON.stringify({ t: "ok", size: st.got, crc: st.crc })); const ms = performance.now() - t1, bytes = st.got;
+              const res = await sk(st.sink.finish()); st.sink = null; settled = true; dc.send(JSON.stringify({ t: "ok", size: st.got, crc: st.crc })); const ms = performance.now() - t1, bytes = st.got;
               L("info", `file completo e verificato: ${bytes} byte (${((bytes - from0) * 8 / ms / 1000).toFixed(2)} Mbps in questo tentativo)`);
               fin.res({ ...res, bytes, crc: st.crc, ms, mbps: (bytes - from0) * 8 / ms / 1000 });
             } else if (m.t === "err") { const x = new Error("la camera ha rifiutato la ripresa: " + m.reason); x.fatal = true; throw x; }
           } else {
-            const u8 = new Uint8Array(e.data); st.crc = crc32(u8, st.crc); st.got += u8.length; await st.sink.write(e.data);
+            const u8 = new Uint8Array(e.data); st.crc = crc32(u8, st.crc); st.got += u8.length; await sk(st.sink.write(e.data));
             const now = performance.now(); if (now - lastP > 250) { lastP = now; onProgress({ got: st.got, size: hdr.size, speed: (st.got - from0) / ((now - t1) / 1000) }); }
             if (now - lastLog > 5000) { lastLog = now; L("info", `avanzamento: ${(st.got / 1048576).toFixed(1)} MB ricevuti, ${Math.round((now - t1) / 1000)} s (${((st.got - from0) * 8 / (now - t1) / 1000).toFixed(2)} Mbps)`); }
           }

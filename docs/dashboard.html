@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r18";
+const PAGE_VERSION = "dashboard r19";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -363,13 +363,27 @@ transport.onState((id, st) => { state[id] = st; refresh(); });
 const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
 /* ===== Trasferimento file dalla camera (diretto, con controllo di integrità) ===== */
 const FS = typeof window.showDirectoryPicker === "function";
-const Dest = { mode: FS ? store.get("gdc.dest", "folder") : "device", handle: null };
+const Dest = { mode: FS ? store.get("gdc.dest", "folder") : "device", handle: null, health: null, checking: false,
+  // prova reale: scrive e cancella un piccolo file nella cartella (disco scollegato, pieno o permesso scaduto si vedono subito)
+  async check() {
+    if (this.mode !== "folder" || !this.handle) return null; if (this.checking) return this.health; this.checking = true; let h;
+    try {
+      let p = "denied"; try { p = await this.handle.queryPermission({ mode: "readwrite" }); } catch { /* ok */ }
+      if (p !== "granted") h = { ok: false, why: "permesso", msg: "la cartella chiede di nuovo il permesso: tocca “Verifica cartella”" };
+      else { const fh = await this.handle.getFileHandle(".gdc-prova", { create: true }), w = await fh.createWritable(); await w.write(new Uint8Array(4096)); await w.close(); await this.handle.removeEntry(".gdc-prova"); h = { ok: true, msg: "raggiungibile e scrivibile" }; }
+    } catch (e) { h = { ok: false, why: e.name, msg: e.name === "QuotaExceededError" ? "il disco è pieno" : e.name === "NotFoundError" ? "cartella non trovata: disco scollegato o spento?" : `la cartella non risponde (${e.name})` }; }
+    finally { this.checking = false; }
+    const was = this.health; this.health = h;
+    if (!was || was.ok !== h.ok || was.msg !== h.msg) { dbg(h.ok ? "info" : "warn", "file", `cartella ${this.handle.name}: ${h.msg}`); if (was) log("", h.ok ? `Cartella “${this.handle.name}” di nuovo raggiungibile` : `Cartella “${this.handle.name}”: ${h.msg}`); Xfer.refresh(); renderPreflight(); if (h.ok) Xfer.autoAll(); }
+    return h;
+  } };
 const kv = (() => {
   let h = null; const open = () => h ? Promise.resolve(h) : new Promise((res, rej) => { const r = indexedDB.open("gdc-dash", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res((h = r.result)); r.onerror = () => rej(r.error); });
   return { get: (k) => open().then((d) => new Promise((res, rej) => { const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); })),
     set: (k, v) => open().then((d) => new Promise((res, rej) => { const t = d.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); })) };
 })();
-if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); } }).catch(() => {});
+if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); Dest.check(); } }).catch(() => {});
+setInterval(() => { if (typeof Xfer !== "undefined" && Dest.mode === "folder" && Dest.handle && !Xfer.active().some((j) => j.state === "in corso")) Dest.check(); }, 15000);
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
 const Xfer = {
   jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
@@ -379,7 +393,7 @@ const Xfer = {
   async autoTick(camId) {
     if (!this.auto || this.autoBusy[camId] || this.queueRun) return;
     const st = state[camId]; if (!st || !st.online || st.rec || st.tl) return;
-    if (Dest.mode !== "folder" || !Dest.handle) return;
+    if (Dest.mode !== "folder" || !Dest.handle || (Dest.health && !Dest.health.ok)) return;
     if (this.active().some((j) => j.camId === camId)) return;
     if (Object.values(this.autoBusy).filter(Boolean).length >= 2) return;
     const now = Date.now(), clip = [...((st.clips) || [])].reverse().find((k) => k.id && k.status === "pronta" && (this.autoTry[k.id] || 0) < 3 && (this.autoNext[k.id] || 0) <= now);
@@ -406,7 +420,8 @@ const Xfer = {
     if (Dest.mode !== "folder") return true;
     if (!Dest.handle && !(await this.pick())) return false;
     let p = await Dest.handle.queryPermission({ mode: "readwrite" }); if (p !== "granted") p = await Dest.handle.requestPermission({ mode: "readwrite" });
-    if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; } return true;
+    if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; }
+    const h = await Dest.check(); if (h && !h.ok) { log("", `Cartella “${Dest.handle.name}”: ${h.msg}. Nessun trasferimento avviato: i file restano sul telefono.`); return false; } return true;
   },
   byX: new Map(), MAXTRY: 6,
   async start(camId, clip, opt = {}) {
@@ -432,6 +447,15 @@ const Xfer = {
     for (;;) {
       const g0 = job.st.got; let err = null; try { await this.attempt(job); } catch (e) { err = e; }
       if (!err) break;
+      if (err.sink && job.dest === "folder" && !job.test && !job.userCancel) {
+        // la cartella non risponde: si scarta il file parziale e si aspetta che torni; la clip resta sul telefono
+        try { job.st.sink && await job.st.sink.abort(); } catch { /* ok */ } job.st.sink = null; job.st.got = 0; job.st.crc = 0; job.got = 0;
+        job.state = "interrotto"; job.note = `La cartella non è raggiungibile (${err.name === "QuotaExceededError" ? "disco pieno" : "disco scollegato o spento?"}). Riconnettila: riparto da solo. Il file resta sul telefono.`;
+        dbg("warn", "trasferimento", `cartella non scrivibile (${err.name}: ${err.message}): in attesa`); log(job.camId, `${c ? camTitle(c) : job.camId}: ${job.note}`); this.refresh();
+        for (;;) { await new Promise((r) => setTimeout(r, 4000)); if (job.userCancel) break; const h = await Dest.check(); if (h && h.ok) break; }
+        if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
+        continue;
+      }
       if (job.st.got > g0) job.attempt = 0; // i tentativi si contano solo se non si avanza: su una rete lenta ma che avanza si può riprendere a lungo
       const fatalCam = /non trovata|nessun dato|registrazione ancora in corso|incompleta|annullato dalla dashboard/.test(job.camError || ""); // solo gli errori sulla registrazione sono definitivi; quelli di rete si riprovano
       if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
@@ -465,7 +489,7 @@ const Xfer = {
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -475,7 +499,7 @@ const Xfer = {
           ${FS ? `<label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="folder" ${Dest.mode === "folder" ? "checked" : ""}> Cartella di questo computer</label>` : ""}
           <label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="device" ${Dest.mode === "device" ? "checked" : ""}> Questo dispositivo (poi Salva / Condividi)</label>
         </div>
-        ${Dest.mode === "folder" ? `<div class="row" style="margin-top:6px;gap:8px;align-items:center"><span class="muted">${Dest.handle ? "Cartella: <b>" + esc(Dest.handle.name) + "</b>" : "Nessuna cartella scelta"}</span><button class="ghost" data-xf="pick">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button></div>` : `<div class="muted" style="margin-top:6px">${FS ? "" : "Questo browser non può scegliere una cartella: i file restano in memoria finché non li salvi con “Salva”. "}Salva ogni file appena arriva.</div>`}
+        ${Dest.mode === "folder" ? `<div class="row" style="margin-top:6px;gap:8px;align-items:center"><span class="muted">${Dest.handle ? "Cartella: <b>" + esc(Dest.handle.name) + "</b>" : "Nessuna cartella scelta"}</span><button class="ghost" data-xf="pick">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button>${Dest.handle ? `<button class="ghost" data-xf="chk">Verifica cartella</button>` : ""}</div>${Dest.handle && Dest.health ? `<div style="margin-top:4px;font-size:13px;color:${Dest.health.ok ? "var(--ok,#2a9d5c)" : "var(--bad,#d93025)"}">${Dest.health.ok ? "✓ " : "⚠ "}${esc(Dest.health.msg)}</div>` : ""}` : `<div class="muted" style="margin-top:6px">${FS ? "" : "Questo browser non può scegliere una cartella: i file restano in memoria finché non li salvi con “Salva”. "}Salva ogni file appena arriva.</div>`}
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${Dest.mode !== "folder" || !Dest.handle ? "Serve una cartella di questo computer: sull'iPad i file vanno salvati a mano." : this.auto && this.delAfter ? "Buffer a rotazione attivo: il telefono tiene solo le clip non ancora arrivate." : this.auto ? "Attiva anche “Elimina dal telefono” per liberare spazio man mano." : "Parte quando nessuna ripresa è in corso."}${this.auto ? (this.autoBusy[id] ? " · trasferimento automatico in corso" : "") : ""}</div>
@@ -509,7 +533,7 @@ addEventListener("beforeunload", (e) => { if (Xfer.unsafe()) { e.preventDefault(
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-xf]"); if (!b || b.tagName === "INPUT") return; const pn = b.closest("[data-cam]"), id = pn && pn.dataset.cam; if (!id) return;
   const a = b.dataset.xf;
-  if (a === "pick") Xfer.pick(); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
+  if (a === "chk") { Dest.health = null; Xfer.ensureDest().then(() => Dest.check()).then(() => Xfer.refresh()); } else if (a === "pick") Xfer.pick().then(() => Dest.check()); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
   else if (a === "go") { const k = ((state[id] && state[id].clips) || []).find((x) => x.id === b.dataset.sid); if (k) Xfer.start(id, k); }
   else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid); else if (a === "resume") Xfer.resume(b.dataset.xid);
 });
@@ -582,9 +606,11 @@ function renderPreflight() {
     return { name: camTitle(c), worst: [cl, bl, sl].includes("crit") ? "crit" : [cl, bl, sl].includes("warn") ? "warn" : "ok", why,
       html: `<tr><td>${esc(camTitle(c))}</td><td>${dot(cl)} ${on ? "online" : "offline"}</td><td>${dot(bl)} ${st.battery == null ? "n/d" : Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "")}</td><td>${dot(sl)} ${sp && sp.known ? "circa " + sp.minLeft + " min" : "n/d"}</td></tr>` };
   });
+  const dh = REAL && Dest.mode === "folder" && Dest.handle ? Dest.health : null, destBad = !!(dh && !dh.ok);
+  const destLine = dh ? `<div style="margin-top:8px;font-size:14px"><span style="color:${dh.ok ? col("ok") : col("crit")}">●</span> Cartella dei file “${esc(Dest.handle.name)}”: ${esc(dh.msg)}</div>` : "";
   const bad = rows.filter((r) => r.worst === "crit"), mid = rows.filter((r) => r.worst === "warn");
-  const verdict = bad.length ? `<b style="color:${col("crit")}">Da sistemare prima di registrare:</b> ${bad.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : mid.length ? `<b style="color:${col("warn")}">Quasi pronto:</b> ${mid.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : `<b style="color:${col("ok")}">Tutto pronto.</b> Spazio, batteria e collegamento sono a posto.`;
-  el.innerHTML = `<h2>Controllo prima di iniziare</h2><table style="width:100%;font-size:14px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--muted,#888)"><th>Camera</th><th>Collegamento</th><th>Batteria</th><th>Spazio</th></tr></thead><tbody>${rows.map((r) => r.html).join("")}</tbody></table><div style="margin-top:10px;font-size:14px">${verdict}</div>`;
+  const verdict = destBad && !bad.length ? `<b style="color:${col("crit")}">Da sistemare:</b> la cartella dei file non è raggiungibile (${esc(dh.msg)}). Puoi registrare, ma i file restano sui telefoni.` : bad.length ? `<b style="color:${col("crit")}">Da sistemare prima di registrare:</b> ${bad.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : mid.length ? `<b style="color:${col("warn")}">Quasi pronto:</b> ${mid.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : `<b style="color:${col("ok")}">Tutto pronto.</b> Spazio, batteria e collegamento sono a posto.`;
+  el.innerHTML = `<h2>Controllo prima di iniziare</h2><table style="width:100%;font-size:14px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--muted,#888)"><th>Camera</th><th>Collegamento</th><th>Batteria</th><th>Spazio</th></tr></thead><tbody>${rows.map((r) => r.html).join("")}</tbody></table>${destLine}<div style="margin-top:10px;font-size:14px">${verdict}</div>`;
 }
 function refresh() {
   $$("[data-bind]").forEach((el) => {

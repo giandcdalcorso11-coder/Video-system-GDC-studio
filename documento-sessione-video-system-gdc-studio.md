@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 32
-**Ultimo aggiornamento:** 2026-11-18 17:00
+**Versione:** 33
+**Ultimo aggiornamento:** 2026-11-18 18:00
 
 ## Vision
 
@@ -186,6 +186,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 18:00] Protezione della regia, punto 1: cartella non raggiungibile
+
+**Riepilogo:** la dashboard (r19) verifica con una scrittura reale che la cartella dei file sia raggiungibile e, se il disco sparisce o si riempie, mette in pausa i trasferimenti e riparte da sola al ritorno, senza perdere nulla.
+
+**Cosa è stato fatto:**
+- `Dest.check()`: scrive e cancella un piccolo file di prova nella cartella (permesso, disco scollegato, disco pieno); eseguita al caricamento, alla scelta della cartella, ogni 15 s (non durante un trasferimento in corso) e prima di ogni trasferimento.
+- Prima di iniziare: se la cartella non risponde nessun trasferimento parte, il registro lo dice e i file restano sui telefoni; anche l'automatico non parte.
+- Durante il trasferimento: gli errori della destinazione (marcati `err.sink` in xfer.js) non contano come errori di rete; il file parziale viene scartato, il trasferimento passa a "interrotto" con nota ("Riconnettila: riparto da solo. Il file resta sul telefono"), controlla la cartella ogni 4 s e ricomincia da capo appena torna (la clip è ancora sul telefono, eliminata solo dopo la verifica).
+- Interfaccia: riga di stato sotto la cartella (✓ raggiungibile / ⚠ motivo), pulsante "Verifica cartella" (serve anche per rinnovare il permesso con un tocco), riga sulla cartella nel "Controllo prima di iniziare".
+- Prove in Chromium con cartella finta: disco scollegato prima di iniziare (nessun job, clip intatte); disco che sparisce a metà (stato interrotto, clip sul telefono, poi file identico per byte e clip eliminata solo dopo l'arrivo). Regressioni t26 e t31 ok.
+
+**Limiti noti:** lo spazio libero di un disco esterno non è leggibile dal browser: il disco pieno si scopre solo scrivendo. Un guasto lungo fa solo ricominciare il file da zero (non riprende a metà), perché il file parziale va scartato.
+
+**File consegnati/modificati:** docs/dashboard.html (r19), docs/xfer.js (errori di destinazione marcati); documento v33. Camera invariata (r22).
+
+**Impatto su Pipeline:** Step 6: parte D, punto 1 fatto; restano spazio sulla regia (2), memoria iPad (3), modalità "i file restano sui telefoni" (4), riga regia nel controllo iniziale (5, in parte fatta per la cartella).
+
+---
 
 ### [2026-11-18 17:00] Avviso anteprima: nessun file perso
 
