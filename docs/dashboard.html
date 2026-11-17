@@ -122,6 +122,7 @@
 <script src="rt.js"></script>
 <script src="dev.js"></script>
 <script src="xfer.js"></script>
+<script src="qr.js"></script>
 <script>
 "use strict";
 /* ===== Utilità ===== */
@@ -136,7 +137,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r21";
+const PAGE_VERSION = "dashboard r22";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -270,6 +271,8 @@ class RealtimeTransport {
   onCamState(m) {
     if (!m || !m.id) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
     let cam = camById(m.id);
+    if (REAL && !cam && !Join.ok.has(m.id)) { if (Join.rejected.has(m.id)) { Join.deny(m.id); return; } if (Join.approve) { Join.hold(m); return; } }
+    if (REAL && cam) Join.greet(m.id);
     if (!cam) {
       cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp }; cameras.push(cam); saveCams(); isNew = true;
       log(m.id, `${cam.device} · ${cam.name}: camera collegata`); dbg("info", "camere", `nuova camera ${m.id}`, { device: m.device, name: m.name, os: m.os, fp: m.fp });
@@ -283,7 +286,7 @@ class RealtimeTransport {
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
     this.rxN = this.rxN || {}; this.rxN[m.id] = (this.rxN[m.id] || 0) + 1;
     if (ch.length || this.rxN[m.id] % 15 === 1) dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
-    this.s[m.id] = st; this.push(m.id);
+    this.s[m.id] = st; this.push(m.id); if (REAL && isNew) Join.greet(m.id);
     if (st.err && st.err !== before.err) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id); if (REAL) Xfer.autoTick(m.id);
@@ -291,7 +294,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -685,6 +688,43 @@ const connPanel = () => REAL
   : `<div class="muted">Modalità simulazione. Per collegare camere vere apri il link di abbinamento oppure incolla qui il codice (inizia con gdc1.).</div>
      <textarea id="pairTxt" rows="2" style="width:100%;margin-top:8px" placeholder="gdc1.…"></textarea><button id="pairBtn" style="margin-top:8px">Abbina</button>`;
 
+// ingresso di nuovi telefoni: QR + conferma (accetta / rifiuta) decisa dalla regia
+const Join = {
+  approve: store.get("gdc.approve", true), pending: {}, ok: new Set(), rejected: new Set(store.get("gdc.rejected", [])), greeted: {}, denied: {}, qrOpen: store.get("gdc.qrOpen", false),
+  hold(m) {
+    const now = Date.now(), p = this.pending[m.id]; this.pending[m.id] = { m, first: p ? p.first : now, seen: now };
+    if (!p) { dbg("info", "camere", `richiesta di ingresso da ${m.id}`, { device: m.device, name: m.name, os: m.os, batteria: m.battery }); log("", `“${m.name || m.id}” (${m.device || "telefono"}) chiede di entrare`); this.render(); }
+  },
+  accept(id) { const p = this.pending[id]; if (!p) return; delete this.pending[id]; this.ok.add(id); this.greeted[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: true }); dbg("info", "camere", `accettata ${id}`); transport.onCamState(p.m); this.render(); },
+  reject(id) { delete this.pending[id]; this.rejected.add(id); store.set("gdc.rejected", [...this.rejected]); this.denied[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: false }); dbg("info", "camere", `rifiutata ${id}`); log("", "Telefono rifiutato"); this.render(); if (curDetail == null) route(); },
+  greet(id) { const now = Date.now(); if (now - (this.greeted[id] || 0) > 60000) { this.greeted[id] = now; transport.send(id, { cmd: "join_result", ok: true }); } },
+  deny(id) { const now = Date.now(); if (now - (this.denied[id] || 0) > 20000) { this.denied[id] = now; transport.send(id, { cmd: "join_result", ok: false }); } },
+  sweep() { const now = Date.now(); let ch = false; for (const id in this.pending) if (now - this.pending[id].seen > 8000) { delete this.pending[id]; ch = true; } if (ch) this.render(); },
+  render() {
+    let el = $("#joinBar"); if (!el) { el = document.createElement("div"); el.id = "joinBar"; const v = $("#view"); v.parentNode.insertBefore(el, v); }
+    const ids = Object.keys(this.pending); el.hidden = !ids.length;
+    el.innerHTML = ids.map((id) => { const m = this.pending[id].m, sp = m.space && m.space.known ? ` · spazio per circa ${m.space.minLeft} min` : "";
+      return `<section class="panel" style="margin-bottom:12px;border-color:var(--warn,#c77d00);display:flex;flex-wrap:wrap;gap:12px;align-items:center"><div style="flex:1;min-width:220px"><b>“${esc(m.name || id)}” vuole entrare</b><div class="muted">${esc(m.device || "Telefono")} · ${esc(m.os || "—")}${m.battery != null ? " · batteria " + Math.round(m.battery) + "%" : ""}${sp}</div></div><button class="ghost" data-jn="rej" data-id="${esc(id)}">Rifiuta</button><button class="primary" data-jn="acc" data-id="${esc(id)}">Accetta</button></section>`; }).join("");
+  },
+  link() { const l = GDC_RT.Pair.link("camera.html", pairing); return new URLSearchParams(location.search).get("dev") === "1" ? l.replace("#", "?dev=1#") : l; },
+  panel() {
+    if (!REAL) return "";
+    return `<section class="panel" id="addPhone"><div class="row"><h2 style="margin:0">Aggiungi un telefono</h2><button id="qrBtn">${this.qrOpen ? "Nascondi QR" : "Mostra QR"}</button></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="apprChk" style="width:auto;min-height:0" ${this.approve ? "checked" : ""}> Chiedi conferma prima di far entrare un telefono nuovo</label>
+      <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.approve ? "Un telefono nuovo compare qui con Accetta e Rifiuta. Quelli già collegati rientrano da soli." : "Chi apre il link entra subito, senza chiedere."}</div>
+      <div id="qrBox" ${this.qrOpen ? "" : "hidden"} style="margin-top:12px"><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center"><div id="qrImg" style="background:#fff;padding:10px;border-radius:10px;width:340px;height:340px;box-sizing:border-box"></div><div style="flex:1;min-width:200px"><div>Sul telefono apri la <b>fotocamera</b> e inquadra il QR, poi tocca il link che compare.</div><div class="muted" style="margin-top:6px">Funziona con iPhone e Android. Il telefono si collega già a questa regia.</div><div class="row" style="margin-top:10px;justify-content:flex-start"><button class="ghost" id="qrCopy">Copia link</button>${this.rejected.size ? `<button class="ghost" id="rejClr">Dimentica i rifiutati (${this.rejected.size})</button>` : ""}</div></div></div></div></section>`;
+  },
+  draw() { const b = $("#qrImg"); if (!b || !this.qrOpen) return; try { const q = qrcode(0, "L"); q.addData(this.link()); q.make(); b.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); const sv = b.querySelector("svg"); if (sv) { sv.style.width = "100%"; sv.style.height = "100%"; } } catch (e) { b.textContent = "QR non generabile: " + e.message; dbg("error", "ui", `QR: ${e.message}`); } },
+};
+setInterval(() => Join.sweep(), 2000);
+document.addEventListener("click", async (e) => {
+  const j = e.target.closest("[data-jn]"); if (j) { j.dataset.jn === "acc" ? Join.accept(j.dataset.id) : Join.reject(j.dataset.id); return; }
+  if (e.target.closest("#qrBtn")) { Join.qrOpen = !Join.qrOpen; store.set("gdc.qrOpen", Join.qrOpen); const bx = $("#qrBox"); if (bx) bx.hidden = !Join.qrOpen; e.target.closest("#qrBtn").textContent = Join.qrOpen ? "Nascondi QR" : "Mostra QR"; Join.draw(); return; }
+  if (e.target.closest("#qrCopy")) { try { await navigator.clipboard.writeText(Join.link()); e.target.textContent = "Copiato ✓"; } catch { e.target.textContent = "Copia non riuscita"; } return; }
+  if (e.target.closest("#rejClr")) { Join.rejected.clear(); store.set("gdc.rejected", []); dbg("info", "camere", "rifiuti dimenticati"); route(); }
+});
+document.addEventListener("change", (e) => { if (e.target.id === "apprChk") { Join.approve = e.target.checked; store.set("gdc.approve", Join.approve); dbg("info", "camere", `conferma prima di far entrare: ${Join.approve}`); if (!Join.approve) Object.keys(Join.pending).forEach((id) => Join.accept(id)); Xfer.refresh(); const t = e.target.parentNode.nextElementSibling; if (t) t.textContent = Join.approve ? "Un telefono nuovo compare qui con Accetta e Rifiuta. Quelli già collegati rientrano da soli." : "Chi apre il link entra subito, senza chiedere."; } });
+
 const mergeBanner = () => {
   const x = suggestMerge; if (!x || !camById(x.oldId) || !camById(x.newId)) return "";
   const o = esc(camTitle(camById(x.oldId))), n = esc(camTitle(camById(x.newId)));
@@ -700,6 +740,7 @@ function showHome() {
   Preview.stopAll();
   $("#view").innerHTML = `
     ${mergeBanner()}
+    ${Join.panel()}
     <section class="panel" id="preflight" hidden></section>
     <section class="tiles" id="sum" aria-label="Riepilogo">
       <div class="tile"><small>Camere online</small><b id="sOnline">—</b></div>
@@ -731,7 +772,7 @@ function showHome() {
     </section>
     <section class="panel adv-only" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     ${logPanel("")}`;
-  curDetail = null; setConn(connStatus); renderPreflight();
+  curDetail = null; setConn(connStatus); renderPreflight(); Join.draw();
   $("#view").onclick = async (e) => {
     if (e.target.id === "homePrev") { store.set("gdc.homePrev", e.target.checked); dbg("info", "ui", `anteprime nella home: ${e.target.checked ? "attive" : "spente"}`); Preview.stopAll(); Preview.ensureAll(); return; }
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }

@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r22";
+const PAGE_VERSION = "camera r23";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -128,6 +128,8 @@ const MAX_BUF = 700 * 1048576; // limite prudente misurato su iPhone XR con Safa
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
+let joinState = "attesa", joinAt = Date.now();
+const joinText = () => joinState === "ok" ? "accettata" : joinState === "no" ? "NON accettata dalla regia: chiedi di rientrare" : (Date.now() - joinAt > 10000 ? "in attesa della risposta della regia (può servire una conferma)" : "collegamento…");
 let stream = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0, storageMode = "indexeddb";
 const bat = { level: null, charging: null, at: 0 };
 try { if (!localStorage.getItem("gdc.batfix1")) { localStorage.removeItem("gdc.bat." + ID); localStorage.setItem("gdc.batfix1", "1"); } } catch { /* ok */ }
@@ -596,10 +598,10 @@ function stateObj() {
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: `${cfg.name}_${s.id}`, dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
-function publish() { try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
+function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 function renderStat() {
   const s = stateObj(), row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-  $("stat").innerHTML = row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
+  $("stat").innerHTML = row("Regia", joinText()) + row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>') + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no") + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
@@ -721,6 +723,7 @@ async function onCmd(m) {
   let ok = true, detail = null;
   try {
     switch (m.cmd) {
+      case "join_result": joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
       case "rec_start": await startRec(); ok = !!recording; detail = ok ? "registrazione avviata" : lastErr || "non avviata"; break;
       case "rec_stop": stopRec(); detail = "stop richiesto"; break;
       case "standby": setStandby(!!m.on); detail = { standby }; break;

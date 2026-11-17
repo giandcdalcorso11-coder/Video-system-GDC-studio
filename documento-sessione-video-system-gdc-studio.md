@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 35
-**Ultimo aggiornamento:** 2026-11-18 20:00
+**Versione:** 36
+**Ultimo aggiornamento:** 2026-11-18 21:00
 
 ## Vision
 
@@ -186,6 +186,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 21:00] QR per aggiungere un telefono e conferma accetta/rifiuta
+
+**Riepilogo:** la dashboard (r22) mostra un QR che apre la pagina camera già collegata e, con una spunta decisa dalla regia, chiede conferma (Accetta / Rifiuta) prima di far entrare un telefono nuovo; camera r23 mostra l'esito.
+
+**Cosa è stato fatto:**
+- Libreria `docs/qr.js` (qrcode-generator, MIT, copiata nel repository). Pannello "Aggiungi un telefono" in home: pulsante Mostra/Nascondi QR (340 px, correzione errori bassa), "Copia link", spunta "Chiedi conferma prima di far entrare un telefono nuovo" (accesa di default, salvata nel browser). Il link include `?dev=1` se la dashboard è aperta con `?dev=1`.
+- Conferma: un telefono sconosciuto non entra nell'elenco ma compare in una barra "“nome” vuole entrare" (modello, sistema, batteria, spazio) con Accetta e Rifiuta. Se la spunta è spenta, entra subito; spegnendola le richieste in attesa sono accettate. I telefoni già conosciuti rientrano da soli.
+- Rifiuto: il telefono è ricordato come rifiutato (salvato nel browser), la camera mostra "NON accettata dalla regia", sospende l'invio dello stato (un segnale ogni 5 s) e la regia lo ignora; "Dimentica i rifiutati" permette di riprovare.
+- Comando `join_result` regia → camera; riga "Regia" nello stato della camera (collegamento…, accettata, in attesa, non accettata).
+- Prove in Chromium (camera e dashboard simulate): richiesta → Accetta → camera in elenco; richiesta → Rifiuta → non in elenco e non ricompare; Dimentica rifiutati → ricompare e si accetta; conferma spenta → entra subito; QR decodificato con una libreria di lettura (link da 143 e da 652 caratteri), identico. Regressione del trasferimento ok.
+
+**Limiti noti:** il rifiuto è lato regia (chi ha il link può ancora inviare messaggi sul canale; la regia li ignora). La sicurezza vera è il canale segreto nel link. Il codice a 8 caratteri non c'è ancora: serve una tabella e la scelta del progetto Supabase.
+
+**File consegnati/modificati:** docs/dashboard.html (r22), docs/camera.html (r23), docs/qr.js (nuovo); documento v36.
+
+**Impatto su Pipeline:** Step 11 (uso pubblico): iniziato con QR e conferma; mancano codice a 8 caratteri, nome e permessi nella camera, sessioni con scadenza.
+
+---
 
 ### [2026-11-18 20:00] Misura della memoria dell'iPad e verso il test interno
 
