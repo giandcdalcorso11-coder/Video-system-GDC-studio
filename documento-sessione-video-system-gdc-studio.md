@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 26
-**Ultimo aggiornamento:** 2026-11-18 10:00
+**Versione:** 27
+**Ultimo aggiornamento:** 2026-11-18 10:30
 
 ## Vision
 
@@ -140,6 +140,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] Messo in pipeline. Circa 20 automazioni da creare a mano.
 - [2026-10-15] Scelto il canale: Comandi invia un POST all'API REST di Supabase Realtime (`/realtime/v1/api/broadcast`, evento `battery`, canale del progetto) con id camera e livello (e opzionalmente `charging`). Camera r6 riceve l'evento, salva e rimanda lo stato alla dashboard con l'ora della misura. Pulsanti "Dati per Comandi (batteria)" e "Prova invio batteria" nella pagina camera. Il POST REST non è stato provato dal vivo (rete della sandbox bloccata): da verificare sull'XR con "Prova invio batteria".
+- [2026-11-18] Test Android (Pixel 8 Pro, Chrome 157): `navigator.getBattery` presente, livello 77% in carica letto dal browser e mostrato sulla dashboard senza Comandi.
 - [2026-11-17] Sonda camera r20 sull'iPhone 15 (Safari 27.2, iOS 18.7): `navigator.getBattery` assente (log 15:21). Test da fare più avanti: aprire la camera da Chrome su un telefono Android (dove l'API dovrebbe esistere e dare la batteria senza Comandi); su iPhone tutti i browser usano WebKit, quindi Chrome iOS non cambia (da verificare solo se in UE esistesse un motore diverso).
 
 ### Step 10 — Modalità Base/Avanzata e log inviati a Claude
@@ -169,6 +170,28 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 10:30] Prova su Android (Pixel 8 Pro): batteria dal browser, controlli completi della camera, anteprima ok
+
+**Riepilogo:** il telefono Android si è collegato con il link di prova (sessione `261117-1529-fpf3`, camera r21): batteria letta dal browser e visibile sulla dashboard, anteprima a 31 fps su rete mobile, e la sonda mostra controlli molto più ampi di iPhone (zoom 1-30×, messa a fuoco manuale, ISO, tempo di posa, bilanciamento del bianco, torcia).
+
+**Cosa è stato fatto (risultati della sonda):**
+- **Dispositivo:** Pixel 8 Pro, Chrome 157 (Chromium 157.0.8103.78), sistema indicato dal browser 17.0.0 (lo User-Agent ridotto dice Android 10), 9 core, 8 GB, schermo 448×998@2,25, italiano. Rete: mobile 4G, stima 1,45 Mbps, RTT 300 ms.
+- **Batteria:** `getBattery` presente: 77%, in carica; sulla dashboard `batt=77`.
+- **Funzioni:** Wake Lock (attivo, rilasciato dal sistema e riottenuto), condivisione file, `showDirectoryPicker` e `showSaveFilePicker`, Bluetooth, vibrazione, WebRTC, `requestVideoFrameCallback`, `captureStream`, IndexedDB; quota di archivio stimata 10 GB.
+- **Registrazione:** MediaRecorder con mp4 (avc1 + AAC), webm vp9/vp8/h264; codec WebRTC VP8, H264, AV1, VP9, H265.
+- **Camera posteriore ("camera 0, facing back"):** zoom 1-30× (passo 0,1), torcia, messa a fuoco manuale/singola/continua con distanza 0,105-5,9, tempo di posa 0,26-160000 (unità del browser), ISO 21-10666, compensazione esposizione ±4, esposizione manuale, bilanciamento del bianco manuale con temperatura 2850-7000 K, frame rate fino a 60, risoluzione fino a 4080×3072; anche camera anteriore e tre ingressi audio (mono, 48 kHz).
+- **Anteprima verso l'iPad:** connessione diretta (prflx→srflx), 406×720 a 31 fps, 270-630 kbps, RTT 130-240 ms, nessun pacchetto perso; apertura della camera 14,4 s la prima volta (permessi), 0,4-1,9 s dopo. 4K aperto senza errori (non misurati fps in ripresa).
+- Durante la prova qualcuno ha cambiato qualità (4K e 1080p) e fermato/riavviato la camera dalla pagina.
+
+**Cosa è emerso per il prodotto:**
+- Android con Chrome dà la batteria senza Comandi; iPhone no (Safari non espone `getBattery`).
+- Il pannello Zoom della dashboard dovrebbe funzionare su Android da 1× a 30× (non provato dal vivo); i controlli manuali (fuoco, ISO, posa, bilanciamento, torcia) aprono la strada a un pannello "Controlli pro" generato dalle capacità del dispositivo (iPhone 15 con Safari 27.2 espone torcia, distanza di fuoco, bilanciamento manuale e zoom).
+- Non ancora provati su Android: REC, trasferimento file, zoom da dashboard.
+
+**File consegnati/modificati:** `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-18 10:00] Link di prova per un telefono Android (camera r21)
 
