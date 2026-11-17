@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r20";
+const PAGE_VERSION = "camera r21";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -105,7 +105,7 @@ async function copyText(text, btn) {
 }
 addEventListener("error", (e) => { dbg("error", `errore pagina: ${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`); });
 addEventListener("unhandledrejection", (e) => { dbg("error", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`); });
-document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { db.reset(); loadSessions(); publish(); setTimeout(() => autoOpen("ritorno in primo piano"), 800); } });
+document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { if (stream) wakeOn(); db.reset(); loadSessions(); publish(); setTimeout(() => autoOpen("ritorno in primo piano"), 800); } });
 addEventListener("pagehide", (e) => dbg("info", `pagehide persisted=${e.persisted}`));
 addEventListener("pageshow", (e) => { dbg("info", `pageshow persisted=${e.persisted}`); if (e.persisted) { db.reset(); loadSessions(); publish(); } });
 addEventListener("online", () => dbg("info", "rete: online")); addEventListener("offline", () => dbg("warn", "rete: offline"));
@@ -120,7 +120,9 @@ const idSrc = (() => {
 })();
 const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
 const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
-const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
+const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
+{ const qp = new URLSearchParams(location.search); // ?name=...&device=... dal link: nome della camera e del dispositivo
+  if (qp.get("name") || qp.get("device")) { if (qp.get("name")) cfg.name = qp.get("name").slice(0, 30); if (qp.get("device")) cfg.device = qp.get("device").slice(0, 40); store.set("gdc.camCfg", cfg); } }
 const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
 const MAX_BUF = 700 * 1048576; // limite di sicurezza misurato nei test (circa 0,78 GB)
 const MOCK = new URLSearchParams(location.search).has("mock");
@@ -204,7 +206,17 @@ async function openCam() {
   dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
   if (zoomWanted !== 1 && zoomInfo().native) { try { await vt.applyConstraints({ advanced: [{ zoom: zoomWanted }] }); dbg("info", `zoom ripristinato a ${zoomWanted}×`); } catch (e) { dbg("warn", `zoom non ripristinato: ${e.name}`); } }
   lastErr = lastErr.startsWith("Camera") ? "" : lastErr; $("camStop").disabled = false; $("recBtn").disabled = false; publish();
+  wakeOn();
+  if (!capsLogged) { capsLogged = true; mediaProbe(vt, at).catch((e) => dbg("warn", `sonda media: ${e.name}: ${e.message}`)); }
 }
+let wl = null, capsLogged = false;
+async function wakeOn() {
+  if (!("wakeLock" in navigator)) { if (!wakeOn.noted) { wakeOn.noted = true; dbg("info", "wake lock schermo: non supportato da questo browser"); } return; }
+  if (wl) return;
+  try { wl = await navigator.wakeLock.request("screen"); dbg("info", "wake lock schermo: attivo (lo schermo non si spegne mentre la camera è aperta)"); wl.addEventListener("release", () => { wl = null; dbg("info", "wake lock schermo: rilasciato dal sistema"); }); }
+  catch (e) { dbg("warn", `wake lock non ottenuto: ${e.name}: ${e.message}`); }
+}
+function wakeOff() { try { wl && wl.release(); } catch { /* ok */ } wl = null; }
 let opening = false;
 async function autoOpen(why) {
   if (!cfg.autoCam || stream || opening || recording || !pairing) return; opening = true; dbg("info", `avvio automatico della camera (${why})`);
@@ -212,7 +224,7 @@ async function autoOpen(why) {
   catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }
   opening = false;
 }
-function stopCam() { dbg("info", "ferma camera"); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+function stopCam() { dbg("info", "ferma camera"); wakeOff(); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
 
 /* ===== Registrazione: i pezzi vanno subito su disco ===== */
 async function startRec() {
@@ -476,6 +488,32 @@ async function setZoom(z) {
   z = Math.max(i.min, Math.min(i.max, Number(z))); if (!isFinite(z)) throw new Error("valore di zoom non valido");
   zoomWanted = z; zoomTarget = z; dbg("trace", `zoom richiesto ${z.toFixed(2)}×`); zoomRun(); return { ...i, target: z };
 }
+async function mediaProbe(vt, at) {
+  const cap = (t) => { try { return t && t.getCapabilities ? t.getCapabilities() : "getCapabilities assente"; } catch (e) { return "errore " + e.message; } };
+  let devs = []; try { devs = (await navigator.mediaDevices.enumerateDevices()).map((d) => `${d.kind}:${d.label || "(senza etichetta)"}`); } catch { /* ok */ }
+  dbg("info", "SONDA camera: capacità della traccia video", { etichetta: vt && vt.label, capacita: cap(vt), impostazioni: vt && vt.getSettings() });
+  dbg("info", "SONDA camera: capacità dell'audio", { capacita: cap(at), impostazioni: at && at.getSettings() });
+  dbg("info", "SONDA camera: dispositivi multimediali", devs);
+  dbg("info", "=== SONDA DISPOSITIVO COMPLETATA ===");
+}
+async function deviceProbe() {
+  const n = navigator, ua = n.userAgentData, id = { ua: n.userAgent, piattaforma: n.platform, lingua: n.language, touch: n.maxTouchPoints, core: n.hardwareConcurrency, ramGB: n.deviceMemory ?? "n/d", schermo: `${screen.width}x${screen.height}@${devicePixelRatio}`, finestra: `${innerWidth}x${innerHeight}`, orientamento: screen.orientation && screen.orientation.type, standalone: n.standalone === true || matchMedia("(display-mode: standalone)").matches, online: n.onLine };
+  if (ua) {
+    id.uaMarchi = ua.brands && ua.brands.map((b) => `${b.brand} ${b.version}`).join(", "); id.uaMobile = ua.mobile; id.uaPiattaforma = ua.platform;
+    try { const h = await ua.getHighEntropyValues(["model", "platformVersion", "fullVersionList", "architecture", "bitness"]); id.modello = h.model; id.versioneSistema = h.platformVersion; id.architettura = `${h.architecture}/${h.bitness}`; id.versioneBrowser = (h.fullVersionList || []).map((b) => `${b.brand} ${b.version}`).join(", "); }
+    catch (e) { id.uaDettagli = "non disponibili: " + e.name; }
+  }
+  dbg("info", "SONDA 1/4 identità e schermo", id);
+  const c = n.connection || n.mozConnection || n.webkitConnection;
+  dbg("info", "SONDA 2/4 rete", c ? { tipo: c.type, effettiva: c.effectiveType, downlinkMbps: c.downlink, rttMs: c.rtt, risparmioDati: c.saveData } : "Network Information API assente");
+  const api = { getBattery: "getBattery" in n, wakeLock: "wakeLock" in n, share: !!n.share, shareFile: !!(n.canShare && n.canShare({ files: [new File(["x"], "x.txt", { type: "text/plain" })] })), showDirectoryPicker: typeof window.showDirectoryPicker, showSaveFilePicker: typeof window.showSaveFilePicker, mediaRecorder: typeof MediaRecorder, canvasCaptureStream: !!HTMLCanvasElement.prototype.captureStream, requestVideoFrameCallback: !!HTMLVideoElement.prototype.requestVideoFrameCallback, webrtc: typeof RTCPeerConnection, indexedDB: !!window.indexedDB, serviceWorker: "serviceWorker" in n, vibrate: !!n.vibrate, bluetooth: !!n.bluetooth, permissionsApi: !!n.permissions, cryptoSubtle: !!(window.crypto && crypto.subtle) };
+  dbg("info", "SONDA 3/4 funzioni del browser", api);
+  const mimes = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm;codecs=h264,opus", "video/webm"], rec = {};
+  if (typeof MediaRecorder !== "undefined") mimes.forEach((m) => { rec[m] = MediaRecorder.isTypeSupported(m); });
+  let rtcCodec = []; try { rtcCodec = [...new Set(RTCRtpSender.getCapabilities("video").codecs.map((x) => x.mimeType.replace("video/", "")))]; } catch { /* ok */ }
+  let st = null, pers = null; try { st = await n.storage.estimate(); pers = n.storage.persisted ? await n.storage.persisted() : null; } catch { /* ok */ }
+  dbg("info", "SONDA 4/4 registrazione e archivio", { formatiRegistratore: rec, codecWebRTC: rtcCodec, vincoliSupportati: n.mediaDevices && n.mediaDevices.getSupportedConstraints ? n.mediaDevices.getSupportedConstraints() : "n/d", quotaMB: st ? Math.round(st.quota / 1048576) : "n/d", usatoMB: st ? Math.round(st.usage / 1048576) : "n/d", persistente: pers });
+}
 async function batProbe() {
   const has = "getBattery" in navigator; dbg("info", `API batteria del browser (navigator.getBattery): ${has ? "presente" : "assente"}`, { versione: (navigator.userAgent.match(/Version\/[\d.]+/) || [""])[0], os: OS });
   if (!has) return;
@@ -668,7 +706,7 @@ async function start() {
   pairing = hashPair || (window.GDC_RT && GDC_RT.Pair.load()) || null;
   dbg("info", `abbinamento: ${pairing ? "presente, canale …" + String(pairing.c).slice(-4) + (hashPair ? " (da link)" : " (memorizzato)") : "assente"}`);
   if (window.GDC_DEV) GDC_DEV.init({ role: "camera", dev: () => ID, ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, m), backlog: () => dbgBuf.slice(-300), host: $("modeHost") });
-  batProbe();
+  batProbe(); deviceProbe().catch((e) => dbg("warn", `sonda dispositivo: ${e.name}: ${e.message}`));
   $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
   await db.selfTest(); await loadSessions();

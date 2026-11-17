@@ -14,7 +14,9 @@
   const d0 = new Date();
   const SESS = `${String(d0.getFullYear()).slice(2)}${pad(d0.getMonth() + 1)}${pad(d0.getDate())}-${pad(d0.getHours())}${pad(d0.getMinutes())}-${Math.random().toString(36).slice(2, 6)}`;
 
-  let cfg = null, mode = store.get("gdc.mode", "base") === "adv" ? "adv" : "base", sending = store.get("gdc.devsend", false) === true;
+  const forced = new URLSearchParams(location.search).get("dev") === "1"; // link di prova: invia i log tecnici anche in modalità Base
+  let cfg = null, mode = store.get("gdc.mode", "base") === "adv" ? "adv" : "base", sending = store.get("gdc.devsend", false) === true || forced;
+  const live = () => sending && (mode === "adv" || forced);
   const queue = []; let seq = 0, timer = 0, sent = 0, failed = 0, lastErr = "", backoff = 0, busy = false, started = false;
   const QMAX = 3000;
 
@@ -52,6 +54,7 @@ body.adv #gdcMode label{display:inline-flex}
     box.innerHTML = `<span class="seg" role="group" aria-label="Modalità"><button data-mode="base" aria-pressed="false">Base</button><button data-mode="adv" aria-pressed="false">Avanzata</button></span>
 <label><input type="checkbox" id="gdcSend"> Invia i log a Claude</label><span class="st" id="gdcSendSt"></span><span class="st adv-only" id="gdcVer"></span>`;
     host.appendChild(box);
+    if (forced) { const n = document.createElement("div"); n.className = "st"; n.style.margin = "4px 0 8px"; n.textContent = "Modalità prova: vengono inviati log tecnici (modello, browser, rete, funzioni disponibili). Nessuna foto, video o audio."; host.appendChild(n); }
     box.addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (b) setMode(b.dataset.mode); });
     box.querySelector("#gdcSend").addEventListener("change", (e) => setSending(e.target.checked));
     box.querySelector("#gdcVer").textContent = cfg && cfg.ver ? cfg.ver : "";
@@ -75,13 +78,13 @@ body.adv #gdcMode label{display:inline-flex}
     if (queue.length > QMAX) queue.splice(0, queue.length - QMAX);
   }
   function push(t, lv, msg) {
-    if (!cfg || mode !== "adv" || !sending || !cfg.url) return;
+    if (!cfg || !live() || !cfg.url) return;
     enqueue(t, lv, msg); schedule();
   }
-  function schedule() { if (!timer && queue.length && mode === "adv" && sending) timer = setTimeout(() => { timer = 0; flush(); }, 3000 + backoff); }
+  function schedule() { if (!timer && queue.length && live()) timer = setTimeout(() => { timer = 0; flush(); }, 3000 + backoff); }
 
   async function flush(final) {
-    if (busy || !cfg || !cfg.url || !queue.length || mode !== "adv" || !sending) return;
+    if (busy || !cfg || !cfg.url || !queue.length || !live()) return;
     busy = true; const batch = queue.splice(0, 100);
     try {
       const r = await fetch(cfg.url.replace(/\/$/, "") + "/rest/v1/gdc_dev_logs", {
@@ -103,7 +106,7 @@ body.adv #gdcMode label{display:inline-flex}
     cfg = { role: c.role, dev: c.dev, ver: c.ver, log: c.log, backlog: c.backlog, url: c.pairing ? c.pairing.u : "", key: c.pairing ? c.pairing.k : "" };
     const go = () => { if (c.host) mount(c.host); else apply(); };
     if (document.body) go(); else document.addEventListener("DOMContentLoaded", go);
-    if (sending && mode === "adv" && cfg.backlog) { try { cfg.backlog().forEach((x) => enqueue(x.t, x.l, x.m)); } catch { /* ok */ } schedule(); }
+    if (live() && cfg.backlog) { try { cfg.backlog().forEach((x) => enqueue(x.t, x.l, x.m)); } catch { /* ok */ } schedule(); }
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(true); });
     addEventListener("pagehide", () => flush(true));
     setInterval(status, 2000);

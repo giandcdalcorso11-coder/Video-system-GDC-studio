@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 25
-**Ultimo aggiornamento:** 2026-11-17 18:20
+**Versione:** 26
+**Ultimo aggiornamento:** 2026-11-18 10:00
 
 ## Vision
 
@@ -169,6 +169,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 10:00] Link di prova per un telefono Android (camera r21)
+
+**Riepilogo:** preparato un link che, aperto su un telefono Android altrui, invia da solo i log tecnici con una sonda completa del dispositivo (modello, browser, rete, funzioni disponibili, controlli della camera, formati di registrazione, batteria dal browser), perché c'è una sola prova a disposizione.
+
+**Cosa è stato fatto:**
+- `dev.js`: parametro `?dev=1` nel link = invio dei log anche in modalità Base (nessuna scelta da fare sul telefono), con avviso "Modalità prova" sulla pagina.
+- Camera r21: parametri `?name=` e `?device=` per nominare la camera dal link; sonda all'avvio in 4 righe (identità e schermo con User-Agent Client Hints, rete, funzioni del browser, formati del registratore/codec WebRTC/quota di archivio) e sonda dopo l'apertura della camera (capacità e impostazioni della traccia video e audio, dispositivi multimediali), chiusa dalla riga "=== SONDA DISPOSITIVO COMPLETATA ==="; Wake Lock dello schermo quando disponibile (anche su iPhone con Safari recente) con log; ricerca batteria dal browser già in r20.
+- Provato in Chromium con profilo Pixel 7: le righe di sonda arrivano alla tabella dei log, camera chiamata "Android" con id `android1`, API batteria presente.
+
+**File consegnati/modificati:** `docs/camera.html` (r21), `docs/dev.js`, `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-17 18:20] Verificato: niente API batteria su Safari 27.2 (iPhone 15)
 
