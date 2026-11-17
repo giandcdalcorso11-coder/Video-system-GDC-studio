@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r16";
+const PAGE_VERSION = "dashboard r17";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -298,7 +298,7 @@ class RealtimeTransport {
 const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
 const Preview = {
   pcs: {}, active: {},
-  want(id) { if (!REAL) return null; if (typeof Xfer !== "undefined" && Xfer.active().length) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
+  want(id) { if (!REAL) return null; if (typeof Xfer !== "undefined" && Xfer.active().length && !Xfer.keepPrev) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
   start(id, mode) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = mode || "full"; dbg("info", "anteprima", `richiedo l'anteprima ${this.active[id]} a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", q: this.active[id], rid: rid() }); },
   stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
   stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
@@ -373,7 +373,7 @@ if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "fi
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
 const Xfer = {
   jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
-  auto: store.get("gdc.xauto", false), autoTry: {}, autoNext: {}, autoBusy: {}, autoWarned: false,
+  keepPrev: store.get("gdc.xprev", true), auto: store.get("gdc.xauto", false), autoTry: {}, autoNext: {}, autoBusy: {}, autoWarned: false,
   // trasferimento automatico: ogni clip pronta parte da sola (la più vecchia per prima) quando la camera non sta registrando.
   // Con "elimina dal telefono" attivo il telefono tiene solo ciò che non è ancora arrivato (buffer a rotazione).
   async autoTick(camId) {
@@ -465,7 +465,7 @@ const Xfer = {
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, this.auto, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -479,6 +479,8 @@ const Xfer = {
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${Dest.mode !== "folder" || !Dest.handle ? "Serve una cartella di questo computer: sull'iPad i file vanno salvati a mano." : this.auto && this.delAfter ? "Buffer a rotazione attivo: il telefono tiene solo le clip non ancora arrivate." : this.auto ? "Attiva anche “Elimina dal telefono” per liberare spazio man mano." : "Parte quando nessuna ripresa è in corso."}${this.auto ? (this.autoBusy[id] ? " · trasferimento automatico in corso" : "") : ""}</div>
+        <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="prev" style="width:auto;min-height:0" ${this.keepPrev ? "checked" : ""}> Tieni l'anteprima accesa durante i trasferimenti</label>
+        <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.keepPrev ? "⚠ Con una rete debole il trasferimento può rallentare o interrompersi. Se succede, spegni questa spunta." : "Durante un trasferimento l'anteprima si ferma per lasciare tutta la rete al file e riparte alla fine."}</div>
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
         <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button></div>
@@ -513,6 +515,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("change", (e) => {
   const m = e.target.closest("[data-xm]"); if (m) { Dest.mode = m.dataset.xm; store.set("gdc.dest", Dest.mode); dbg("info", "file", `destinazione: ${Dest.mode}`); Xfer.refresh(); return; }
+  if (e.target.matches('[data-xf="prev"]')) { Xfer.keepPrev = e.target.checked; store.set("gdc.xprev", Xfer.keepPrev); dbg("info", "file", `anteprima durante i trasferimenti: ${Xfer.keepPrev ? "accesa" : "sospesa"}`); Xfer.refresh(); Preview.ensureAll(); return; }
   if (e.target.matches('[data-xf="auto"]')) { Xfer.auto = e.target.checked; store.set("gdc.xauto", Xfer.auto); dbg("info", "file", `trasferimento automatico: ${Xfer.auto}`); Xfer.refresh(); Xfer.autoAll(); return; }
   if (e.target.matches('[data-xf="del"]')) { Xfer.delAfter = e.target.checked; store.set("gdc.xdel", Xfer.delAfter); dbg("info", "file", `elimina dal telefono dopo il trasferimento: ${Xfer.delAfter}`); Xfer.refresh(); }
 });

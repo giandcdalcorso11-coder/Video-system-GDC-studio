@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 30
-**Ultimo aggiornamento:** 2026-11-18 16:00
+**Versione:** 31
+**Ultimo aggiornamento:** 2026-11-18 16:40
 
 ## Vision
 
@@ -186,6 +186,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 16:40] Anteprima durante i trasferimenti: scelta con avviso
+
+**Riepilogo:** la sospensione dell'anteprima durante i trasferimenti, prima fissa, ora è una spunta decisa dall'utente (dashboard r17), accesa di default con avviso sul rischio per la rete.
+
+**Cosa è stato fatto:** spunta "Tieni l'anteprima accesa durante i trasferimenti" nel pannello File di ogni camera; accesa = anteprima sempre attiva con avviso "con rete debole il trasferimento può rallentare o interrompersi"; spenta = comportamento precedente (anteprima sospesa e ripresa a fine trasferimento). Scelta salvata nel browser (gdc.xprev). Provata in simulazione.
+
+**Decisioni prese:**
+- Contesto: l'utente considera un problema perdere l'anteprima durante i trasferimenti. Decisione: decidibile, default acceso con avviso. Supera la decisione del: 2026-11-17 (anteprima sospesa durante i trasferimenti, fissa). Da rivedere se: i test su rete debole mostrano trasferimenti che falliscono con l'anteprima accesa (allora default spento).
+
+**File consegnati/modificati:** docs/dashboard.html (r17); documento v31.
+
+---
 
 ### [2026-11-18 16:00] Misura spazio iPhone 15 e trasferimento automatico con buffer a rotazione
 
