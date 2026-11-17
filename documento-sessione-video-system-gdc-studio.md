@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 33
-**Ultimo aggiornamento:** 2026-11-18 18:00
+**Versione:** 34
+**Ultimo aggiornamento:** 2026-11-18 19:00
 
 ## Vision
 
@@ -186,6 +186,24 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 19:00] Protezione della regia, punti 2 e 3: disco pieno e memoria dell'iPad
+
+**Riepilogo:** la dashboard (r20) gestisce il disco pieno (pausa, scelta di un'altra cartella, ripartenza da sola) e mette un tetto di 1,5 GB ai file che sull'iPad restano in memoria in attesa di Salva.
+
+**Cosa è stato fatto:**
+- Disco pieno (QuotaExceededError in scrittura): il trasferimento passa a "interrotto" con la nota "Libera spazio o scegli un'altra cartella (Cambia cartella): riparto da solo"; se nel frattempo si cambia cartella il trasferimento usa la nuova e riparte da solo. Il file resta sul telefono.
+- Memoria (modalità "questo dispositivo"): tetto `MEMMAX` 1,5 GB sui file arrivati e non ancora salvati; un nuovo trasferimento che lo supererebbe non parte ("tocca Salva sui file arrivati, poi riprova"; i file restano sul telefono); riga "In memoria da salvare: X su Y" nel pannello File, in rosso oltre il 70%; avviso per un singolo file più grande del tetto. Stima della dimensione di una clip arrotondata per eccesso a 1 MB (la camera invia i MB interi).
+- Prove in Chromium (tetto ridotto per il test): il secondo file non parte finché il primo non è salvato, poi parte; disco pieno → pausa → cambio cartella → file arrivato nella nuova, nulla nella vecchia. Regressioni t26 e t33 ok.
+
+**Decisioni prese:**
+- Contesto: lo spazio libero di una cartella su disco esterno non è leggibile dal browser (la stima del browser riguarda il profilo, non il disco). Decisione: niente controllo preventivo sullo spazio del disco, si rileva il disco pieno alla scrittura e si gestisce con pausa e cambio cartella. Alternative scartate: usare navigator.storage.estimate (darebbe falsi allarmi o falsa sicurezza). Da rivedere se: un browser espone lo spazio libero delle cartelle scelte.
+
+**File consegnati/modificati:** docs/dashboard.html (r20); documento v34. Camera invariata (r22).
+
+**Impatto su Pipeline:** Step 6, parte D: fatti i punti 1, 2 e 3; resta la modalità "i file restano sui telefoni" (4).
+
+---
 
 ### [2026-11-18 18:00] Protezione della regia, punto 1: cartella non raggiungibile
 

@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r19";
+const PAGE_VERSION = "dashboard r20";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -423,9 +423,16 @@ const Xfer = {
     if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; }
     const h = await Dest.check(); if (h && !h.ok) { log("", `Cartella “${Dest.handle.name}”: ${h.msg}. Nessun trasferimento avviato: i file restano sul telefono.`); return false; } return true;
   },
-  byX: new Map(), MAXTRY: 6,
+  byX: new Map(), MAXTRY: 6, MEMMAX: window.__memMax || 1.5 * 1073741824,
+  // sull'iPad (e senza cartella) i file arrivano in memoria finché non tocchi Salva: la memoria della pagina è limitata, quindi si tiene un tetto
+  pendingMem() { return [...this.jobs.values()].filter((j) => !j.test && j.where !== "cartella" && !j.saved && (j.state === "ok" ? j.blob : (j.state === "in corso" || j.state === "interrotto" || j.state === "attesa") && j.dest === "device")).reduce((a, j) => a + (j.state === "ok" ? j.blob.size : j.got || 0), 0); },
   async start(camId, clip, opt = {}) {
     if (!opt.test && !(await this.ensureDest())) return null;
+    if (!opt.test && Dest.mode === "device" && clip) {
+      const pend = this.pendingMem(), need = Math.max(clip.mb || 0, 1) * 1048576;
+      if (pend > 0 && pend + need > this.MEMMAX) { log(camId, `Memoria di questo dispositivo quasi piena (${fmtMB(pend)} da salvare): tocca Salva sui file arrivati, poi riprova. I file restano sul telefono.`); dbg("warn", "file", `memoria piena: in attesa ${pend} byte, richiesti ${need}`); return null; }
+      if (need > this.MEMMAX) log(camId, `Il file è grande (${fmtMB(need)}): in memoria potrebbe non starci. Meglio una cartella di un computer.`);
+    }
     const id = "j" + rid() + rid(); if (!opt.auto && clip) delete this.autoTry[clip.id];
     const job = { id, xid: "", camId, sid: clip ? clip.id : null, name: clip ? clip.file : "prova-rete.bin", size: opt.test ? opt.mb * 1048576 : (clip ? clip.mb * 1048576 : 0), got: 0, speed: 0, state: "attesa", at: Date.now(), saved: false, test: !!opt.test, path: "", error: "", note: "", attempt: 0, userCancel: false, st: { sink: null, got: 0, crc: 0 }, dest: Dest.mode, handle: Dest.handle, clip, opt };
     this.jobs.set(id, job); Preview.ensureAll(); job.promise = this.runJob(job); this.refresh(); return job;
@@ -450,9 +457,9 @@ const Xfer = {
       if (err.sink && job.dest === "folder" && !job.test && !job.userCancel) {
         // la cartella non risponde: si scarta il file parziale e si aspetta che torni; la clip resta sul telefono
         try { job.st.sink && await job.st.sink.abort(); } catch { /* ok */ } job.st.sink = null; job.st.got = 0; job.st.crc = 0; job.got = 0;
-        job.state = "interrotto"; job.note = `La cartella non è raggiungibile (${err.name === "QuotaExceededError" ? "disco pieno" : "disco scollegato o spento?"}). Riconnettila: riparto da solo. Il file resta sul telefono.`;
+        job.state = "interrotto"; job.note = `La cartella non è raggiungibile (${err.name === "QuotaExceededError" ? "disco pieno" : "disco scollegato o spento?"}). ${err.name === "QuotaExceededError" ? "Libera spazio o scegli un'altra cartella (Cambia cartella): riparto da solo." : "Riconnettila o scegli un'altra cartella: riparto da solo."} Il file resta sul telefono.`;
         dbg("warn", "trasferimento", `cartella non scrivibile (${err.name}: ${err.message}): in attesa`); log(job.camId, `${c ? camTitle(c) : job.camId}: ${job.note}`); this.refresh();
-        for (;;) { await new Promise((r) => setTimeout(r, 4000)); if (job.userCancel) break; const h = await Dest.check(); if (h && h.ok) break; }
+        for (;;) { await new Promise((r) => setTimeout(r, 4000)); if (job.userCancel) break; if (Dest.handle && Dest.handle !== job.handle) { job.handle = Dest.handle; dbg("info", "trasferimento", `cartella cambiata: uso ${Dest.handle.name}`); } const h = await Dest.check(); if (h && h.ok) break; }
         if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
         continue;
       }
@@ -489,7 +496,7 @@ const Xfer = {
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -500,6 +507,7 @@ const Xfer = {
           <label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="device" ${Dest.mode === "device" ? "checked" : ""}> Questo dispositivo (poi Salva / Condividi)</label>
         </div>
         ${Dest.mode === "folder" ? `<div class="row" style="margin-top:6px;gap:8px;align-items:center"><span class="muted">${Dest.handle ? "Cartella: <b>" + esc(Dest.handle.name) + "</b>" : "Nessuna cartella scelta"}</span><button class="ghost" data-xf="pick">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button>${Dest.handle ? `<button class="ghost" data-xf="chk">Verifica cartella</button>` : ""}</div>${Dest.handle && Dest.health ? `<div style="margin-top:4px;font-size:13px;color:${Dest.health.ok ? "var(--ok,#2a9d5c)" : "var(--bad,#d93025)"}">${Dest.health.ok ? "✓ " : "⚠ "}${esc(Dest.health.msg)}</div>` : ""}` : `<div class="muted" style="margin-top:6px">${FS ? "" : "Questo browser non può scegliere una cartella: i file restano in memoria finché non li salvi con “Salva”. "}Salva ogni file appena arriva.</div>`}
+        ${Dest.mode === "device" && this.pendingMem() > 0 ? `<div style="margin-top:8px;font-size:13px;color:${this.pendingMem() > this.MEMMAX * 0.7 ? "var(--bad,#d93025)" : "var(--warn,#c77d00)"}">In memoria da salvare: ${fmtMB(this.pendingMem())} su ${fmtMB(this.MEMMAX)}${this.pendingMem() > this.MEMMAX * 0.7 ? ". Tocca Salva prima di trasferire altro." : "."}</div>` : ""}
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="del" style="width:auto;min-height:0" ${this.delAfter ? "checked" : ""}> Elimina dal telefono dopo il trasferimento verificato</label>
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${Dest.mode !== "folder" || !Dest.handle ? "Serve una cartella di questo computer: sull'iPad i file vanno salvati a mano." : this.auto && this.delAfter ? "Buffer a rotazione attivo: il telefono tiene solo le clip non ancora arrivate." : this.auto ? "Attiva anche “Elimina dal telefono” per liberare spazio man mano." : "Parte quando nessuna ripresa è in corso."}${this.auto ? (this.autoBusy[id] ? " · trasferimento automatico in corso" : "") : ""}</div>
