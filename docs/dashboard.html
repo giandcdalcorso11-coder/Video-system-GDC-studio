@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r14";
+const PAGE_VERSION = "dashboard r15";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -277,7 +277,7 @@ class RealtimeTransport {
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -291,7 +291,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -491,8 +491,11 @@ document.addEventListener("change", (e) => {
   if (e.target.matches('[data-xf="del"]')) { Xfer.delAfter = e.target.checked; store.set("gdc.xdel", Xfer.delAfter); dbg("info", "file", `elimina dal telefono dopo il trasferimento: ${Xfer.delAfter}`); Xfer.refresh(); }
 });
 let zDrag = false;
+const spColor = (el, st) => { const lv = st.online && st.space && st.space.known ? st.space.level : "ok"; el.style.color = lv === "crit" ? "var(--bad,#d93025)" : lv === "warn" ? "var(--warn,#c77d00)" : ""; };
 const BIND = {
   xferUi: (st, c, el) => Xfer.render(st, c, el),
+  autoFreeUi: (st, c, el) => { const cb = $("#autoFree", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!(st.space && st.space.autoFree); cb.disabled = !st.online; },
+  spaceNote: (st, c, el) => { const sp = st.space; el.textContent = !st.online || !sp ? "" : `Base di calcolo: ${sp.basis || "n/d"}${sp.measuredMB ? " · limite misurato " + sp.measuredMB + " MB" : ""}${sp.quotaMB != null ? " · quota browser " + sp.quotaMB + " MB (usati " + sp.usageMB + " MB)" : ""} · liberati finora: ${sp.freedMB || 0} MB`; },
   zoomUi: (st, c, el) => {
     const z = st.zoom, sl = $("#zSlider", el), val = $("#zVal", el), note = $("#zNote", el), ok = !!(st.online && st.camReady && z && z.native);
     if (ok) { sl.min = z.min; sl.max = z.max; }
@@ -508,9 +511,9 @@ const BIND = {
   batBar: (st, c, el) => { const has = st.online && st.battery != null; el.className = "bar " + (has ? batClass(st.battery) : ""); $("i", el).style.width = (has ? st.battery : 0) + "%"; },
   batWarn: (st, c, el) => { el.textContent = st.online && st.battery != null && !st.charging && st.battery < 20 ? "Batteria bassa: collega il cavo" : ""; },
   batState: (st, c, el) => { const at = st.batAt ? new Date(st.batAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : ""; el.textContent = !st.online ? "—" : st.battery == null ? "Livello non disponibile (arriverà dall'app Comandi)" : (st.charging == null ? "" : st.charging ? "In carica" : "A batteria") + (at ? (st.charging == null ? "" : " · ") + "misurata alle " + at : ""); },
-  free: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} / ${st.maxBufMB} MB` : st.freeGb.toFixed(1) + " GB"; },
-  freeLong: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} MB usati su ${st.maxBufMB} MB di buffer sul telefono` : `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB`; },
-  freeEst: (st, c, el) => { el.textContent = !st.online ? "—" : st.bufMB != null ? (st.bps ? `circa ${Math.max(0, Math.floor(((st.maxBufMB - st.bufMB) * 8) / (st.bps / 1e6) / 60))} min di ripresa prima di riempire il buffer` : "—") : `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)`; },
+  free: (st, c, el) => { spColor(el, st); if (st.online && st.space && st.space.known) { el.textContent = `~${st.space.minLeft} min di ripresa`; return; } el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} / ${st.maxBufMB} MB` : st.freeGb.toFixed(1) + " GB"; },
+  freeLong: (st, c, el) => { if (st.online && st.space && st.space.known) { el.textContent = `${st.space.availMB} MB ancora disponibili · ${st.space.usedMB} MB già usati dalle clip sul telefono`; return; } el.textContent = !st.online ? "—" : st.bufMB != null ? `${st.bufMB} MB usati su ${st.maxBufMB} MB di buffer sul telefono` : `${st.freeGb.toFixed(1)} GB liberi di ${st.totalGb} GB`; },
+  freeEst: (st, c, el) => { spColor(el, st); if (st.online && st.space && st.space.known) { el.textContent = `Circa ${st.space.minLeft} min di ripresa a ${st.res} (${st.space.pct}% dello spazio disponibile già usato)`; return; } el.textContent = !st.online ? "—" : st.bufMB != null ? (st.bps ? `circa ${Math.max(0, Math.floor(((st.maxBufMB - st.bufMB) * 8) / (st.bps / 1e6) / 60))} min di ripresa prima di riempire il buffer` : "—") : `circa ${Math.floor(st.freeGb * 1024 / MB_PER_MIN)} min di ripresa (stima)`; },
   timer: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : st.tl ? `Time-lapse: ${st.tl.frames} imm.` : "—"; },
   badge: (st, c, el) => { el.textContent = st.rec ? fmtTime(Date.now() - st.recStart) : "00:00"; },
   conn: (st, c, el) => { el.textContent = !st.online ? "—" : st.rssi == null ? "Collegata (Supabase)" : `Wi-Fi ${Math.round(st.rssi)} dBm · ${st.latency} ms`; },
@@ -532,6 +535,28 @@ const BIND = {
   screen: (st, c, el) => { el.textContent = !st.online ? "—" : st.standby ? "Nero (standby)" : "Normale"; },
   clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status || "")}</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
 };
+const spaceSeen = {};
+function spaceWatch() {
+  cameras.forEach((c) => {
+    const st = state[c.id], sp = st && st.space; if (!sp || !sp.known) return; const prev = spaceSeen[c.id]; spaceSeen[c.id] = sp.level;
+    if (sp.level !== "ok" && prev !== sp.level) { const msg = `${camTitle(c)}: ${sp.level === "crit" ? "spazio quasi finito" : "spazio in calo"} (circa ${sp.minLeft} min di ripresa)`; log(c.id, msg); dbg("warn", "spazio", msg, sp); }
+  });
+}
+function renderPreflight() {
+  const el = $("#preflight"); if (!el) return;
+  if (!REAL || !cameras.length) { el.hidden = true; return; } el.hidden = false;
+  const col = (lv) => (lv === "ok" ? "var(--ok,#2a9d5c)" : lv === "warn" ? "var(--warn,#c77d00)" : lv === "crit" ? "var(--bad,#d93025)" : "var(--muted,#888)"), dot = (lv) => `<span style="color:${col(lv)}">●</span>`;
+  const rows = cameras.map((c) => {
+    const st = state[c.id] || {}, on = !!st.online, sp = st.space, why = [];
+    const cl = on ? "ok" : "crit", bl = st.battery == null ? "n" : st.charging ? "ok" : st.battery < 20 ? "crit" : st.battery < 40 ? "warn" : "ok", sl = !sp || !sp.known ? "n" : sp.level;
+    if (!on) why.push("non è collegata"); if (bl === "crit") why.push("batteria sotto il 20%"); if (sl === "crit") why.push("spazio quasi finito"); if (bl === "warn") why.push("batteria sotto il 40%"); if (sl === "warn") why.push("poco spazio");
+    return { name: camTitle(c), worst: [cl, bl, sl].includes("crit") ? "crit" : [cl, bl, sl].includes("warn") ? "warn" : "ok", why,
+      html: `<tr><td>${esc(camTitle(c))}</td><td>${dot(cl)} ${on ? "online" : "offline"}</td><td>${dot(bl)} ${st.battery == null ? "n/d" : Math.round(st.battery) + "%" + (st.charging ? " ⚡" : "")}</td><td>${dot(sl)} ${sp && sp.known ? "circa " + sp.minLeft + " min" : "n/d"}</td></tr>` };
+  });
+  const bad = rows.filter((r) => r.worst === "crit"), mid = rows.filter((r) => r.worst === "warn");
+  const verdict = bad.length ? `<b style="color:${col("crit")}">Da sistemare prima di registrare:</b> ${bad.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : mid.length ? `<b style="color:${col("warn")}">Quasi pronto:</b> ${mid.map((r) => esc(r.name) + " (" + r.why.join(", ") + ")").join("; ")}.` : `<b style="color:${col("ok")}">Tutto pronto.</b> Spazio, batteria e collegamento sono a posto.`;
+  el.innerHTML = `<h2>Controllo prima di iniziare</h2><table style="width:100%;font-size:14px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--muted,#888)"><th>Camera</th><th>Collegamento</th><th>Batteria</th><th>Spazio</th></tr></thead><tbody>${rows.map((r) => r.html).join("")}</tbody></table><div style="margin-top:10px;font-size:14px">${verdict}</div>`;
+}
 function refresh() {
   $$("[data-bind]").forEach((el) => {
     const id = el.dataset.cam, st = state[id], c = camById(id), fn = BIND[el.dataset.bind];
@@ -541,6 +566,7 @@ function refresh() {
   const online = all.filter((s) => s.online), recs = all.filter((s) => s.rec);
   $("#recAll").disabled = !online.length || recs.length === online.length;
   $("#stopAll").disabled = !recs.length;
+  renderPreflight(); spaceWatch();
   $("#globalPill").className = "pill " + (recs.length ? "rec" : online.length ? "idle" : "");
   $("#globalTxt").textContent = recs.length ? `IN REC (${recs.length}/${online.length})` : online.length ? `PRONTE (${online.length}/${cameras.length})` : "NESSUNA CAMERA";
   const sum = $("#sum");
@@ -548,7 +574,7 @@ function refresh() {
     $("#sOnline").textContent = `${online.length}/${cameras.length}`;
     $("#sRec").textContent = recs.length;
     { const bs = online.map((s) => s.battery).filter((v) => v != null); $("#sBat").textContent = bs.length ? Math.round(Math.min(...bs)) + "%" : online.length ? "n/d" : "—"; }
-    $("#sFree").textContent = !online.length ? "—" : online.some((s) => s.bufMB != null) ? Math.min(...online.filter((s) => s.bufMB != null).map((s) => s.maxBufMB - s.bufMB)) + " MB" : Math.min(...online.map((s) => s.freeGb)).toFixed(1) + " GB";
+    $("#sFree").textContent = !online.length ? "—" : online.some((s) => s.space && s.space.known) ? "~" + Math.min(...online.filter((s) => s.space && s.space.known).map((s) => s.space.minLeft)) + " min" : online.some((s) => s.bufMB != null) ? Math.min(...online.filter((s) => s.bufMB != null).map((s) => s.maxBufMB - s.bufMB)) + " MB" : Math.min(...online.map((s) => s.freeGb)).toFixed(1) + " GB";
   }
 }
 function renderLogs() {
@@ -590,6 +616,7 @@ function showHome() {
   Preview.stopAll();
   $("#view").innerHTML = `
     ${mergeBanner()}
+    <section class="panel" id="preflight" hidden></section>
     <section class="tiles" id="sum" aria-label="Riepilogo">
       <div class="tile"><small>Camere online</small><b id="sOnline">—</b></div>
       <div class="tile"><small>In registrazione</small><b id="sRec">0</b></div>
@@ -620,7 +647,7 @@ function showHome() {
     </section>
     <section class="panel adv-only" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     ${logPanel("")}`;
-  curDetail = null; setConn(connStatus);
+  curDetail = null; setConn(connStatus); renderPreflight();
   $("#view").onclick = async (e) => {
     if (e.target.id === "homePrev") { store.set("gdc.homePrev", e.target.checked); dbg("info", "ui", `anteprime nella home: ${e.target.checked ? "attive" : "spente"}`); Preview.stopAll(); Preview.ensureAll(); return; }
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }
@@ -681,7 +708,10 @@ function showDetail(id) {
             <button class="ghost" data-bind="chargeBtn" data-cam="${id}" data-act="charge"></button></div></div>
         <div class="panel"><h2>Spazio</h2>
           <div class="kv"><span data-bind="freeLong" data-cam="${id}"></span></div>
-          <div class="muted" data-bind="freeEst" data-cam="${id}"></div></div>
+          <div class="muted" data-bind="freeEst" data-cam="${id}" style="font-weight:600;margin-top:4px"></div>
+          ${REAL ? `<div data-bind="autoFreeUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="autoFree" style="width:auto;min-height:0;margin-top:3px"><span>Se lo spazio sta finendo, elimina le clip più vecchie già trasferite e verificate</span></label>
+            <div class="muted">Predefinito: spenta. In quel caso la camera si ferma in modo sicuro e avvisa. Le clip non ancora trasferite non vengono mai eliminate.</div></div>
+          <div class="muted adv-only" data-bind="spaceNote" data-cam="${id}" style="margin-top:6px"></div>` : ""}</div>
         <div class="panel"><h2>Ripresa</h2>
           <div class="kvs">
             <div class="kv"><small>Qualità</small><span data-bind="res" data-cam="${id}"></span></div>
@@ -735,6 +765,7 @@ function showDetail(id) {
   };
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
+  if (REAL) { const af = $("#autoFree"); if (af) af.onchange = () => command(id, { cmd: "space_cfg", autoFree: af.checked }); }
   if (REAL) { let zT = 0; const zs = $("#zSlider"); const sendZ = () => command(id, { cmd: "zoom", z: Number(zs.value) });
     zs.oninput = () => { zDrag = true; $("#zVal").textContent = Number(zs.value).toFixed(1) + "×"; if (!zT) zT = setTimeout(() => { zT = 0; sendZ(); }, 100); };
     zs.onchange = () => { zDrag = false; sendZ(); };

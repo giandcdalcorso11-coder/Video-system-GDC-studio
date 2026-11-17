@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 28
-**Ultimo aggiornamento:** 2026-11-18 12:30
+**Versione:** 29
+**Ultimo aggiornamento:** 2026-11-18 14:00
 
 ## Vision
 
@@ -185,6 +185,27 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 14:00] Gestione dello spazio: minuti rimasti, controllo prima di iniziare, arresto sicuro, liberazione facoltativa (camera r22, dashboard r15)
+
+**Riepilogo:** il titolare ha posto il problema dello spazio (telefoni pieni, dispositivo di controllo pieno) per l'uso da parte di terzi; implementato il primo blocco: ogni camera sa quanto può ancora registrare, la regia lo mostra con avvisi e un "Controllo prima di iniziare", la camera si ferma in modo sicuro prima di finire lo spazio e una spunta (spenta di default) permette di liberare spazio eliminando solo clip già trasferite e verificate.
+
+**Decisioni prese:**
+- Contesto: i video pesano molto (1080p: circa 60 MB/min a 8 Mbps, 150 MB/min a 20 Mbps, 300 MB/min a 40 Mbps) e su web lo spazio disponibile è la quota del browser, non il disco del telefono (iPhone XR: circa 0,78 GB; Android Chrome: circa 10 GB stimati; iPhone 15: da misurare).
+- Decisione: principio fisso "mai eliminare dal telefono un video non ancora arrivato e verificato"; comportamento predefinito quando lo spazio finisce = fermarsi in modo sicuro e avvisare; la liberazione automatica delle clip più vecchie già verificate è una spunta per camera, spenta di default.
+- Alternative scartate: eliminare in automatico di default (perde la copia sul telefono); fermarsi senza margine (rischio di file danneggiati).
+- Da rivedere se: la misura reale sull'iPhone 15 mostra una quota molto più ampia (alzare il limite) o il web risulta insufficiente (app nativa).
+
+**Cosa è stato fatto:**
+- Camera r22: calcolo dello spazio disponibile = minimo tra quota del browser meno una riserva di 200 MB e il limite (misurato o prudente di 700 MB su iOS e dove manca la stima), conteggiando anche le clip già trasferite che occupano ancora spazio; livelli ok/attenzione/critico (sotto 15 e 5 minuti, oppure 80% e 95% del disponibile); controllo ogni 8 s; arresto sicuro di REC e time-lapse sotto 30 MB; rifiuto di avviare REC con meno di 1 minuto disponibile; comando `space_cfg` per la spunta; pulsante in Avanzata "Misura spazio reale" (scrive fino a 4 GB in un archivio di prova, poi lo elimina e ricorda il valore).
+- Dashboard r15: minuti rimasti nelle schede, nel riepilogo ("Spazio minimo") e nel dettaglio con colore, spunta "elimina le clip più vecchie già trasferite e verificate", pannello "Controllo prima di iniziare" (collegamento, batteria, spazio, verdetto) in home, voci nel registro quando lo spazio scende.
+- Provato in Chromium con camera e dashboard simulate e con la stima della quota sostituita da valori di prova: livelli corretti; REC rifiutato con poco spazio; con la spunta spenta non si elimina nulla, con la spunta accesa si eliminano solo le clip "inviata" e resta la "pronta"; arresto sicuro in registrazione con file salvato; misura con tetto ridotto completata.
+
+**Da fare:** misurare lo spazio reale sull'iPhone 15 (pulsante in Avanzata); trasferimento automatico dopo ogni clip e buffer a rotazione; invio durante la ripresa per sessioni lunghe; protezione della regia (cartella piena, memoria iPad); modalità "i file restano sui telefoni".
+
+**File consegnati/modificati:** `docs/camera.html` (r22), `docs/dashboard.html` (r15), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-18 12:30] Uso da parte di terzi: separazione developer/pubblico, mockup e primi utenti
 
