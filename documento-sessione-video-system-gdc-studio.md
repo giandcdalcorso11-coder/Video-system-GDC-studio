@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 37
-**Ultimo aggiornamento:** 2026-11-18 22:00
+**Versione:** 38
+**Ultimo aggiornamento:** 2026-11-18 22:30
 
 ## Vision
 
@@ -173,6 +173,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
 - [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
+- **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) eliminare GDC-project 2 per pulizia, solo dopo conferma esplicita dell'utente e dopo aver verificato che il nuovo funziona; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 
 ### Step 9 — Hardware opzionale
 
@@ -188,6 +189,17 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 22:30] Promemoria: pulizia dei progetti Supabase
+
+**Riepilogo:** registrato nel documento il promemoria per il passaggio al nuovo account Supabase: spostare tutto da GDC-project 2, eliminarlo (con conferma) e controllare GDC-project per eventuali resti.
+
+**Decisioni prese:**
+- Contesto: l'utente creerà un nuovo account Supabase dedicato per il primo test esterno. Decisione: in quel momento si sposta tutto da GDC-project 2, lo si elimina e si controlla anche GDC-project (l'altra app) per sicurezza, senza toccare ciò che non è di questo progetto. L'eliminazione richiede conferma esplicita dell'utente.
+
+**File consegnati/modificati:** documento v38 (nota in Step 11).
+
+---
 
 ### [2026-11-18 22:00] Nomi dei file, orologio, nomi unici, "file sui telefoni", benvenuto e Base/Avanzata
 
