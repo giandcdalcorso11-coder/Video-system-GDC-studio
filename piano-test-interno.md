@@ -1,0 +1,136 @@
+# Piano di test interno — Video System GDC Studio
+
+Versioni da usare: **camera r22**, **dashboard r21**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"** più, se serve, una riga su cosa hai visto.
+
+## Cosa serve
+
+- 1 PC con **Edge o Chrome** (regia). Un disco esterno o una chiavetta USB capienti.
+- 1 **iPad** (regia alternativa, per le prove G).
+- 2 o 3 **telefoni**: iPhone 15 (Safari), un secondo iPhone o Android (Chrome).
+- Una **rete buona** (wifi o dati stabili). Per la prova B non serve la stessa rete.
+- Telefoni carichi (almeno 50%) e con spazio libero. Lo schermo dei telefoni resta acceso e la pagina camera aperta.
+- Prima di ogni prova: ricarica le pagine e controlla in Avanzata "camera r22" e "dashboard r21".
+
+## A. Collegamento e controllo iniziale (10 minuti)
+
+**Scopo:** vedere se tutte le camere si collegano e se il "Controllo prima di iniziare" dice la verità.
+1. Apri la dashboard sul PC e scegli la cartella dei file (disco esterno).
+2. Apri la camera su ogni telefono con il suo link e avviala.
+3. Guarda il "Controllo prima di iniziare" sul PC.
+
+**Atteso:** ogni camera online, batteria e minuti di spazio visibili, riga della cartella con ✓. Se manca un dato, scrivimi quale.
+
+## B. Registrazione con più camere (15 minuti)
+
+**Scopo:** REC/STOP insieme, zoom e anteprima con 2 o 3 camere.
+1. "REC tutte" per 1 minuto, poi "STOP tutte".
+2. Durante la registrazione prova lo zoom su una camera.
+3. Ripeti con una sola camera.
+
+**Atteso:** tutte partono e si fermano insieme, lo zoom è fluido, nessun file corrotto. Segna se una camera è in ritardo o perde il collegamento.
+
+## C. Trasferimento sul disco del PC (20 minuti)
+
+**Scopo:** la prova che finora manca: trasferimento reale su rete buona, in una cartella vera.
+1. Registra 1 minuto con 2 camere. Con "Trasferisci" a mano, manda i file nella cartella.
+2. Guarda la barra di avanzamento, la velocità e il messaggio finale.
+3. Apri i file nella cartella e guardali (immagine e audio).
+
+**Atteso:** file arrivati e verificati, riproducibili, stessa dimensione. Dimmi i Mbps e i minuti impiegati.
+
+## D. Cartella che sparisce (10 minuti)
+
+**Scopo:** il caso del disco scollegato.
+1. Avvia un trasferimento lungo (clip di almeno 1–2 minuti).
+2. A metà, **scollega il disco**.
+3. Aspetta circa 10 secondi e **ricollegalo**.
+
+**Atteso:** il trasferimento passa a "interrotto" con la nota sulla cartella, poi riparte da solo. Il file finale è completo e la clip è ancora sul telefono finché non arriva. Se il disco è pieno, la nota deve dirlo.
+
+## E. Automatico e buffer a rotazione (15 minuti)
+
+**Scopo:** il flusso senza toccare nulla.
+1. Accendi "Trasferisci da solo ogni clip appena fermo la registrazione" e "Elimina dal telefono dopo il trasferimento verificato".
+2. Registra 3 clip brevi di seguito su una camera. Dopo ogni STOP aspetta.
+3. Prova anche a ricominciare a registrare mentre il trasferimento della clip precedente è in corso.
+
+**Atteso:** ogni clip parte da sola dopo lo STOP, non durante la ripresa. Sul telefono restano solo le clip non ancora arrivate. Le clip nuove non vengono perse.
+
+## F. Anteprima durante i trasferimenti (10 minuti)
+
+**Scopo:** vedere se tenere l'anteprima accesa rovina il trasferimento.
+1. Trasferisci un file da 1 minuto con "Tieni l'anteprima accesa durante i trasferimenti" **accesa**.
+2. Ripeti con la spunta **spenta**.
+
+**Atteso:** annota le due velocità e se in uno dei casi il trasferimento si ferma. Con rete buona dovrebbero essere simili.
+
+## G. iPad come regia (30 minuti)
+
+**Scopo:** i limiti di memoria e il salvataggio su disco.
+1. Apri la dashboard sull'iPad, in Avanzata premi **"Misura memoria di questo dispositivo"** e lascia la pagina aperta. Può durare qualche minuto. Se la pagina si chiude, riaprila: il registro riporta fino a quanto ha retto.
+2. Trasferisci una clip da 1 minuto e una da 2 minuti. Tocca Salva e scegli il disco o la chiavetta collegati.
+3. Prova a trasferire più file senza salvare, finché compare l'avviso.
+
+**Atteso:** valore reale della memoria, salvataggio su disco funzionante, avviso chiaro quando il tetto è raggiunto. Con questi dati imposto il tetto vero.
+
+## H. Spazio (15 minuti)
+
+**Scopo:** completare la misura dell'iPhone 15 e provare l'arresto sicuro.
+1. Misura a 16 GB (te lo preparo prima: serve solo un tetto più alto).
+2. Con lo spazio quasi pieno, avvia una registrazione e guarda se si ferma da sola senza rovinare il file.
+3. Prova la spunta "elimina le clip già trasferite" con lo spazio al limite.
+
+## I. Android (se hai un telefono) (20 minuti)
+
+REC, trasferimento, zoom e batteria, come nelle prove B e C. La sonda ha già mostrato che il registratore e la batteria funzionano.
+
+## L. Batteria su iPhone (facoltativa)
+
+Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashboard mostra "n/d" su iPhone.
+
+## Cosa mi mandi
+
+Per ogni prova: **"fatto"**, il numero della prova, e un commento solo se qualcosa ti ha stupito. Il resto lo leggo nei log (stato, velocità, errori, tempi).
+
+---
+
+# Proposta Base / Avanzata per il test interno
+
+**Principio:** in Base solo ciò che serve a fare una ripresa e a vedere se va tutto bene. In Avanzata ciò che serve a me o a diagnosticare. I log restano sempre attivi con i link da sviluppatore.
+
+## Camera (telefono)
+
+| In Base | In Avanzata |
+|---|---|
+| Avvia/ferma camera, nome, schermo nero | Link della camera (copia) |
+| Stato di collegamento | Dati per Comandi, prova batteria |
+| Batteria e minuti di spazio rimasti | Test zoom digitale, misura spazio reale |
+| Indicatore di registrazione e trasferimento | REC locale di prova |
+| Avvisi (spazio quasi finito, camera ferma) | Pannello log tecnico, versione, sonde |
+
+## Dashboard (regia)
+
+| In Base | In Avanzata |
+|---|---|
+| Elenco camere con stato, batteria, spazio | Registro tecnico, collegamento |
+| "Controllo prima di iniziare" | Prova velocità rete, misura memoria |
+| REC tutte / STOP tutte, REC/STOP per camera | Pan / Tilt, sistema operativo della camera |
+| Zoom, anteprima, risoluzione e qualità | Dettagli di stato e conteggi |
+| Cartella, "Verifica cartella", trasferimento (a mano e automatico), elimina dal telefono, anteprima durante i trasferimenti | |
+
+Da verificare insieme: cosa spostare in Base dopo i primi test (per esempio "Dati per Comandi" quando useremo iPhone con batteria).
+
+---
+
+# Test del workflow "aggiungi un telefono"
+
+**Cosa esiste oggi:** ogni telefono si collega con un link. Non c'è un QR né un codice. Esistono solo i mockup.
+
+**Cosa possiamo provare subito, senza server nuovi:**
+- La dashboard mostra un **QR** che contiene il link di una camera nuova. Col telefono lo inquadri con la fotocamera e si apre la pagina camera già collegata.
+- Una spunta sulla dashboard per **accettare o rifiutare** chi entra (la tua idea): la camera chiede di entrare, la regia vede "Camera 2 vuole entrare" e conferma.
+
+**Cosa richiede una scelta e un po' di server:**
+- Il **codice a 8 caratteri**. Serve una piccola tabella che associa il codice alla sessione. Va deciso se usare GDC-project 2 o un progetto nuovo per il pubblico (domanda ancora aperta).
+
+**Ordine proposto:** prima QR più accetta/rifiuta, perché ti dice subito se il flusso è comodo. Il codice lo aggiungiamo dopo, quando decidiamo il progetto.
