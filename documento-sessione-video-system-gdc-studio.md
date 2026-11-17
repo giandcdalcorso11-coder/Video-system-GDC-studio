@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 27
-**Ultimo aggiornamento:** 2026-11-18 10:30
+**Versione:** 28
+**Ultimo aggiornamento:** 2026-11-18 12:30
 
 ## Vision
 
@@ -12,6 +12,8 @@ Punto di partenza: due telefoni (iPhone XR e un secondo telefono) usati a mano; 
 Il software (dashboard, pagina camera, canale di comunicazione) è il valore principale del progetto; l'hardware extra (ESP32, servo) è opzionale.
 
 Direzione di prodotto (2026-11-15): oltre allo strumento personale, l'idea è portarla a un livello successivo, come app con piano gratuito (qualità massima e numero di dispositivi limitati, file solo sul dispositivo) e piano Pro (più dispositivi, qualità alta, slow-mo, time-lapse, archiviazione a scelta anche in cloud). Punti di forza da curare: uso senza installare nulla, multi-dispositivo (Apple, Android, PC; in prospettiva action cam), file sul dispositivo madre in una cartella scelta (anche disco esterno). Ancora da fare: lavorare sul funzionamento, sulla grafica e sui limiti di rete.
+
+Primi utenti terzi (2026-11-18): attività che offrono esperienze, a cui proporre il sistema come strumento per il lavoro sui social e come banco di prova reale: go-kart (camera POV al petto), escape room (camere panoramiche fisse della struttura), serate, bar, discoteche, eventi. Idea: personalizzazione in base all'attività (preset di qualità, orientamento, zoom, bilanciamento, torcia; in prospettiva logo e colori dell'attività).
 
 ## Pipeline
 
@@ -156,6 +158,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-11-15] Creata la tabella con verifica dei permessi (insert anonimo ok, lettura anonima negata). Camera r8 e dashboard r6 con il nuovo interruttore. Provato in un browser di prova con rete simulata; la scrittura vera verso Supabase non è provabile dalla sandbox (proxy).
 
+### Step 11 — Uso pubblico: sessioni con QR e codice
+
+**Stato:** da fare (mockup approvati nella forma, flusso reale non ancora costruito)
+
+**Obiettivo:** un percorso per terzi, separato dal link developer: pagina iniziale con scelta del ruolo, creazione di una sessione dalla regia con QR e codice, ingresso delle camere con nome e permessi, accettazione dalla regia, comandi essenziali, file; nessuno strumento da sviluppatore.
+
+**Decisioni progettuali:** pagine pubbliche con configurazione incorporata (nessuna chiave nei link) e, quando si apre davvero, progetto Supabase dedicato con canali con prefisso diverso e senza tabella di log; il link attuale resta "developer" (Avanzata, log, sonda). Ingresso con QR e anche con codice scritto di 8 caratteri; sessione a scadenza (4, 12 o 24 ore); la regia sceglie con un interruttore se approvare ogni camera che entra (modificabile anche durante la sessione). Limiti gratuito/Pro e account rimandati a dopo i test; grafica e personalizzazione per attività più avanti.
+
+**Criterio di completamento:** una persona che non conosce il sistema crea una sessione, fa entrare due telefoni, registra e riceve i file senza aiuto.
+
+**Note (cronologia dello step):**
+- [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
+
 ### Step 9 — Hardware opzionale
 
 **Stato:** rimandato
@@ -170,6 +185,24 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 12:30] Uso da parte di terzi: separazione developer/pubblico, mockup e primi utenti
+
+**Riepilogo:** impostata la separazione tra link developer e uso pubblico, disegnati 8 mockup del flusso (telefono e regia) e fissate le prime decisioni; individuati i primi utenti reali (attività di esperienze) e le implicazioni per il prodotto.
+
+**Decisioni prese:**
+- Contesto: aprire il sistema a terzi senza esporre strumenti da sviluppatore né le chiavi nei link.
+- Decisione: nuovo percorso pubblico (scelta ruolo, sessione con QR e codice, accettazione dalla regia a scelta con interruttore, scadenza della sessione); il link attuale resta developer. QR e codice scritto insieme.
+- Alternative scartate: account obbligatorio fin dall'inizio (rimandato alla fase Pro); codice breve non indovinabile solo se lungo e con scadenza.
+- Da rivedere se: servono limiti Gratis/Pro applicabili (servono account e controlli lato server), o la sicurezza dei canali pubblici non basta (canali privati con autenticazione).
+
+**Implicazioni emerse per i primi utenti (da valutare nei test):** postazioni fisse sempre accese (escape room, locali): collegamento permanente senza scadenza, riconnessione automatica, alimentazione, schermo sempre acceso; preset per attività (go-kart POV al petto in 9:16, panoramiche fisse, bar e discoteche con luce scarsa e torcia/bilanciamento); marcatura dei momenti durante la ripresa per ritrovare i migliori; personalizzazione con logo e colori dell'attività; consenso e privacy dei clienti ripresi.
+
+**File consegnati/modificati:** tela di lavoro con i mockup (8 schermate); `documento-sessione-video-system-gdc-studio.md`.
+
+**Impatto su Vision/Pipeline:** Vision con i primi utenti terzi; nuovo Step 11.
+
+---
 
 ### [2026-11-18 10:30] Prova su Android (Pixel 8 Pro): batteria dal browser, controlli completi della camera, anteprima ok
 
