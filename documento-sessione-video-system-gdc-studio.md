@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 38
-**Ultimo aggiornamento:** 2026-11-18 22:30
+**Versione:** 39
+**Ultimo aggiornamento:** 2026-11-18 22:45
 
 ## Vision
 
@@ -173,7 +173,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
 - [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
-- **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) eliminare GDC-project 2 per pulizia, solo dopo conferma esplicita dell'utente e dopo aver verificato che il nuovo funziona; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
+- **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**: va solo pulito, cioè rimosso tutto ciò che questo progetto vi ha messo (tabella `gdc_dev_logs`, regole, trigger, funzioni, eventuali altri oggetti), lasciando il progetto vuoto e vivo; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 
 ### Step 9 — Hardware opzionale
 
@@ -189,6 +189,17 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 22:45] Correzione del promemoria: project 2 si pulisce, non si elimina
+
+**Riepilogo:** corretto il promemoria Supabase: GDC-project 2 non va eliminato, va solo ripulito da tutto ciò che questo progetto vi ha messo.
+
+**Decisioni prese:**
+- Supera la decisione del: 2026-11-18 22:30 (eliminare project 2) — l'utente ha precisato che il progetto deve restare e va solo pulito. Il controllo di GDC-project (l'altra app) resta com'era: solo verifica che non siano rimasti resti, senza toccare ciò che appartiene all'altra app.
+
+**File consegnati/modificati:** documento v39 (nota in Step 11).
+
+---
 
 ### [2026-11-18 22:30] Promemoria: pulizia dei progetti Supabase
 
