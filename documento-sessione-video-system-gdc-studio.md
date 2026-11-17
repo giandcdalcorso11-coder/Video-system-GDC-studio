@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 34
-**Ultimo aggiornamento:** 2026-11-18 19:00
+**Versione:** 35
+**Ultimo aggiornamento:** 2026-11-18 20:00
 
 ## Vision
 
@@ -186,6 +186,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 20:00] Misura della memoria dell'iPad e verso il test interno
+
+**Riepilogo:** aggiunto il pulsante "Misura memoria di questo dispositivo" (dashboard r21, solo Avanzata) e impostata la direzione del test interno con dashboard e camere da sviluppatore: strumenti di precauzione in Avanzata, strumenti utili al test in Base, log sempre attivi.
+
+**Cosa è stato fatto:** il pulsante tiene in memoria blocchi da 256 MB fino a 4 GB, come i file ricevuti senza cartella, rilegge un pezzo per ogni passo e scrive un log (inviato prima del passo successivo). Se la pagina viene chiusa dal sistema, alla riapertura il registro riporta l'ultimo valore retto ("la prova di memoria precedente si è interrotta dopo X MB"). Provata in Chromium con tetto ridotto.
+
+**Decisioni prese:**
+- Contesto: per i test interni servono tutti gli strumenti disponibili, per il pubblico solo quelli utili. Decisione: link da sviluppatore con log sempre attivi (`?dev=1`, invio anche in Base); separare gli strumenti di precauzione (Avanzata) da quelli realmente utili al test (Base). Il tetto di 1,5 GB di memoria resta una stima: si imposta dopo la misura reale sull'iPad.
+
+**File consegnati/modificati:** docs/dashboard.html (r21); documento v35.
+
+---
 
 ### [2026-11-18 19:00] Protezione della regia, punti 2 e 3: disco pieno e memoria dell'iPad
 

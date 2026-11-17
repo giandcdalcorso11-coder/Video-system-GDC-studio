@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r20";
+const PAGE_VERSION = "dashboard r21";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -382,6 +382,7 @@ const kv = (() => {
   return { get: (k) => open().then((d) => new Promise((res, rej) => { const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); })),
     set: (k, v) => open().then((d) => new Promise((res, rej) => { const t = d.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); })) };
 })();
+{ const m = store.get("gdc.memTest", null); if (m && m.running) { store.set("gdc.memTest", null); dbg("error", "memoria", `LA PROVA DI MEMORIA PRECEDENTE SI È INTERROTTA: la pagina si era richiusa dopo aver retto ${m.mb} MB (il passo successivo non è riuscito)`); log("", `La prova di memoria precedente si è interrotta dopo ${m.mb} MB: è il limite di questo dispositivo.`); } }
 if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); Dest.check(); } }).catch(() => {});
 setInterval(() => { if (typeof Xfer !== "undefined" && Dest.mode === "folder" && Dest.handle && !Xfer.active().some((j) => j.state === "in corso")) Dest.check(); }, 15000);
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
@@ -422,6 +423,26 @@ const Xfer = {
     let p = await Dest.handle.queryPermission({ mode: "readwrite" }); if (p !== "granted") p = await Dest.handle.requestPermission({ mode: "readwrite" });
     if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; }
     const h = await Dest.check(); if (h && !h.ok) { log("", `Cartella “${Dest.handle.name}”: ${h.msg}. Nessun trasferimento avviato: i file restano sul telefono.`); return false; } return true;
+  },
+  memState: "", memBusy: false,
+  // misura quanti dati questo dispositivo regge in memoria (come i file ricevuti senza cartella): prova a tenere blocchi sempre più grandi e riporta fin dove arriva
+  async memMeasure() {
+    if (this.memBusy) return; this.memBusy = true; const cap = (window.__memCapMB || 4096) * 1048576, step = (window.__memStepMB || 256) * 1048576, blk = new Uint8Array(1048576), t0 = performance.now();
+    for (let o = 0; o < blk.length; o += 65536) crypto.getRandomValues(blk.subarray(o, o + 65536));
+    const L = (lv, m, d) => { dbg(lv, "memoria", m, d); try { window.GDC_DEV && GDC_DEV.flush(); } catch { /* ok */ } };
+    L("info", "=== INIZIO MISURA MEMORIA ===", { tettoProvaMB: Math.round(cap / 1048576), passoMB: Math.round(step / 1048576), ua: navigator.userAgent, memoriaDispositivoGB: navigator.deviceMemory || null });
+    const parts = []; let held = 0, esito = "tetto di prova raggiunto senza errori (la memoria reale è almeno questa)";
+    try {
+      while (held < cap) {
+        for (let i = 0; i < step / 1048576; i++) parts.push(blk.slice().buffer); held += step; this.memState = `${Math.round(held / 1048576)} MB`;
+        store.set("gdc.memTest", { running: true, mb: Math.round(held / 1048576), at: Date.now() }); this.refresh();
+        const b = new Blob(parts.map((x) => new Blob([x]))), back = await b.slice(0, 65536).arrayBuffer(); if (b.size !== held || back.byteLength !== 65536) throw new Error("il blocco riletto non coincide");
+        L("info", `reggo ${Math.round(held / 1048576)} MB in memoria`, { secondi: Math.round((performance.now() - t0) / 1000) });
+        await new Promise((r) => setTimeout(r, 3300)); // lascia il tempo di inviare il log prima del passo successivo: se la pagina viene chiusa dal sistema, l'ultimo passo riuscito è già registrato
+      }
+    } catch (e) { esito = `errore a ${Math.round(held / 1048576)} MB: ${e.name}: ${e.message}`; }
+    parts.length = 0; store.set("gdc.memTest", null); this.memState = ""; this.memBusy = false; this.refresh();
+    L("info", "=== MISURA MEMORIA COMPLETATA ===", { tenutiMB: Math.round(held / 1048576), esito, secondi: Math.round((performance.now() - t0) / 1000) });
   },
   byX: new Map(), MAXTRY: 6, MEMMAX: window.__memMax || 1.5 * 1073741824,
   // sull'iPad (e senza cartella) i file arrivano in memoria finché non tocchi Salva: la memoria della pagina è limitata, quindi si tiene un tetto
@@ -496,7 +517,7 @@ const Xfer = {
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.memState, Dest.health && Dest.health.msg, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -515,7 +536,7 @@ const Xfer = {
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.keepPrev ? "⚠ Con una rete debole il trasferimento può rallentare o interrompersi, ma nessun file va perso: resta sul telefono finché non è arrivato e verificato, e il trasferimento riprende da dove si era fermato (se si ferma del tutto, tocca Riprendi). Se rallenta troppo, spegni questa spunta." : "Durante un trasferimento l'anteprima si ferma per lasciare tutta la rete al file e riparte alla fine."}</div>
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
-        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button></div>
+        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button><button class="ghost adv-only" data-xf="mem" ${this.memBusy ? "disabled" : ""}>${this.memBusy ? "Misuro… " + this.memState : "Misura memoria di questo dispositivo"}</button></div>
         ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.id}"></span></div>
           <div data-xp="${j.id}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
           <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : (j.state === "interrotto" ? esc(j.note) : "Trasferimento…")} ${j.path ? "· " + esc(j.path) : ""}</div>
@@ -541,7 +562,7 @@ addEventListener("beforeunload", (e) => { if (Xfer.unsafe()) { e.preventDefault(
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-xf]"); if (!b || b.tagName === "INPUT") return; const pn = b.closest("[data-cam]"), id = pn && pn.dataset.cam; if (!id) return;
   const a = b.dataset.xf;
-  if (a === "chk") { Dest.health = null; Xfer.ensureDest().then(() => Dest.check()).then(() => Xfer.refresh()); } else if (a === "pick") Xfer.pick().then(() => Dest.check()); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
+  if (a === "mem") Xfer.memMeasure(); else if (a === "chk") { Dest.health = null; Xfer.ensureDest().then(() => Dest.check()).then(() => Xfer.refresh()); } else if (a === "pick") Xfer.pick().then(() => Dest.check()); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
   else if (a === "go") { const k = ((state[id] && state[id].clips) || []).find((x) => x.id === b.dataset.sid); if (k) Xfer.start(id, k); }
   else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid); else if (a === "resume") Xfer.resume(b.dataset.xid);
 });
