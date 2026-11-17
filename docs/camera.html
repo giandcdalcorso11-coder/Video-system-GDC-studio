@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r18";
+const PAGE_VERSION = "camera r19";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -127,6 +127,7 @@ const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
 let stream = null, recording = null, standby = false, lastErr = "", pairing = null, lastTapT = 0, storageMode = "indexeddb";
 const bat = { level: null, charging: null, at: 0 };
+try { if (!localStorage.getItem("gdc.batfix1")) { localStorage.removeItem("gdc.bat." + ID); localStorage.setItem("gdc.batfix1", "1"); } } catch { /* ok */ }
 try { const o = JSON.parse(localStorage.getItem("gdc.bat." + ID)); if (o && o.level != null) Object.assign(bat, o); } catch { /* ok */ }
 function setBat(level, charging, src) {
   let l = Number(level); if (!isFinite(l)) { dbg("warn", `batteria: valore non valido da ${src}: ${JSON.stringify(level)}`); return false; }
@@ -641,7 +642,7 @@ $("batInfo").onclick = () => {
   copyText(`DATI PER COMANDI — camera ${cfg.name} (${ID})\n\nURL:\n${batReq({}).url}\n\nMetodo: POST\nIntestazioni:\napikey: ${pairing.k}\nAuthorization: Bearer ${pairing.k}\nContent-Type: application/json\n\nTESTO A (solo livello: soglie e apertura Safari):\n${r({ level: L }).replace('"' + L + '"', "LIVELLO")}\n\nTESTO B (caricabatterie collegato):\n${r({ level: L, charging: true }).replace('"' + L + '"', "LIVELLO")}\n\nTESTO C (caricabatterie scollegato):\n${r({ level: L, charging: false }).replace('"' + L + '"', "LIVELLO")}\n\nIn ogni testo sostituisci la parola LIVELLO con la variabile "Livello batteria" (senza virgolette).\n`, $("batInfo"));
 };
 $("batTest").onclick = async () => {
-  if (!pairing) return; const q = batReq({ level: bat.level ?? 50 }); dbg("info", `prova invio batteria come Comandi (${q.url})`);
+  if (!pairing) return; const q = batReq({ level: bat.level ?? 0, test: true }); dbg("info", `prova invio batteria come Comandi (${q.url})`);
   try { const res = await fetch(q.url, { method: "POST", headers: { apikey: pairing.k, Authorization: "Bearer " + pairing.k, "Content-Type": "application/json" }, body: q.body }); const tx = await res.text().catch(() => ""); dbg(res.ok ? "info" : "error", `prova invio batteria: HTTP ${res.status} ${tx.slice(0, 200)}`); $("batTest").textContent = res.ok ? "Inviata ✓ (HTTP " + res.status + ")" : "Errore HTTP " + res.status; }
   catch (e) { dbg("error", `prova invio batteria fallita: ${e.name}: ${e.message}`); $("batTest").textContent = "Errore: " + e.name; }
   setTimeout(() => ($("batTest").textContent = "Prova invio batteria"), 4000);
@@ -667,7 +668,7 @@ async function start() {
   if (!pairing) return;
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
-  rt.on("battery", (m) => { if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
+  rt.on("battery", (m) => { if (m && m.test) { dbg("info", "prova di invio ricevuta dal canale: valore di prova, non salvato"); return; } if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
   setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));

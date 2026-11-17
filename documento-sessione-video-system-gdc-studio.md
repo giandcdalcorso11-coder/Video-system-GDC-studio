@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 22
-**Ultimo aggiornamento:** 2026-11-17 17:10
+**Versione:** 23
+**Ultimo aggiornamento:** 2026-11-17 17:40
 
 ## Vision
 
@@ -168,6 +168,20 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 17:40] Batteria "50" sulla dashboard: era il valore di prova del pulsante, non Comandi (camera r19)
+
+**Riepilogo:** la dashboard mostrava 50% con il telefono al 69%; il 50 era un valore segnaposto inviato dal pulsante "Prova invio batteria", mentre dalla scorciatoia di Comandi non è ancora arrivata nessuna richiesta.
+
+**Bug: batteria 50% finta salvata dal pulsante di prova**
+
+**Sintomo:** dashboard a 50% con batteria reale 69%.
+**Causa:** il pulsante "Prova invio batteria" inviava `bat.level ?? 50` come se fosse una misura di Comandi, e la camera lo salvava e lo ripubblicava (log 15:11-15:12: "batteria da Comandi: 50%", HTTP 202). Il percorso browser → Supabase → camera → dashboard funziona, ma il valore era finto. Nei registri Supabase non risulta ancora nessuna richiesta da Comandi/Shortcuts.
+**Fix applicato:** il pulsante ora invia un evento con `test: true` che la camera riceve e registra senza salvarlo; ripristino una tantum del livello salvato sul telefono (chiave `gdc.batfix1`). Provato in Chromium con camera e dashboard simulate: evento di prova ignorato, evento reale (69) salvato e mostrato sulla dashboard. Da verificare con la scorciatoia vera.
+
+**File consegnati/modificati:** `docs/camera.html` (r19), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-17 17:10] Trasferimento riuscito su hardware reale; batteria da Comandi: nessuna richiesta arrivata
 
