@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 21
-**Ultimo aggiornamento:** 2026-11-17 16:20
+**Versione:** 22
+**Ultimo aggiornamento:** 2026-11-17 17:10
 
 ## Vision
 
@@ -96,7 +96,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 6 — Trasferimento file e destinazioni
 
-**Stato:** in corso (prima versione implementata, da provare sui dispositivi veri)
+**Stato:** in corso (provato con successo su iPhone 15 → iPad su rete molto debole; mancano prove su PC con cartella, su rete locale veloce e su file grandi)
 
 **Obiettivo:** arrivo dei file nella cartella del PC (Edge, File System Access) con barra di avanzamento e "sicuro da chiudere"; poi destinazioni alternative.
 
@@ -106,6 +106,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Fattibilità chiarita per ogni destinazione.
+- [2026-11-17] Prova reale iPhone 15 → iPad (rete del telefono molto debole, 0,2-0,9 Mbps): clip da 6,3 MB arrivata e verificata dopo 3 riprese automatiche (byte 1 140 000, 2 640 000, 4 440 000, CRC ok) e una manuale; video visto dalla galleria dell'iPad, qualità ottima.
 - [2026-11-17] Ripresa automatica dopo un'interruzione: il ricevente conserva quanto ricevuto (destinazione aperta e CRC32 progressivo), a ogni tentativo ricevente e mittente si accordano sul byte di ripartenza e la camera controlla il CRC32 dei byte già consegnati prima di continuare; fino a 6 tentativi automatici a distanza di 6 s, poi pulsante "Riprendi". Coda di invio ridotta (1 MB) perché i byte "inviati" siano quasi quelli arrivati.
 - [2026-11-15] Prima versione: invio diretto camera → dashboard con WebRTC data channel (segnalazione su Supabase, evento `xrtc`), a blocchi da 60 KB con controllo della coda, controllo finale di dimensione e CRC32; destinazioni: cartella del computer (File System Access, solo Edge/Chrome desktop; la cartella è ricordata) oppure memoria del dispositivo + Salva/Condividi; opzione "elimina dal telefono dopo il trasferimento verificato" (spenta di default); barra di avanzamento con velocità e tempo residuo; indicatore "Sicuro da chiudere"; prova di velocità da 30 MB con tipo di percorso (rete locale/relay). Provato in Chromium con camera e dashboard simulate: SHA-256 identico sia in memoria sia con cartella simulata, eliminazione dopo la verifica ok. Non ancora fatta: ripresa dopo interruzione, coda in background, TURN.
 - [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
@@ -167,6 +168,20 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 17:10] Trasferimento riuscito su hardware reale; batteria da Comandi: nessuna richiesta arrivata
+
+**Riepilogo:** il trasferimento con ripresa funziona sull'iPhone 15 e sull'iPad anche con rete pessima (file verificato, qualità ottima); per la batteria dai log e dai registri di Supabase non risulta alcuna richiesta di Comandi, né sul progetto nuovo né sul vecchio.
+
+**Cosa è stato fatto:**
+- Log del trasferimento (camera r18, dashboard r13): 6 interruzioni per "nessun dato / nessuna risposta per 25-30 secondi", riprese a 1 140 000, 2 640 000 e 4 440 000 byte con controllo CRC ok; i 6 tentativi automatici sono finiti alle 14:54:26, il titolare ha premuto "Riprendi" e alle 14:55:00 il file da 6 577 081 byte era completo e verificato. Nessun "già in corso".
+- Modifica: i tentativi automatici si azzerano ogni volta che si avanza (dashboard r14): il limite di 6 vale per tentativi consecutivi senza progresso.
+- Batteria: nei log delle pagine nessuna riga di batteria (`rx battery`, `setBat`, "Prova invio batteria"); nei registri `edge_logs` del progetto GDC-project 2 tutte le richieste a `/realtime/v1/api/broadcast` (274 POST, 3 OPTIONS tra 13:16 e 13:54 UTC) vengono dal browser dell'iPhone (messaggi di stato inviati via REST quando il WebSocket è giù, 202), nessuna da Comandi/Shortcuts; nessuna richiesta nemmeno sul progetto GDC-WEBAPP.
+- Possibili cause da verificare: scorciatoia non eseguita o fallita prima dell'invio, URL o chiave del vecchio progetto (i dati per Comandi vanno ricopiati dal pulsante "Dati per Comandi (batteria)" della camera, perché il canale e il progetto sono cambiati), ritardo dei registri.
+
+**File consegnati/modificati:** `docs/dashboard.html` (r14), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-17 16:20] "Un altro trasferimento è già in corso" a ogni ripresa: invio rimasto appeso (camera r18, dashboard r13)
 

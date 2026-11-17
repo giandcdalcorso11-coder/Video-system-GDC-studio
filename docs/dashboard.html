@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r13";
+const PAGE_VERSION = "dashboard r14";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -407,8 +407,9 @@ const Xfer = {
   async runJob(job) {
     const c = camById(job.camId);
     for (;;) {
-      let err = null; try { await this.attempt(job); } catch (e) { err = e; }
+      const g0 = job.st.got; let err = null; try { await this.attempt(job); } catch (e) { err = e; }
       if (!err) break;
+      if (job.st.got > g0) job.attempt = 0; // i tentativi si contano solo se non si avanza: su una rete lenta ma che avanza si può riprendere a lungo
       const fatalCam = /non trovata|nessun dato|registrazione ancora in corso|incompleta|annullato dalla dashboard/.test(job.camError || ""); // solo gli errori sulla registrazione sono definitivi; quelli di rete si riprovano
       if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
       if (!job.test && !fatalCam && job.attempt < this.MAXTRY) {
