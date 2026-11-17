@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 24
-**Ultimo aggiornamento:** 2026-11-17 18:00
+**Versione:** 25
+**Ultimo aggiornamento:** 2026-11-17 18:20
 
 ## Vision
 
@@ -140,6 +140,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] Messo in pipeline. Circa 20 automazioni da creare a mano.
 - [2026-10-15] Scelto il canale: Comandi invia un POST all'API REST di Supabase Realtime (`/realtime/v1/api/broadcast`, evento `battery`, canale del progetto) con id camera e livello (e opzionalmente `charging`). Camera r6 riceve l'evento, salva e rimanda lo stato alla dashboard con l'ora della misura. Pulsanti "Dati per Comandi (batteria)" e "Prova invio batteria" nella pagina camera. Il POST REST non è stato provato dal vivo (rete della sandbox bloccata): da verificare sull'XR con "Prova invio batteria".
+- [2026-11-17] Sonda camera r20 sull'iPhone 15 (Safari 27.2, iOS 18.7): `navigator.getBattery` assente (log 15:21). Test da fare più avanti: aprire la camera da Chrome su un telefono Android (dove l'API dovrebbe esistere e dare la batteria senza Comandi); su iPhone tutti i browser usano WebKit, quindi Chrome iOS non cambia (da verificare solo se in UE esistesse un motore diverso).
 
 ### Step 10 — Modalità Base/Avanzata e log inviati a Claude
 
@@ -168,6 +169,18 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 18:20] Verificato: niente API batteria su Safari 27.2 (iPhone 15)
+
+**Riepilogo:** la sonda della camera r20 ha registrato `navigator.getBattery` assente su iPhone 15 (Safari 27.2, iOS 18.7); la batteria su iPhone resta affidata a Comandi. Il titolare proverà più avanti ad aprire la camera da un altro browser.
+
+**Cosa è stato fatto:**
+- Lettura del log: `API batteria del browser (navigator.getBattery): assente {"versione":"Version/27.2","os":"iOS 18.7"}`.
+- Registrato come test da fare: camera aperta da Chrome su Android (API attesa presente). Nota: su iPhone tutti i browser usano il motore di Safari, quindi Chrome iOS non dovrebbe cambiare il risultato.
+
+**File consegnati/modificati:** `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-17 18:00] Chiarito il test batteria: sonda sull'API del browser (camera r20)
 
