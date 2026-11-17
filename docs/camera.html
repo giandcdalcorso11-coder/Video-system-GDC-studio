@@ -91,7 +91,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r26";
+const PAGE_VERSION = "camera r27";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -326,6 +326,7 @@ async function openCam() {
   const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];
   dbg("info", `camera aperta in ${Math.round(performance.now() - t0)} ms`, { video: vt && vt.getSettings(), audio: at ? at.getSettings() : "assente", etichetta: vt && vt.label });
   if (zoomWanted !== 1 && zoomInfo().native) { try { await vt.applyConstraints({ advanced: [{ zoom: zoomWanted }] }); dbg("info", `zoom ripristinato a ${zoomWanted}×`); } catch (e) { dbg("warn", `zoom non ripristinato: ${e.name}`); } }
+  if (Object.keys(pro).length) setTimeout(() => reapplyPro().catch(() => {}), 600);
   lastErr = lastErr.startsWith("Camera") ? "" : lastErr; $("camStop").disabled = false; $("recBtn").disabled = false; publish();
   wakeOn();
   if (!capsLogged) { capsLogged = true; mediaProbe(vt, at).catch((e) => dbg("warn", `sonda media: ${e.name}: ${e.message}`)); }
@@ -575,6 +576,29 @@ function setStandby(on) {
 /* ===== Stato verso la dashboard ===== */
 const fmtT = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); };
 let zoomWanted = 1;
+/* Controlli avanzati: torcia, fuoco, bilanciamento del bianco, esposizione. Si mostrano solo quelli che il telefono dichiara di supportare. */
+let pro = store.get("gdc.pro", {});
+const PRO_KEYS = { torch: "b", focusMode: "s", focusDistance: "n", whiteBalanceMode: "s", colorTemperature: "n", exposureMode: "s", exposureCompensation: "n", iso: "n", exposureTime: "n" };
+function proInfo() {
+  const vt = stream && stream.getVideoTracks()[0]; if (!vt) return null; let c = {}, st = {};
+  try { c = vt.getCapabilities ? vt.getCapabilities() : {}; st = vt.getSettings ? vt.getSettings() : {}; } catch { return null; }
+  const num = (k) => c[k] && typeof c[k] === "object" && c[k].max != null ? { min: c[k].min, max: c[k].max, step: c[k].step || 0, cur: st[k] ?? null } : null, o = {};
+  if (c.torch) o.torch = { cur: !!st.torch };
+  if (Array.isArray(c.focusMode) || c.focusDistance) o.focus = { modes: Array.isArray(c.focusMode) ? c.focusMode : [], cur: st.focusMode || null, dist: num("focusDistance") };
+  if (Array.isArray(c.whiteBalanceMode) || c.colorTemperature) o.wb = { modes: Array.isArray(c.whiteBalanceMode) ? c.whiteBalanceMode : [], cur: st.whiteBalanceMode || null, temp: num("colorTemperature") };
+  if (Array.isArray(c.exposureMode) || c.exposureCompensation || c.iso || c.exposureTime) o.exp = { modes: Array.isArray(c.exposureMode) ? c.exposureMode : [], cur: st.exposureMode || null, comp: num("exposureCompensation"), iso: num("iso"), shutter: num("exposureTime") };
+  return Object.keys(o).length ? o : null;
+}
+async function applyPro(set, reset) {
+  const vt = stream && stream.getVideoTracks()[0]; if (!vt) return { errore: "camera spenta" }; const res = {};
+  if (reset) { set = { focusMode: "continuous", whiteBalanceMode: "continuous", exposureMode: "continuous", exposureCompensation: 0, torch: false }; pro = {}; }
+  for (const [k, v] of Object.entries(set || {})) {
+    if (!(k in PRO_KEYS) || (PRO_KEYS[k] === "b" ? typeof v !== "boolean" : PRO_KEYS[k] === "n" ? typeof v !== "number" || !isFinite(v) : typeof v !== "string")) { res[k] = "valore non valido"; continue; }
+    try { await vt.applyConstraints({ advanced: [{ [k]: v }] }); res[k] = "ok"; if (k !== "torch" && !reset) pro[k] = v; } catch (e) { res[k] = `${e.name}: ${e.message}`; dbg("warn", `controllo ${k}=${v} non applicato: ${e.name}: ${e.message}`); }
+  }
+  store.set("gdc.pro", pro); dbg("info", reset ? "controlli avanzati riportati in automatico" : "controlli avanzati applicati", { richiesti: set, esito: res }); publish(); return res;
+}
+async function reapplyPro() { const set = {}; for (const k of ["focusMode", "focusDistance", "whiteBalanceMode", "colorTemperature", "exposureMode", "exposureCompensation", "iso", "exposureTime"]) if (k in pro) set[k] = pro[k]; if (Object.keys(set).length) { const keep = pro; await applyPro(set); pro = keep; store.set("gdc.pro", pro); } }
 function zoomInfo() {
   const vt = stream && stream.getVideoTracks()[0]; let c = null, cur = null;
   try { c = vt && vt.getCapabilities ? vt.getCapabilities().zoom : null; } catch { /* ok */ }
@@ -649,7 +673,7 @@ async function batProbe() {
 function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, station: !!cfg.station, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
-    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
+    bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), pro: proInfo(), storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s, /webm/.test(s.mime || "") ? "webm" : "mp4"), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
@@ -790,6 +814,7 @@ async function onCmd(m) {
       case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
       case "zoom": detail = await setZoom(m.z); break;
+      case "pro": detail = await applyPro(m.set, !!m.reset); ok = !Object.values(detail).some((x) => x !== "ok") || !!m.reset; break;
       case "station_cfg": cfg.station = !!m.on; store.set("gdc.camCfg", cfg); dbg("info", `postazione fissa ${cfg.station ? "attivata" : "spenta"}`); publish(); detail = { station: cfg.station }; break;
       case "space_cfg": cfg.autoFree = !!m.autoFree; store.set("gdc.camCfg", cfg); dbg("info", `spazio: liberazione automatica delle clip verificate ${cfg.autoFree ? "attivata" : "spenta"}`); spaceTick(); publish(); detail = { autoFree: cfg.autoFree }; break;
       case "xfer_start": detail = await xferStart(m); break;

@@ -138,7 +138,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r26";
+const PAGE_VERSION = "dashboard r27";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -284,7 +284,7 @@ class RealtimeTransport {
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, pro: m.pro || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -298,7 +298,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -590,6 +590,28 @@ const BIND = {
   stationUi: (st, c, el) => { const cb = $("#stationChk", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!st.station; cb.disabled = !st.online; },
   autoFreeUi: (st, c, el) => { const cb = $("#autoFree", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!(st.space && st.space.autoFree); cb.disabled = !st.online; },
   spaceNote: (st, c, el) => { const sp = st.space; el.textContent = !st.online || !sp ? "" : `Base di calcolo: ${sp.basis || "n/d"}${sp.measuredMB ? " · limite misurato " + sp.measuredMB + " MB" : ""}${sp.quotaMB != null ? " · quota browser " + sp.quotaMB + " MB (usati " + sp.usageMB + " MB)" : ""} · liberati finora: ${sp.freedMB || 0} MB`; },
+  proUi: (st, c, el) => {
+    const p = st.pro, on = !!(st.online && st.camReady && p), sig = JSON.stringify(on ? [!!p.torch, p.focus && [p.focus.modes, !!p.focus.dist && [p.focus.dist.min, p.focus.dist.max]], p.wb && [p.wb.modes, !!p.wb.temp && [p.wb.temp.min, p.wb.temp.max]], p.exp && [p.exp.modes, ["comp", "iso", "shutter"].map((k) => p.exp[k] && [p.exp[k].min, p.exp[k].max])]] : [on]);
+    const NM = { continuous: "Automatico", manual: "Manuale", "single-shot": "Blocca" };
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig; const sl = (k, o, lbl, fmt) => o ? `<div class="pr"><div class="row" style="gap:10px;align-items:center"><span style="min-width:92px">${lbl}</span><input type="range" data-pk="${k}" min="${o.min}" max="${o.max}" step="${o.step || "any"}" style="flex:1"><b data-pv="${k}" style="min-width:60px;text-align:right"></b></div></div>` : "";
+      const md = (k, ms, lbl) => ms && ms.length > 1 ? `<div class="row" style="gap:10px;align-items:center;margin-top:6px"><span style="min-width:92px">${lbl}</span><select data-pm="${k}" style="flex:1">${ms.map((m) => `<option value="${m}">${NM[m] || m}</option>`).join("")}</select></div>` : "";
+      el.innerHTML = `<h2>Controlli camera</h2>` + (!on ? `<div class="muted">${!st.online ? "" : !st.camReady ? "Camera spenta." : "Questo telefono non offre controlli avanzati (torcia, fuoco, bianco, esposizione)."}</div>` : `
+        ${p.torch ? `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-pt="torch" style="width:auto;min-height:0"> Torcia</label>` : ""}
+        ${p.focus ? `<div style="margin-top:8px"><b>Fuoco</b>${md("focusMode", p.focus.modes, "Modo")}${sl("focusDistance", p.focus.dist, "Distanza", 0)}</div>` : ""}
+        ${p.wb ? `<div style="margin-top:8px"><b>Bilanciamento del bianco</b>${md("whiteBalanceMode", p.wb.modes, "Modo")}${sl("colorTemperature", p.wb.temp, "Temperatura", 0)}</div>` : ""}
+        ${p.exp ? `<div style="margin-top:8px"><b>Esposizione</b>${md("exposureMode", p.exp.modes, "Modo")}${sl("exposureCompensation", p.exp.comp, "Correzione", 0)}${sl("iso", p.exp.iso, "ISO", 0)}${sl("exposureTime", p.exp.shutter, "Otturatore", 0)}</div>` : ""}
+        <div class="row" style="margin-top:10px;justify-content:flex-start"><button class="ghost" data-pk="reset">Tutto automatico</button></div>
+        <div class="muted" style="margin-top:6px;font-size:13px">Si vedono solo i controlli che questo telefono supporta. I valori manuali restano anche se la camera si riavvia.</div>`);
+    }
+    if (!on) return;
+    const act = document.activeElement, put = (k, v, f) => { const i = el.querySelector(`[data-pk="${k}"]`), t = el.querySelector(`[data-pv="${k}"]`); if (i && act !== i && v != null) i.value = v; if (t && v != null) t.textContent = f(v); };
+    const tb = el.querySelector('[data-pt="torch"]'); if (tb && act !== tb) tb.checked = !!(p.torch && p.torch.cur);
+    const ms = (k, v) => { const s2 = el.querySelector(`[data-pm="${k}"]`); if (s2 && act !== s2 && v) s2.value = v; };
+    if (p.focus) { ms("focusMode", p.focus.cur); put("focusDistance", p.focus.dist && p.focus.dist.cur, (v) => Number(v).toFixed(2)); }
+    if (p.wb) { ms("whiteBalanceMode", p.wb.cur); put("colorTemperature", p.wb.temp && p.wb.temp.cur, (v) => Math.round(v) + " K"); }
+    if (p.exp) { ms("exposureMode", p.exp.cur); put("exposureCompensation", p.exp.comp && p.exp.comp.cur, (v) => (v > 0 ? "+" : "") + Number(v).toFixed(1)); put("iso", p.exp.iso && p.exp.iso.cur, (v) => String(Math.round(v))); put("exposureTime", p.exp.shutter && p.exp.shutter.cur, (v) => (v <= 10000 ? "1/" + Math.round(10000 / v) + " s" : (v / 10000).toFixed(1) + " s")); }
+  },
   zoomUi: (st, c, el) => {
     const z = st.zoom, sl = $("#zSlider", el), val = $("#zVal", el), note = $("#zNote", el), ok = !!(st.online && st.camReady && z && z.native);
     if (ok) { sl.min = z.min; sl.max = z.max; }
@@ -732,6 +754,10 @@ document.addEventListener("click", async (e) => {
   if (e.target.closest("#qrCopy")) { try { await navigator.clipboard.writeText(Join.link()); e.target.textContent = "Copiato ✓"; } catch { e.target.textContent = "Copia non riuscita"; } return; }
   if (e.target.closest("#rejClr")) { Join.rejected.clear(); store.set("gdc.rejected", []); dbg("info", "camere", "rifiuti dimenticati"); route(); }
 });
+document.addEventListener("change", (e) => {
+  const pn = e.target.closest('[data-bind="proUi"]'); if (pn) { const id = pn.dataset.cam, k = e.target.dataset.pk || e.target.dataset.pm || e.target.dataset.pt; if (k && k !== "reset") { const v = e.target.type === "checkbox" ? e.target.checked : e.target.type === "range" ? Number(e.target.value) : e.target.value; command(id, { cmd: "pro", set: { [k]: v } }); } return; } });
+document.addEventListener("input", (e) => { const pn = e.target.closest('[data-bind="proUi"]'); if (pn && e.target.type === "range") { const t = pn.querySelector(`[data-pv="${e.target.dataset.pk}"]`); if (t) t.textContent = e.target.value; clearTimeout(e.target._t); const k = e.target.dataset.pk, id = pn.dataset.cam, v = Number(e.target.value); e.target._t = setTimeout(() => command(id, { cmd: "pro", set: { [k]: v } }), 250); } });
+document.addEventListener("click", (e) => { const b = e.target.closest('[data-bind="proUi"] [data-pk="reset"]'); if (b) command(b.closest("[data-cam]").dataset.cam, { cmd: "pro", reset: true }); });
 document.addEventListener("change", (e) => { if (e.target.id === "apprChk") { Join.approve = e.target.checked; store.set("gdc.approve", Join.approve); dbg("info", "camere", `conferma prima di far entrare: ${Join.approve}`); if (!Join.approve) Object.keys(Join.pending).forEach((id) => Join.accept(id)); Xfer.refresh(); const t = e.target.parentNode.nextElementSibling; if (t) t.textContent = Join.approve ? "Un telefono nuovo compare qui con Accetta e Rifiuta. Quelli già collegati rientrano da soli." : "Chi apre il link entra subito, senza chiedere."; } });
 
 // orologio delle camere: scarto di ogni telefono rispetto alla regia (si prende il campione con il tempo di andata e ritorno più breve)
@@ -913,6 +939,7 @@ function showDetail(id) {
             <div class="kv adv-only"><small>Orientamento</small><span data-bind="orient" data-cam="${id}"></span></div>
           </div>${REAL ? `<div class="row" style="margin-top:8px"><select id="cfgRes"><option>720p</option><option selected>1080p</option><option>4K</option></select><select id="cfgBps"><option value="8000000">8 Mbps</option><option value="20000000" selected>20 Mbps</option><option value="40000000">40 Mbps</option></select><button class="ghost" id="cfgApply">Applica al telefono</button></div><div class="muted" style="margin-top:6px">Il bitrate è un tetto: con scene ferme il file può pesare meno.</div>` : `<div class="muted" style="margin-top:6px">Modalità simulazione: impostazioni non modificabili.</div>`}</div>
         ${REAL ? `<div class="panel" data-bind="xferUi" data-cam="${id}"></div>` : ""}
+        ${REAL ? `<div class="panel adv-only" data-bind="proUi" data-cam="${id}"></div>` : ""}
         ${REAL ? `<div class="panel" data-bind="zoomUi" data-cam="${id}"><h2>Zoom</h2>
           <div class="row" style="gap:10px;align-items:center"><input type="range" id="zSlider" min="1" max="3" step="0.1" value="1" style="flex:1" disabled><b id="zVal" style="min-width:52px;text-align:right">—</b></div>
           <div class="row" style="margin-top:8px">${[0.5, 1, 2, 3, 5].map((z) => `<button class="ghost zb" data-z="${z}" disabled>${z}×</button>`).join("")}</div>

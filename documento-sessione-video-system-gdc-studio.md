@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 42
-**Ultimo aggiornamento:** 2026-11-19 00:30
+**Versione:** 43
+**Ultimo aggiornamento:** 2026-11-19 01:30
 
 ## Vision
 
@@ -189,6 +189,18 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 01:30] Controlli avanzati della fotocamera
+
+**Riepilogo:** pannello "Controlli camera" (dashboard r27, solo Avanzata; camera r27) con torcia, fuoco, bilanciamento del bianco ed esposizione, mostrati solo se il telefono li dichiara.
+
+**Cosa è stato fatto:** la camera legge le capacità della traccia video (torcia, modo e distanza di fuoco, modo e temperatura del bianco, modo, correzione, ISO e otturatore dell'esposizione) e le invia nello stato; la dashboard costruisce il pannello solo con ciò che esiste. Comando `pro` con validazione dei valori, applicati uno alla volta; i valori manuali (non la torcia) si riapplicano quando la camera si riavvia; "Tutto automatico" riporta modi in automatico, correzione 0 e torcia spenta. Provato in Chromium con capacità simulate: torcia, modo e distanza di fuoco, correzione di esposizione, riapplicazione dopo il riavvio della camera e reset.
+
+**Limiti noti:** non provato su telefoni reali. Le unità dell'otturatore variano tra browser (assunte 100 µs come in Chrome). Su iOS i controlli disponibili dipendono dalla versione di Safari: iPhone 15 con Safari 27.2 espone torcia, distanza di fuoco e bianco manuale; l'iPhone XR probabilmente quasi nulla. Il pannello è in Avanzata: si sposta in Base se serve.
+
+**File consegnati/modificati:** docs/camera.html (r27), docs/dashboard.html (r27); documento v43.
+
+---
 
 ### [2026-11-19 00:30] Recupero delle registrazioni dopo un blocco e postazione fissa
 
