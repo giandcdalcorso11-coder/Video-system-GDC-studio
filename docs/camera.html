@@ -91,7 +91,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r25";
+const PAGE_VERSION = "camera r26";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -198,6 +198,7 @@ const db = (() => {
     delFrameKeys: (keys) => storageMode === "memoria" ? Promise.resolve(keys.forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"), st = t.objectStore("frames"); keys.forEach((k) => st.delete(k)); await done(t); }),
     delFrames: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.frames.keys()].filter((k) => k.startsWith(sid + ":")).forEach((k) => mem.frames.delete(k))) : run(async (d) => { const t = d.transaction("frames", "readwrite"); t.objectStore("frames").delete(range(sid)); await done(t); }),
     putChunk: (k, b) => storageMode === "memoria" ? Promise.resolve(void mem.chunks.set(k, b)) : run(async (d) => { const t = d.transaction("chunks", "readwrite"); t.objectStore("chunks").put(b, k); await done(t); }),
+    allChunkKeys: () => storageMode === "memoria" ? Promise.resolve([...mem.chunks.keys()]) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAllKeys())),
     chunkKeys: (sid) => storageMode === "memoria" ? Promise.resolve([...mem.chunks.keys()].filter((k) => k.startsWith(sid + ":")).sort()) : run((d) => rq(d.transaction("chunks").objectStore("chunks").getAllKeys(range(sid)))),
     getChunk: (k) => storageMode === "memoria" ? Promise.resolve(mem.chunks.get(k)) : run((d) => rq(d.transaction("chunks").objectStore("chunks").get(k))),
     putSession: (o) => storageMode === "memoria" ? Promise.resolve(void mem.sessions.set(o.id, o)) : run(async (d) => { const t = d.transaction("sessions", "readwrite"); t.objectStore("sessions").put(o); await done(t); }),
@@ -213,6 +214,34 @@ async function loadSessions() {
   catch (e) { lastErr = "Archivio non disponibile: " + e.name; dbg("error", `lettura archivio fallita: ${e.name}: ${e.message}`); }
   renderClips();
 }
+
+// recupero: se la pagina viene chiusa dal sistema durante la registrazione, i pezzi restano nell'archivio: al riavvio si ricostruisce la clip
+async function recoverOrphans() {
+  try {
+    const keys = await db.allChunkKeys(), bySid = {}; keys.forEach((k) => { const sid = String(k).split(":")[0]; (bySid[sid] = bySid[sid] || []).push(k); });
+    const known = new Map((await db.sessions()).map((x) => [x.id, x])); let n = 0;
+    for (const sid of Object.keys(bySid)) {
+      if (recording && recording.sid === sid) continue; const old = known.get(sid); if (old && old.status !== "in corso") continue;
+      let bytes = 0; for (const k of bySid[sid]) { const b = await db.getChunk(k); bytes += b ? b.size : 0; }
+      const start = old ? old.start : parseInt(sid.slice(1), 36) || Date.now(), end = start + Math.max(bySid[sid].length * 1000, old && old.end > old.start ? old.end - old.start : 0); // un pezzo ogni secondo di ripresa
+      const s = { id: sid, start, end, dur: end - start, bytes, chunks: bySid[sid].length, mime: old ? old.mime : "video/mp4", res: old ? old.res : cfg.res, bps: old ? old.bps : Number(cfg.bps), status: bytes ? "pronta" : "errore", recovered: true };
+      await db.putSession(s); n++; dbg("warn", `registrazione ${sid} recuperata dopo un blocco`, { MB: +(bytes / 1048576).toFixed(1), pezzi: s.chunks, durataCirca_s: Math.round(s.dur / 1000) });
+    }
+    for (const x of known.values()) if (x.status === "in corso" && !bySid[x.id] && !(recording && recording.sid === x.id)) { await db.delSession(x.id); dbg("info", `registro vuoto ${x.id} eliminato`); }
+    if (n) { lastErr = `${n === 1 ? "Una registrazione è stata recuperata" : n + " registrazioni sono state recuperate"} dopo un blocco della pagina: la fine potrebbe mancare`; await loadSessions(); publish(); }
+  } catch (e) { dbg("error", `recupero registrazioni: ${e.name}: ${e.message}`); }
+}
+
+/* ===== Postazione fissa: si riprende da sola dopo blocchi ===== */
+let wantRec = store.get("gdc.wantRec", false), lastResume = 0, reopenFails = 0, reopenAt = 0;
+function setWant(v) { wantRec = !!v; store.set("gdc.wantRec", wantRec); }
+setInterval(async () => {
+  const now = Date.now();
+  // la camera deve restare accesa (se non è stata fermata a mano)
+  if (cfg.autoCam && !stream && !opening && !recording && pairing && !welcomePending && now >= reopenAt) { dbg("info", `controllo periodico: la camera è spenta, provo a riaccenderla (tentativo ${reopenFails + 1})`); await autoOpen("controllo periodico"); reopenFails = stream ? 0 : reopenFails + 1; reopenAt = Date.now() + Math.min(60000, 8000 * (reopenFails + 1)); }
+  // postazione fissa: la registrazione richiesta dalla regia riprende dopo un'interruzione
+  if (cfg.station && wantRec && stream && !recording && !tl && now - lastResume > 20000 && joinState !== "no") { lastResume = now; dbg("warn", "postazione fissa: la registrazione era richiesta ma non è in corso: la riavvio"); await startRec(); if (!recording) { dbg("error", `postazione fissa: riavvio non riuscito: ${lastErr}`); if (/Spazio/.test(lastErr)) setWant(false); } }
+}, 4000);
 
 /* ===== Spazio: quanto si può ancora registrare, avvisi, arresto sicuro e liberazione facoltativa ===== */
 const RESERVE = 200 * 1048576, SPACE = { quota: null, usage: null, at: 0, measuredMB: store.get("gdc.spaceMeasured", null), level: "ok", freed: 0 };
@@ -316,7 +345,7 @@ async function autoOpen(why) {
   catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }
   opening = false;
 }
-function stopCam() { dbg("info", "ferma camera"); wakeOff(); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+function stopCam() { dbg("info", "ferma camera"); wakeOff(); setWant(false); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
 
 /* ===== Registrazione: i pezzi vanno subito su disco ===== */
 async function startRec() {
@@ -329,7 +358,10 @@ async function startRec() {
   const sid = "s" + Date.now().toString(36), start = Date.now();
   let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; dbg("error", `MediaRecorder non creato: ${e.name}: ${e.message}`); publish(); return; }
   const rec = { mr, sid, start, seq: 0, bytes: 0, pending: 0, errs: 0, wr: [], mime: mr.mimeType || mime || "video/mp4", stopping: false };
-  recording = rec; lastErr = ""; dbg("info", `REC avviato sessione ${sid}`, { mime: rec.mime, bps: Number(cfg.bps), res: cfg.res, archivio: storageMode });
+  recording = rec; lastErr = ""; setWant(true);
+  db.putSession({ id: sid, start, end: start, dur: 0, bytes: 0, chunks: 0, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: "in corso" }).catch(() => {});
+  rec.hb = setInterval(() => db.putSession({ id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: "in corso" }).catch(() => {}), 10000);
+  dbg("info", `REC avviato sessione ${sid}`, { mime: rec.mime, bps: Number(cfg.bps), res: cfg.res, archivio: storageMode });
   mr.onerror = (e) => dbg("error", `MediaRecorder errore: ${e.error?.name || ""} ${e.error?.message || e.message || ""}`);
   mr.onpause = () => dbg("warn", "MediaRecorder in pausa"); mr.onresume = () => dbg("info", "MediaRecorder ripreso");
   mr.ondataavailable = (e) => {
@@ -339,7 +371,7 @@ async function startRec() {
   };
   rec.statTimer = setInterval(() => { const vt = stream && stream.getVideoTracks()[0]; dbg("info", `REC ${Math.round((Date.now() - start) / 1000)}s: ${rec.seq} pezzi, ${(rec.bytes / 1048576).toFixed(1)} MB, in scrittura ${rec.pending}, errori ${rec.errs}, buffer ${Math.round(bufBytes() / 1048576)} MB`, { videoTrack: vt ? { stato: vt.readyState, muto: vt.muted, ...vt.getSettings() } : "assente" }); }, 10000);
   mr.onstop = async () => {
-    clearInterval(rec.statTimer); while (rec.pending > 0) await sleep(50);
+    clearInterval(rec.statTimer); clearInterval(rec.hb); while (rec.pending > 0) await sleep(50);
     const s = { id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: rec.errs ? "errore" : "pronta" };
     try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; dbg("error", `registro sessione non salvato: ${e.name}: ${e.message}`); }
     dbg("info", `REC fermato sessione ${sid}`, { durata_s: Math.round(s.dur / 1000), pezzi: s.chunks, MB: +(s.bytes / 1048576).toFixed(1), errori: rec.errs, scrittura_media_ms: rec.wr.length ? Math.round(rec.wr.reduce((a, b) => a + b, 0) / rec.wr.length) : null });
@@ -347,7 +379,7 @@ async function startRec() {
   };
   mr.start(1000); publish();
 }
-function stopRec() { if (!recording || recording.stopping) return; recording.stopping = true; dbg("info", "richiesto stop registrazione"); try { recording.mr.stop(); } catch (e) { dbg("warn", `stop: ${e.message}`); } publish(); }
+function stopRec(byUser) { if (byUser) setWant(false); if (!recording || recording.stopping) return; recording.stopping = true; dbg("info", "richiesto stop registrazione"); try { recording.mr.stop(); } catch (e) { dbg("warn", `stop: ${e.message}`); } publish(); }
 
 
 /* ===== Time-lapse: le immagini (JPEG) vanno su disco, poi si compongono in un video ===== */
@@ -616,7 +648,7 @@ async function batProbe() {
 }
 function stateObj() {
   const v = $("vid");
-  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
+  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, station: !!cfg.station, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s, /webm/.test(s.mime || "") ? "webm" : "mp4"), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
@@ -749,7 +781,7 @@ async function onCmd(m) {
       case "ping": detail = { t0: m.t0 }; break;
       case "clock": clockOff = Number(m.off) || 0; store.set("gdc.clockOff", clockOff); dbg("info", `orologio: questo telefono è ${clockOff > 0 ? "avanti" : "indietro"} di ${Math.abs(clockOff)} ms rispetto alla regia (precisione ±${Math.round((Number(m.rtt) || 0) / 2)} ms): i nomi dei file lo correggono`); renderClips(); publish(); detail = { off: clockOff }; break;
       case "rec_start": await startRec(); ok = !!recording; detail = ok ? "registrazione avviata" : lastErr || "non avviata"; break;
-      case "rec_stop": stopRec(); detail = "stop richiesto"; break;
+      case "rec_stop": setWant(false); stopRec(true); detail = "stop richiesto"; break;
       case "standby": setStandby(!!m.on); detail = { standby }; break;
       case "config": if (!recording) { if (m.res && RES[m.res]) cfg.res = m.res; if (m.bps) cfg.bps = Number(m.bps); store.set("gdc.camCfg", cfg); syncForm(); if (stream) { try { await openCam(); } catch { ok = false; } } publish(); detail = { res: cfg.res, bps: cfg.bps }; } else { lastErr = "Impostazioni non applicate: registrazione in corso"; ok = false; detail = lastErr; publish(); } break;
       case "rename": if (m.name) cfg.name = m.name; if (m.device) cfg.device = m.device; store.set("gdc.camCfg", cfg); syncForm(); rt?.setMeta({ name: cfg.name, device: cfg.device }); publish(); detail = { name: cfg.name, device: cfg.device }; break;
@@ -758,6 +790,7 @@ async function onCmd(m) {
       case "preview_start": await startPreview(m.from, m.q); detail = "offerta inviata"; break;
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
       case "zoom": detail = await setZoom(m.z); break;
+      case "station_cfg": cfg.station = !!m.on; store.set("gdc.camCfg", cfg); dbg("info", `postazione fissa ${cfg.station ? "attivata" : "spenta"}`); publish(); detail = { station: cfg.station }; break;
       case "space_cfg": cfg.autoFree = !!m.autoFree; store.set("gdc.camCfg", cfg); dbg("info", `spazio: liberazione automatica delle clip verificate ${cfg.autoFree ? "attivata" : "spenta"}`); spaceTick(); publish(); detail = { autoFree: cfg.autoFree }; break;
       case "xfer_start": detail = await xferStart(m); break;
       case "xfer_test": detail = await xferTest(m); break;
@@ -775,7 +808,7 @@ $("fRes").onchange = $("fBps").onchange = async () => { if (recording) { syncFor
 $("camBtn").onclick = async () => { cfg.autoCam = true; store.set("gdc.camCfg", cfg); syncForm(); try { await openCam(); } catch { /* errore già mostrato */ } };
 $("camStop").onclick = () => { cfg.autoCam = false; store.set("gdc.camCfg", cfg); syncForm(); dbg("info", "camera fermata a mano: avvio automatico disattivato"); stopCam(); };
 $("fAuto").onchange = () => { cfg.autoCam = $("fAuto").checked; store.set("gdc.camCfg", cfg); dbg("info", `avvio automatico ${cfg.autoCam ? "attivato" : "disattivato"}`); if (cfg.autoCam) autoOpen("opzione attivata"); };
-$("recBtn").onclick = () => (recording ? stopRec() : startRec());
+$("recBtn").onclick = () => (recording ? stopRec(true) : startRec());
 $("blackBtn").onclick = () => setStandby(true);
 $("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) setStandby(false); lastTapT = n; };
 const batReq = (extra) => ({ url: pairing.u.replace(/\/$/, "") + "/realtime/v1/api/broadcast", body: JSON.stringify({ messages: [{ topic: "gdc-" + pairing.c, event: "battery", payload: { id: ID, ...extra }, private: false }] }) });
@@ -809,16 +842,22 @@ async function start() {
   welcomePending = !!(pairing && FIRST);
   $("pairBox").hidden = !!pairing; $("welcome").hidden = !welcomePending; $("main").hidden = !pairing || welcomePending; $("statPanel").hidden = !pairing || welcomePending; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
-  await db.selfTest(); await loadSessions();
+  await db.selfTest(); await loadSessions(); recoverOrphans();
   spaceTick(); setInterval(spaceTick, 8000);
   if (!pairing) return;
   if (welcomePending) { dbg("info", "prima apertura: mostro la schermata di benvenuto (nome e permessi)"); return; }
   await goOnline();
 }
-async function goOnline() {
+let netBad = 0;
+function attachRt() {
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
   rt.on("battery", (m) => { if (m && m.test) { dbg("info", "prova di invio ricevuta dal canale: valore di prova, non salvato"); return; } if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", onCmd); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
+}
+async function goOnline() {
+  attachRt();
+  setInterval(() => { if (!rt) return; if (/^connesso/.test(rt.status)) { netBad = 0; return; } netBad += 10; if (netBad >= 60) { netBad = 0; dbg("warn", `collegamento giù da oltre 60 s (${rt.status}): lo ricreo`); try { rt.close(); } catch { /* ok */ } attachRt(); publish(); } }, 10000);
+  addEventListener("online", () => { if (rt && !/^connesso/.test(rt.status)) { dbg("info", "rete tornata: ricreo il collegamento"); try { rt.close(); } catch { /* ok */ } attachRt(); } });
   setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));

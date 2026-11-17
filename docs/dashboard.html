@@ -138,7 +138,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r25";
+const PAGE_VERSION = "dashboard r26";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -284,7 +284,7 @@ class RealtimeTransport {
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -298,7 +298,7 @@ class RealtimeTransport {
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.rt.send("cmd", { ...m, to: id, from: this.id });
   }
 }
@@ -587,6 +587,7 @@ const spColor = (el, st) => { const lv = st.online && st.space && st.space.known
 const BIND = {
   clockNote: (st, c, el) => { el.textContent = Clock.note(c.id); },
   xferUi: (st, c, el) => Xfer.render(st, c, el),
+  stationUi: (st, c, el) => { const cb = $("#stationChk", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!st.station; cb.disabled = !st.online; },
   autoFreeUi: (st, c, el) => { const cb = $("#autoFree", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = !!(st.space && st.space.autoFree); cb.disabled = !st.online; },
   spaceNote: (st, c, el) => { const sp = st.space; el.textContent = !st.online || !sp ? "" : `Base di calcolo: ${sp.basis || "n/d"}${sp.measuredMB ? " · limite misurato " + sp.measuredMB + " MB" : ""}${sp.quotaMB != null ? " · quota browser " + sp.quotaMB + " MB (usati " + sp.usageMB + " MB)" : ""} · liberati finora: ${sp.freedMB || 0} MB`; },
   zoomUi: (st, c, el) => {
@@ -902,7 +903,8 @@ function showDetail(id) {
         <div class="panel"><h2>Spazio</h2>
           <div class="kv"><span data-bind="freeLong" data-cam="${id}"></span></div>
           <div class="muted" data-bind="freeEst" data-cam="${id}" style="font-weight:600;margin-top:4px"></div>
-          ${REAL ? `<div data-bind="autoFreeUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="autoFree" style="width:auto;min-height:0;margin-top:3px"><span>Se lo spazio sta finendo, elimina le clip più vecchie già trasferite e verificate</span></label>
+          ${REAL ? `<div data-bind="stationUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="stationChk" style="width:auto;min-height:0;margin-top:3px"><span>Postazione fissa: se la camera si blocca o la pagina si chiude, riprende da sola a registrare</span></label><div class="muted" style="margin:0 0 4px 26px;font-size:13px">Vale solo se hai avviato la registrazione da qui. Si ferma con STOP. Il recupero dei file dopo un blocco è sempre attivo.</div></div>
+          <div data-bind="autoFreeUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="autoFree" style="width:auto;min-height:0;margin-top:3px"><span>Se lo spazio sta finendo, elimina le clip più vecchie già trasferite e verificate</span></label>
             <div class="muted">Predefinito: spenta. In quel caso la camera si ferma in modo sicuro e avvisa. Le clip non ancora trasferite non vengono mai eliminate.</div></div>
           <div class="muted adv-only" data-bind="spaceNote" data-cam="${id}" style="margin-top:6px"></div>` : ""}</div>
         <div class="panel"><h2>Ripresa</h2>
@@ -958,6 +960,7 @@ function showDetail(id) {
   };
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
+  if (REAL) { const sc = $("#stationChk"); if (sc) sc.onchange = () => command(id, { cmd: "station_cfg", on: sc.checked }); }
   if (REAL) { const af = $("#autoFree"); if (af) af.onchange = () => command(id, { cmd: "space_cfg", autoFree: af.checked }); }
   if (REAL) { let zT = 0; const zs = $("#zSlider"); const sendZ = () => command(id, { cmd: "zoom", z: Number(zs.value) });
     zs.oninput = () => { zDrag = true; $("#zVal").textContent = Number(zs.value).toFixed(1) + "×"; if (!zT) zT = setTimeout(() => { zT = 0; sendZ(); }, 100); };

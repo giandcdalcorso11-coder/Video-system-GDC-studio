@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 41
-**Ultimo aggiornamento:** 2026-11-18 23:50
+**Versione:** 42
+**Ultimo aggiornamento:** 2026-11-19 00:30
 
 ## Vision
 
@@ -189,6 +189,26 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 00:30] Recupero delle registrazioni dopo un blocco e postazione fissa
+
+**Riepilogo:** corretto un buco serio (una registrazione interrotta dalla chiusura della pagina andava persa) e aggiunta la "postazione fissa" che riprende da sola dopo blocchi (camera r26, dashboard r26).
+
+**Bug: registrazione persa se la pagina viene chiusa durante la ripresa**
+
+**Sintomo:** se il sistema chiudeva la pagina camera mentre registrava (memoria, blocco, riavvio), i pezzi restavano nell'archivio ma la clip non compariva mai.
+**Causa:** il registro della clip veniva scritto solo allo STOP.
+**Fix applicato:** al REC si scrive subito un registro "in corso", aggiornato ogni 10 s; all'apertura della pagina `recoverOrphans` ricostruisce le clip "in corso" e anche i pezzi senza registro (anche quelli di blocchi passati), durata stimata a un pezzo al secondo, e avvisa "recuperata dopo un blocco: la fine potrebbe mancare". Verificato in Chromium con webm (6 pezzi recuperati, 6 s). Su Safari i pezzi arrivano in continuazione (iPhone 15: 8 pezzi in 10 s), quindi il recupero dovrebbe funzionare; **da provare** sul telefono (chiudere la pagina durante la ripresa). In Chromium con mp4 i pezzi sono arrivati solo allo STOP (osservato in prova con camera finta): su Android va verificato se il recupero è efficace.
+
+**Cosa è stato fatto (postazione fissa):**
+- Controllo periodico: se la camera si spegne da sola (traccia interrotta) e non è stata fermata a mano, la camera prova a riaccendersi, con intervalli crescenti fino a 60 s.
+- Collegamento: se resta giù oltre 60 s lo ricrea; lo ricrea anche al ritorno della rete.
+- Spunta in dettaglio camera: "Postazione fissa: se la camera si blocca o la pagina si chiude, riprende da sola a registrare" (comando `station_cfg`). La volontà di registrare è salvata sul telefono: nasce con REC dalla regia e si cancella con STOP o "Ferma camera" (non con arresti automatici). Nuova clip a ogni ripresa (le parti sono file separati). Se il riavvio fallisce per lo spazio, rinuncia.
+- Provato in Chromium: REC con spunta attiva, pagina camera chiusa durante la ripresa, riaperta: clip recuperata e registrazione ripartita da sola; dopo STOP e ricarica non registra.
+
+**File consegnati/modificati:** docs/camera.html (r26), docs/dashboard.html (r26); documento v42.
+
+---
 
 ### [2026-11-18 23:50] Idea: comando da orologio smart e scenario partita di padel
 
