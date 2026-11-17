@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 29
-**Ultimo aggiornamento:** 2026-11-18 14:00
+**Versione:** 30
+**Ultimo aggiornamento:** 2026-11-18 16:00
 
 ## Vision
 
@@ -110,6 +110,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Fattibilità chiarita per ogni destinazione.
 - [2026-11-17] Prova reale iPhone 15 → iPad (rete del telefono molto debole, 0,2-0,9 Mbps): clip da 6,3 MB arrivata e verificata dopo 3 riprese automatiche (byte 1 140 000, 2 640 000, 4 440 000, CRC ok) e una manuale; video visto dalla galleria dell'iPad, qualità ottima.
 - [2026-11-17] Ripresa automatica dopo un'interruzione: il ricevente conserva quanto ricevuto (destinazione aperta e CRC32 progressivo), a ogni tentativo ricevente e mittente si accordano sul byte di ripartenza e la camera controlla il CRC32 dei byte già consegnati prima di continuare; fino a 6 tentativi automatici a distanza di 6 s, poi pulsante "Riprendi". Coda di invio ridotta (1 MB) perché i byte "inviati" siano quasi quelli arrivati.
+- [2026-11-18] Trasferimento automatico dopo ogni clip e buffer a rotazione (dashboard r16), provati in simulazione; da provare su dispositivi reali con una cartella del PC.
 - [2026-11-15] Prima versione: invio diretto camera → dashboard con WebRTC data channel (segnalazione su Supabase, evento `xrtc`), a blocchi da 60 KB con controllo della coda, controllo finale di dimensione e CRC32; destinazioni: cartella del computer (File System Access, solo Edge/Chrome desktop; la cartella è ricordata) oppure memoria del dispositivo + Salva/Condividi; opzione "elimina dal telefono dopo il trasferimento verificato" (spenta di default); barra di avanzamento con velocità e tempo residuo; indicatore "Sicuro da chiudere"; prova di velocità da 30 MB con tipo di percorso (rete locale/relay). Provato in Chromium con camera e dashboard simulate: SHA-256 identico sia in memoria sia con cartella simulata, eliminazione dopo la verifica ok. Non ancora fatta: ripresa dopo interruzione, coda in background, TURN.
 - [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
 
@@ -185,6 +186,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 16:00] Misura spazio iPhone 15 e trasferimento automatico con buffer a rotazione
+
+**Riepilogo:** la misura sull'iPhone 15 ha scritto 4 GB senza errori (quota dichiarata 39 GB) e la camera è passata da 700 MB prudenti a 3642 MB; la dashboard (r16) ora trasferisce da sola ogni clip pronta nella cartella scelta e, con "elimina dal telefono", tiene sul telefono solo ciò che non è ancora arrivato.
+
+**Cosa è stato fatto:**
+- Letti i log della misura (camera r22, iPhone 15, Safari 27.2): 4096 MB scritti in 32 s, quota 39322 MB, usato tornato a 0 dopo la pulizia; livello spazio da "crit" (circa 4 min) a "ok" (circa 25 min). Il tetto del test (4 GB) è un minimo, non il limite reale.
+- Dashboard r16: spunta "Trasferisci da solo ogni clip appena fermo la registrazione" (spenta di default, richiede una cartella di questo computer, non attiva in modalità "questo dispositivo"). Parte la clip più vecchia pronta quando la camera non registra e non ha un time-lapse in corso; al massimo 2 camere in parallelo, una clip per volta per camera; dopo un errore riprova dopo 1, poi 2 minuti, poi si ferma (3 tentativi) e lascia il pulsante manuale; se la cartella perde il permesso lo segnala nel registro senza insistere; un annullamento manuale non viene ritentato.
+- Buffer a rotazione = automatico + "Elimina dal telefono dopo il trasferimento verificato": il telefono tiene solo le clip non ancora arrivate.
+- Prove in Chromium (camera e dashboard simulate, cartella finta): con automatico spento non parte nulla; acceso, le clip arrivano, sono eliminate dal telefono e finiscono nella cartella; durante una ripresa non parte nessun trasferimento; a ripresa finita partono. Regressione del trasferimento con ripresa dopo caduta (t26) ok, byte identici.
+
+**Decisioni prese:**
+- Contesto: serviva decidere dove far partire l'automatico. Decisione: sulla dashboard (che ha la cartella e il permesso), non sulla camera. Alternative scartate: automatico verso la memoria dell'iPad (riempirebbe la memoria e richiede un tocco per salvare). Da rivedere se: si implementa il salvataggio automatico su iPad o il cloud.
+
+**File consegnati/modificati:** docs/dashboard.html (r16); documento-sessione-video-system-gdc-studio.md (v30). Camera invariata (r22).
+
+**Impatto su Vision/Pipeline:** Step 6 (trasferimento): aggiunta nelle note la parte automatica; restano da fare invio durante la ripresa (C), protezioni della regia (D), cloud per Pro (E).
+
+---
 
 ### [2026-11-18 14:00] Gestione dello spazio: minuti rimasti, controllo prima di iniziare, arresto sicuro, liberazione facoltativa (camera r22, dashboard r15)
 
