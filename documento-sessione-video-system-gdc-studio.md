@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 40
-**Ultimo aggiornamento:** 2026-11-18 23:30
+**Versione:** 41
+**Ultimo aggiornamento:** 2026-11-18 23:50
 
 ## Vision
 
@@ -189,6 +189,23 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 23:50] Idea: comando da orologio smart e scenario partita di padel
+
+**Riepilogo:** idea dell'utente di gestire le riprese e i segnali da un orologio smart (scenario: partita di padel, 4 telefoni in 4 angolazioni); valutata la fattibilità senza app native e il possibile primo test esterno senza orologio.
+
+**Valutazione (non ancora implementata):**
+- Apple Watch non ha un browser per pagine web: una pagina come la dashboard non gira. Strada senza scaricare nulla: Comandi (Shortcuts) sull'orologio che invia una richiesta HTTP al canale (come già previsto per la batteria su iPhone): un tocco per "Segna", "REC tutte", "STOP tutte". Le camere accettano già comandi indirizzati a tutte (`to: "*"`). Mancano: evento `mark` ricevuto dalle camere (e dalla regia), che registrano la posizione dentro la clip in autonomia; ritardo previsto 1-3 s (Comandi parte lento), da compensare con un'impostazione.
+- Alternativa: pagina "telecomando" con pulsanti grandi (Segna, REC, STOP) per qualsiasi schermo piccolo.
+- Partita di padel: 4 telefoni fissi da 60-90 minuti; con 1080p a 8-10 Mbps circa 5-7 GB a telefono: è necessario tenere i file sui telefoni e scaricarli dopo. Idea da verificare: registrazione a segmenti e trasferimento solo dei momenti segnati (±15-30 s), per ridurre molto i tempi; richiede una prova sulla compatibilità dei frammenti MP4 con DaVinci Resolve.
+- Destinazione dei file: cloud (piano Pro), file sui telefoni, oppure un telefono/computer di destinazione scelto.
+- Senza orologio lo scenario è un buon candidato per il primo test esterno (4 telefoni, QR, conferma, segnali, file sui telefoni), dopo il nuovo account Supabase.
+
+**Decisioni prese:** nessuna ancora (solo idea).
+
+**File consegnati/modificati:** documento v41.
+
+---
 
 ### [2026-11-18 23:30] Revisione del codice e segnali per il montaggio
 
