@@ -136,7 +136,7 @@ const store = {
 };
 
 /* ===== Registro attività avanzato ===== */
-const PAGE_VERSION = "dashboard r11";
+const PAGE_VERSION = "dashboard r12";
 const ADVMAX = 6000, adv = []; let advOpen = false, advTimer = 0;
 const sj = (x) => { try { return typeof x === "string" ? x : JSON.stringify(x); } catch { return String(x); } };
 const rid = () => Math.random().toString(36).slice(2, 7);
@@ -373,7 +373,7 @@ if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "fi
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";
 const Xfer = {
   jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
-  active() { return [...this.jobs.values()].filter((j) => j.state === "attesa" || j.state === "in corso"); },
+  active() { return [...this.jobs.values()].filter((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"); },
   unsafe() { return this.active().length > 0 || [...this.jobs.values()].some((j) => j.state === "ok" && j.where === "memoria" && !j.saved && !j.test); },
   async pick() {
     try { Dest.handle = await window.showDirectoryPicker({ mode: "readwrite" }); await kv.set("dir", Dest.handle); dbg("info", "file", `cartella scelta: ${Dest.handle.name}`); this.refresh(); return true; }
@@ -385,43 +385,63 @@ const Xfer = {
     let p = await Dest.handle.queryPermission({ mode: "readwrite" }); if (p !== "granted") p = await Dest.handle.requestPermission({ mode: "readwrite" });
     if (p !== "granted") { log("", "Permesso sulla cartella negato"); return false; } return true;
   },
+  byX: new Map(), MAXTRY: 6,
   async start(camId, clip, opt = {}) {
     if (!opt.test && !(await this.ensureDest())) return null;
-    const xid = "x" + rid() + rid(), c = camById(camId);
-    const job = { xid, camId, sid: clip ? clip.id : null, name: clip ? clip.file : "prova-rete.bin", size: opt.test ? opt.mb * 1048576 : (clip ? clip.mb * 1048576 : 0), got: 0, speed: 0, state: "attesa", at: Date.now(), saved: false, test: !!opt.test, path: "", error: "" };
-    this.jobs.set(xid, job);
-    const makeSink = opt.test ? GDC_XFER.nullSink() : Dest.mode === "folder" ? GDC_XFER.folderSink(Dest.handle) : GDC_XFER.memorySink();
-    const o = { rt: transport.rt, from: transport.id, to: camId, xid, makeSink, log: (l, m) => dbg(l, "trasferimento", m),
+    const id = "j" + rid() + rid();
+    const job = { id, xid: "", camId, sid: clip ? clip.id : null, name: clip ? clip.file : "prova-rete.bin", size: opt.test ? opt.mb * 1048576 : (clip ? clip.mb * 1048576 : 0), got: 0, speed: 0, state: "attesa", at: Date.now(), saved: false, test: !!opt.test, path: "", error: "", note: "", attempt: 0, userCancel: false, st: { sink: null, got: 0, crc: 0 }, dest: Dest.mode, handle: Dest.handle, clip, opt };
+    this.jobs.set(id, job); Preview.ensureAll(); job.promise = this.runJob(job); this.refresh(); return job;
+  },
+  // un tentativo: nuova connessione, stesso stato ricevuto fin qui (si riprende dal byte in cui ci si era fermati)
+  attempt(job) {
+    const c = camById(job.camId), xid = "x" + rid() + rid(); job.xid = xid; job.camError = ""; this.byX.set(xid, job); job.state = "attesa";
+    const makeSink = job.test ? GDC_XFER.nullSink() : job.dest === "folder" ? GDC_XFER.folderSink(job.handle) : GDC_XFER.memorySink();
+    const o = { rt: transport.rt, from: transport.id, to: job.camId, xid, makeSink, state: job.st, log: (l, m) => dbg(l, "trasferimento", m),
       onProgress: (x) => { job.state = "in corso"; job.got = x.got; if (x.size) job.size = Math.max(job.size, x.got); job.speed = x.speed; this.refresh(); },
       onInfo: (i) => { if (i.path) job.path = i.path; if (i.name && !job.test) job.fname = i.name; this.refresh(); } };
     job.opts = o;
-    job.promise = GDC_XFER.receiveFile(o)
-      .then((r) => { Object.assign(job, { state: "ok", where: r.where, blob: r.blob, fname: r.name, got: r.bytes, size: r.bytes, mbps: r.mbps, ms: r.ms }); log(camId, `${c ? camTitle(c) : camId}: ${job.test ? "prova di rete" : "file " + r.name} ${job.test ? "" : "arrivato e verificato"} (${fmtMB(r.bytes)}, ${r.mbps.toFixed(1)} Mbps)`); })
-      .catch((e) => { job.state = "errore"; job.error = job.camError || e.message; log(camId, `${c ? camTitle(c) : camId}: trasferimento non riuscito: ${job.error}`); })
-      .finally(() => { this.refresh(); Preview.ensureAll(); });
-    Preview.ensureAll();
-    command(camId, opt.test ? { cmd: "xfer_test", xid, mb: opt.mb } : { cmd: "xfer_start", xid, sid: clip.id, del: !!this.delAfter });
-    this.refresh(); return job;
+    const p = GDC_XFER.receiveFile(o).then((r) => { Object.assign(job, { state: "ok", where: r.where, blob: r.blob, fname: r.name, got: r.bytes, size: r.bytes, mbps: r.mbps, ms: r.ms, note: "" }); log(job.camId, `${c ? camTitle(c) : job.camId}: ${job.test ? "prova di rete" : "file " + r.name + " arrivato e verificato"} (${fmtMB(r.bytes)}, ${r.mbps.toFixed(2)} Mbps)`); });
+    command(job.camId, job.test ? { cmd: "xfer_test", xid, mb: job.opt.mb } : { cmd: "xfer_start", xid, sid: job.sid, del: !!this.delAfter });
+    return p;
   },
-  onDone(m) { const j = this.jobs.get(m.xid); if (!j || m.ok) return; j.camError = m.error; if (j.opts && j.opts.cancel) j.opts.cancel(); },
+  async runJob(job) {
+    const c = camById(job.camId);
+    for (;;) {
+      let err = null; try { await this.attempt(job); } catch (e) { err = e; }
+      if (!err) break;
+      const busy = /già in corso|sostituito/.test(job.camError || ""), fatalCam = job.camError && !busy;
+      if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
+      if (!job.test && !fatalCam && job.attempt < this.MAXTRY) {
+        job.attempt++; job.state = "interrotto"; job.note = `interrotto (${job.camError || err.message}). Riprendo da ${fmtMB(job.st.got)}: tentativo ${job.attempt}/${this.MAXTRY}`;
+        dbg("warn", "trasferimento", job.note); log(job.camId, `${c ? camTitle(c) : job.camId}: ${job.note}`); this.refresh();
+        await new Promise((r) => setTimeout(r, 6000)); if (job.userCancel) { job.state = "errore"; job.error = "annullato"; break; }
+        continue;
+      }
+      job.state = "errore"; job.error = job.camError || err.message; log(job.camId, `${c ? camTitle(c) : job.camId}: trasferimento non riuscito: ${job.error}`); break;
+    }
+    if (job.state === "errore" && job.userCancel) { try { job.st.sink && await job.st.sink.abort(); } catch { /* ok */ } job.st.sink = null; job.st.got = 0; job.st.crc = 0; }
+    this.refresh(); Preview.ensureAll(); return job;
+  },
+  resume(id) { const j = this.jobs.get(id); if (!j || j.state !== "errore" || j.test) return; j.attempt = 0; j.userCancel = false; j.error = ""; j.note = ""; j.promise = this.runJob(j); this.refresh(); },
+  onDone(m) { const j = this.byX.get(m.xid); if (!j || m.ok) return; j.camError = m.error; if (j.opts && j.opts.stop) j.opts.stop("la camera ha risposto: " + m.error); },
   async all(camId) {
     if (this.queueRun) return; this.queueRun = true; this.refresh();
     try { const clips = ((state[camId] && state[camId].clips) || []).filter((k) => k.status === "pronta" && k.id); if (!(await this.ensureDest())) return; for (const k of clips) { const j = await this.start(camId, k); if (!j) break; await j.promise; if (j.state !== "ok") break; } }
     finally { this.queueRun = false; this.refresh(); }
   },
-  async save(xid) {
-    const j = this.jobs.get(xid); if (!j || !j.blob) return;
+  async save(id) {
+    const j = this.jobs.get(id); if (!j || !j.blob) return;
     const f = new File([j.blob], j.fname || j.name, { type: j.blob.type });
     try { if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f] }); else { const a = document.createElement("a"); a.href = URL.createObjectURL(j.blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); } j.saved = true; j.blob = null; }
     catch (e) { if (e.name !== "AbortError") log(j.camId, "Salvataggio non riuscito: " + e.message); }
     this.refresh();
   },
-  cancel(xid) { const j = this.jobs.get(xid); if (j && j.opts && j.opts.cancel) j.opts.cancel(); },
+  cancel(id) { const j = this.jobs.get(id); if (!j) return; j.userCancel = true; if (j.opts && j.opts.cancel) j.opts.cancel(); },
   refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); },
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
-    const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.xid, j.state, j.saved, j.error, j.path, j.where]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, online, FS, act, this.queueRun]);
+    const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.delAfter, online, FS, act, this.queueRun]);
     if (el.dataset.sig !== sig) {
       el.dataset.sig = sig;
       const free = clips.filter((k) => k.status === "pronta").length;
@@ -436,14 +456,14 @@ const Xfer = {
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
         <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button></div>
-        ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.xid}"></span></div>
-          <div data-xp="${j.xid}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
-          <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : "Trasferimento…"} ${j.path ? "· " + esc(j.path) : ""}</div>
-          <div class="row" style="gap:8px">${j.state === "ok" && j.where === "memoria" && !j.saved ? `<button class="primary" data-xf="save" data-xid="${j.xid}">Salva</button>` : ""}${j.state === "attesa" || j.state === "in corso" ? `<button class="ghost" data-xf="cancel" data-xid="${j.xid}">Annulla</button>` : ""}</div></div>`).join("") : ""}
+        ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.id}"></span></div>
+          <div data-xp="${j.id}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
+          <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : (j.state === "interrotto" ? esc(j.note) : "Trasferimento…")} ${j.path ? "· " + esc(j.path) : ""}</div>
+          <div class="row" style="gap:8px">${j.state === "ok" && j.where === "memoria" && !j.saved ? `<button class="primary" data-xf="save" data-xid="${j.id}">Salva</button>` : ""}${j.state === "errore" && !j.test && !j.userCancel ? `<button class="primary" data-xf="resume" data-xid="${j.id}">${j.st && j.st.got ? "Riprendi da " + fmtMB(j.st.got) : "Riprova"}</button>` : ""}${j.state === "attesa" || j.state === "in corso" || j.state === "interrotto" ? `<button class="ghost" data-xf="cancel" data-xid="${j.id}">Annulla</button>` : ""}</div></div>`).join("") : ""}
         <div data-xs style="margin-top:12px;font-weight:600"></div>`;
     }
     jobs.forEach((j) => {
-      const pb = el.querySelector(`[data-xp="${j.xid}"] i`), tx = el.querySelector(`[data-xt="${j.xid}"]`); if (!pb) return;
+      const pb = el.querySelector(`[data-xp="${j.id}"] i`), tx = el.querySelector(`[data-xt="${j.id}"]`); if (!pb) return;
       const pct = j.state === "ok" ? 100 : j.size ? Math.min(100, Math.round(j.got / j.size * 100)) : 0; pb.style.width = pct + "%";
       const left = j.speed > 0 && j.size > j.got ? Math.round((j.size - j.got) / j.speed) : 0;
       tx.textContent = j.state === "in corso" || j.state === "attesa" ? `· ${pct}% · ${fmtMB(j.got)} · ${j.speed ? (j.speed * 8 / 1e6).toFixed(1) + " Mbps" : ""}${left ? " · circa " + (left >= 60 ? Math.round(left / 60) + " min" : left + " s") : ""}` : j.state === "ok" ? `· ${fmtMB(j.got)} · ${j.mbps ? j.mbps.toFixed(1) + " Mbps" : ""}` : "";
@@ -463,7 +483,7 @@ document.addEventListener("click", (e) => {
   const a = b.dataset.xf;
   if (a === "pick") Xfer.pick(); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
   else if (a === "go") { const k = ((state[id] && state[id].clips) || []).find((x) => x.id === b.dataset.sid); if (k) Xfer.start(id, k); }
-  else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid);
+  else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid); else if (a === "resume") Xfer.resume(b.dataset.xid);
 });
 document.addEventListener("change", (e) => {
   const m = e.target.closest("[data-xm]"); if (m) { Dest.mode = m.dataset.xm; store.set("gdc.dest", Dest.mode); dbg("info", "file", `destinazione: ${Dest.mode}`); Xfer.refresh(); return; }

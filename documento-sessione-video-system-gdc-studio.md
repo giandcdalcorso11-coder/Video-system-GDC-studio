@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 19
-**Ultimo aggiornamento:** 2026-11-16 15:10
+**Versione:** 20
+**Ultimo aggiornamento:** 2026-11-17 15:00
 
 ## Vision
 
@@ -106,6 +106,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-10-15] Fattibilità chiarita per ogni destinazione.
+- [2026-11-17] Ripresa automatica dopo un'interruzione: il ricevente conserva quanto ricevuto (destinazione aperta e CRC32 progressivo), a ogni tentativo ricevente e mittente si accordano sul byte di ripartenza e la camera controlla il CRC32 dei byte già consegnati prima di continuare; fino a 6 tentativi automatici a distanza di 6 s, poi pulsante "Riprendi". Coda di invio ridotta (1 MB) perché i byte "inviati" siano quasi quelli arrivati.
 - [2026-11-15] Prima versione: invio diretto camera → dashboard con WebRTC data channel (segnalazione su Supabase, evento `xrtc`), a blocchi da 60 KB con controllo della coda, controllo finale di dimensione e CRC32; destinazioni: cartella del computer (File System Access, solo Edge/Chrome desktop; la cartella è ricordata) oppure memoria del dispositivo + Salva/Condividi; opzione "elimina dal telefono dopo il trasferimento verificato" (spenta di default); barra di avanzamento con velocità e tempo residuo; indicatore "Sicuro da chiudere"; prova di velocità da 30 MB con tipo di percorso (rete locale/relay). Provato in Chromium con camera e dashboard simulate: SHA-256 identico sia in memoria sia con cartella simulata, eliminazione dopo la verifica ok. Non ancora fatta: ripresa dopo interruzione, coda in background, TURN.
 - [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
 
@@ -166,6 +167,26 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 15:00] Trasferimento su rete molto lenta: funziona e verifica, ora con ripresa automatica (camera r17, dashboard r12)
+
+**Riepilogo:** sul telefono con connessione molto debole il trasferimento funziona (5 MB della prova verificati con CRC a 0,5 Mbps) ma la clip da 28 MB si è fermata quando la camera ha perso il collegamento; aggiunta la ripresa automatica dal punto raggiunto e una coda più piccola per misurare la velocità reale.
+
+**Cosa è stato fatto:**
+- Lettura dei log (ora vera `t_ms`; iPad ancora su dashboard r10 per la cache): prova di velocità consegnata e verificata, 5 242 880 byte in 90 s = 0,5 Mbps; l'avanzamento sul ricevente mostrava 0,85 → 0,47 Mbps. Il mittente dichiarava 5,2 Mbps perché misurava i byte accodati (coda 4 MB), non quelli arrivati.
+- Clip reale da 28,4 MB: canale aperto dopo 17 s (segnalazione lenta), 0,05-0,07 Mbps iniziali, poi la camera ha perso il collegamento a Supabase (`invio state: timed out/error`) e i log si interrompono: nessun errore di software, caduta di rete.
+- Nuove funzioni: ripresa automatica con controllo CRC32 (fino a 6 tentativi, poi "Riprendi da X MB"), coda di invio da 1 MB, velocità misurata sui byte consegnati, nuovo tentativo per la stessa registrazione che sostituisce quello rimasto appeso sulla camera.
+- Provato in Chromium simulando la caduta del canale a metà file: SHA-256 identico in memoria e verso cartella simulata.
+
+**Decisioni prese:**
+- Contesto: la rete del telefono cade durante i trasferimenti.
+- Decisione: riprendere dal byte raggiunto invece di ricominciare, con verifica CRC32 del tratto già ricevuto.
+- Alternative scartate: ricominciare da zero a ogni caduta; nessuna ripresa.
+- Da rivedere se: la ripresa dopo la chiusura della pagina dashboard diventa necessaria (oggi lo stato vive solo finché la pagina resta aperta).
+
+**File consegnati/modificati:** `docs/xfer.js`, `docs/camera.html` (r17), `docs/dashboard.html` (r12), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-16 15:10] Prima prova del trasferimento su rete lenta; avanzamento nei log, prova a tempo, anteprima sospesa
 

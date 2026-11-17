@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r16";
+const PAGE_VERSION = "camera r17";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -556,11 +556,11 @@ async function onRtc(m) {
 let xferBusy = null;
 const xferFail = (m, err) => { try { rt?.send("xdone", { id: ID, xid: m.xid, sid: m.sid || null, ok: false, error: err }); } catch { /* ok */ } throw new Error(err); };
 function xferRun(m, { name, mime, size, source, sid, test }) {
-  xferBusy = { sid: sid || "prova", xid: m.xid, pct: 0 }; publish();
-  GDC_XFER.sendFile({ rt, from: ID, to: m.from, xid: m.xid, name, mime, size, source, log: (l, t) => dbg(l, t),
+  const handle = {}; xferBusy = { sid: sid || "prova", xid: m.xid, pct: 0, abort: () => handle.abort && handle.abort() }; publish();
+  GDC_XFER.sendFile({ rt, from: ID, to: m.from, xid: m.xid, name, mime, size, source, handle, log: (l, t) => dbg(l, t),
     onProgress: (p) => { xferBusy.pct = size ? Math.min(100, Math.round(p.sent / size * 100)) : 0; } })
     .then(async (r) => {
-      dbg("info", `trasferimento riuscito: ${name}`, { MB: +(r.bytes / 1048576).toFixed(1), Mbps: +r.mbps.toFixed(1), secondi: Math.round(r.ms / 1000) });
+      dbg("info", `trasferimento riuscito: ${name}`, { MB: +(r.bytes / 1048576).toFixed(1), Mbps: +r.mbps.toFixed(2), secondi: Math.round(r.ms / 1000) });
       rt.send("xdone", { id: ID, xid: m.xid, sid: sid || null, ok: true, bytes: r.bytes, mbps: r.mbps });
       if (!test) {
         const s = sessions.find((x) => x.id === sid);
@@ -573,12 +573,18 @@ function xferRun(m, { name, mime, size, source, sid, test }) {
 }
 async function xferStart(m) {
   if (!rt || !m.xid || !m.from) throw new Error("richiesta di trasferimento incompleta");
+  if (xferBusy && xferBusy.sid === m.sid) { dbg("info", "nuovo tentativo per la stessa registrazione: interrompo il precedente"); xferBusy.abort(); for (let i = 0; i < 30 && xferBusy; i++) await sleep(100); }
   if (xferBusy) xferFail(m, "un altro trasferimento è già in corso");
   const s = sessions.find((x) => x.id === m.sid); if (!s) xferFail(m, "registrazione non trovata sul telefono");
   if (recording && recording.sid === s.id) xferFail(m, "registrazione ancora in corso");
   const keys = await db.chunkKeys(s.id); if (!keys.length) xferFail(m, "nessun dato nella registrazione");
   const ext = /mp4/.test(s.mime || "") ? "mp4" : /webm/.test(s.mime || "") ? "webm" : "mp4";
-  let i = 0; const source = { next: async () => { if (i >= keys.length) return null; const b = await db.getChunk(keys[i++]); return b ? await b.arrayBuffer() : null; } };
+  let i = 0, rest = null;
+  const source = {
+    next: async () => { if (rest) { const r = rest; rest = null; return r; } if (i >= keys.length) return null; const b = await db.getChunk(keys[i++]); return b ? await b.arrayBuffer() : null; },
+    // ripresa: calcola il CRC32 dei primi `off` byte e si posiziona subito dopo
+    skipTo: async (off) => { let crc = 0, left = off; i = 0; rest = null; while (left > 0) { if (i >= keys.length) throw new Error("ripresa oltre la fine del file"); const b = await db.getChunk(keys[i++]); const u8 = new Uint8Array(await b.arrayBuffer()); if (u8.length <= left) { crc = GDC_XFER.crc32(u8, crc); left -= u8.length; } else { crc = GDC_XFER.crc32(u8.subarray(0, left), crc); rest = u8.subarray(left); left = 0; } } return crc; },
+  };
   dbg("info", `trasferimento di ${s.id} verso ${m.from}`, { pezzi: keys.length, MBstimati: Math.round((s.bytes || 0) / 1048576), eliminaDopo: !!m.del });
   xferRun(m, { name: `${cfg.name}_${s.id}.${ext}`, mime: s.mime, size: s.bytes || 0, source, sid: s.id });
   return "trasferimento avviato";
