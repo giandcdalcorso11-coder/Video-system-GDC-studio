@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 31
-**Ultimo aggiornamento:** 2026-11-18 16:40
+**Versione:** 32
+**Ultimo aggiornamento:** 2026-11-18 17:00
 
 ## Vision
 
@@ -186,6 +186,14 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 17:00] Avviso anteprima: nessun file perso
+
+**Riepilogo:** l'avviso della spunta sull'anteprima (dashboard r18) ora dice che i file non si perdono: restano sul telefono finché non sono arrivati e verificati e il trasferimento riprende da dove si era fermato.
+
+**File consegnati/modificati:** docs/dashboard.html (r18); documento v32.
+
+---
 
 ### [2026-11-18 16:40] Anteprima durante i trasferimenti: scelta con avviso
 
