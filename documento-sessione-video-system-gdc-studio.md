@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 23
-**Ultimo aggiornamento:** 2026-11-17 17:40
+**Versione:** 24
+**Ultimo aggiornamento:** 2026-11-17 18:00
 
 ## Vision
 
@@ -168,6 +168,18 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-17 18:00] Chiarito il test batteria: sonda sull'API del browser (camera r20)
+
+**Riepilogo:** il titolare voleva sapere se Safari più recente (iPhone 15) invia la batteria da solo rispetto all'iPhone con Safari vecchio; la scorciatoia di Comandi non è ancora stata creata. Il pulsante "Prova invio batteria" non leggeva la batteria (provava solo il canale). Aggiunta una sonda che registra se `navigator.getBattery` esiste e, se c'è, la usa.
+
+**Cosa è stato fatto:**
+- Ricerca: `navigator.getBattery()` non è supportata da Safari né da Safari su iOS (nessuna novità trovata per il 2026, fonti non datate 2026); Chrome sì dal 38, Firefox no.
+- Camera r20: all'avvio registra "API batteria del browser: presente/assente" con versione di Safari e iOS; se presente legge livello e carica e li aggiorna con gli eventi `levelchange` e `chargingchange` (sorgente "browser"). Provato in Chromium (livello 100, in carica). Da verificare sull'iPhone 15: se l'API è assente, resta Comandi.
+
+**File consegnati/modificati:** `docs/camera.html` (r20), `documento-sessione-video-system-gdc-studio.md`.
+
+---
 
 ### [2026-11-17 17:40] Batteria "50" sulla dashboard: era il valore di prova del pulsante, non Comandi (camera r19)
 

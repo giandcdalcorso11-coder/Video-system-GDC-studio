@@ -79,7 +79,7 @@
 <script src="xfer.js"></script>
 <script>
 "use strict";
-const PAGE_VERSION = "camera r19";
+const PAGE_VERSION = "camera r20";
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
@@ -476,6 +476,12 @@ async function setZoom(z) {
   z = Math.max(i.min, Math.min(i.max, Number(z))); if (!isFinite(z)) throw new Error("valore di zoom non valido");
   zoomWanted = z; zoomTarget = z; dbg("trace", `zoom richiesto ${z.toFixed(2)}×`); zoomRun(); return { ...i, target: z };
 }
+async function batProbe() {
+  const has = "getBattery" in navigator; dbg("info", `API batteria del browser (navigator.getBattery): ${has ? "presente" : "assente"}`, { versione: (navigator.userAgent.match(/Version\/[\d.]+/) || [""])[0], os: OS });
+  if (!has) return;
+  try { const b = await navigator.getBattery(), rd = () => setBat(Math.round(b.level * 100), b.charging, "browser"); rd(); b.onlevelchange = rd; b.onchargingchange = rd; dbg("info", "batteria letta dal browser", { livello: b.level, inCarica: b.charging }); }
+  catch (e) { dbg("warn", `getBattery fallita: ${e.name}: ${e.message}`); }
+}
 function stateObj() {
   const v = $("vid");
   return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
@@ -662,6 +668,7 @@ async function start() {
   pairing = hashPair || (window.GDC_RT && GDC_RT.Pair.load()) || null;
   dbg("info", `abbinamento: ${pairing ? "presente, canale …" + String(pairing.c).slice(-4) + (hashPair ? " (da link)" : " (memorizzato)") : "assente"}`);
   if (window.GDC_DEV) GDC_DEV.init({ role: "camera", dev: () => ID, ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, m), backlog: () => dbgBuf.slice(-300), host: $("modeHost") });
+  batProbe();
   $("pairBox").hidden = !!pairing; $("main").hidden = !pairing; $("statPanel").hidden = !pairing; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
   await db.selfTest(); await loadSessions();
