@@ -20,6 +20,10 @@ export async function run() {
     await camA.evaluate(() => document.getElementById("recLocal").click()); await t.until(() => camA.evaluate(() => !!recording));
     await camA.evaluate(() => document.getElementById("recLocal").click());
     t.check("il telefono può anche fermarla da solo", await t.until(() => camA.evaluate(() => !recording)));
+    // una registrazione di una frazione di secondo non lascia clip vuote
+    await camA.evaluate(() => document.getElementById("recLocal").click()); await sleep(150); await camA.evaluate(() => document.getElementById("recLocal").click());
+    await t.until(() => camA.evaluate(() => !recording)); await sleep(1500);
+    t.check("una registrazione brevissima non lascia clip vuote", await camA.evaluate(() => sessions.every((s) => s.bytes > 0 && s.status !== "in corso")), await camA.evaluate(() => JSON.stringify(sessions.map((s) => [s.bytes, s.status]))));
     await dash.evaluate(() => document.getElementById("localRecChk").click());
     t.check("permesso tolto: il pulsante sparisce", await t.until(async () => !(await visibile(camA))));
     // tutte le camere

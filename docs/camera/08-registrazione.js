@@ -24,6 +24,10 @@ async function startRec() {
   rec.statTimer = setInterval(() => { const vt = stream && stream.getVideoTracks()[0]; dbg("info", `REC ${Math.round((Date.now() - start) / 1000)}s: ${rec.seq} pezzi, ${(rec.bytes / 1048576).toFixed(1)} MB, in scrittura ${rec.pending}, errori ${rec.errs}, buffer ${Math.round(bufBytes() / 1048576)} MB`, { videoTrack: vt ? { stato: vt.readyState, muto: vt.muted, ...vt.getSettings() } : "assente" }); }, 10000);
   mr.onstop = async () => {
     clearInterval(rec.statTimer); clearInterval(rec.hb); while (rec.pending > 0) await sleep(50);
+    if (!rec.bytes && !rec.errs) { // registrazione troppo breve: il formato consegna i dati solo dopo un po' (niente clip vuote)
+      try { await db.delSession(sid); } catch { /* ok */ } lastErr = "Registrazione troppo breve: nessun dato salvato"; dbg("warn", `REC ${sid} fermato senza dati: scartato`);
+      if (recording === rec) recording = null; await loadSessions(); publish(); return;
+    }
     const s = { id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: rec.errs ? "errore" : "pronta" };
     try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; dbg("error", `registro sessione non salvato: ${e.name}: ${e.message}`); }
     dbg("info", `REC fermato sessione ${sid}`, { durata_s: Math.round(s.dur / 1000), pezzi: s.chunks, MB: +(s.bytes / 1048576).toFixed(1), errori: rec.errs, scrittura_media_ms: rec.wr.length ? Math.round(rec.wr.reduce((a, b) => a + b, 0) / rec.wr.length) : null });

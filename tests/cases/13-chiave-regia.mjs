@@ -14,7 +14,7 @@ export async function run() {
     await dash.evaluate(() => command("camA", { cmd: "rec_start" }));
     t.check("comando firmato dalla regia: REC parte", await t.until(rec, 15000));
     // 1b) con la chiave i trasferimenti funzionano (i campi della firma non devono toccare quelli dei comandi)
-    await dash.evaluate(() => command("camA", { cmd: "rec_stop" })); await t.until(async () => !(await rec()), 15000); await sleep(800);
+    await sleep(3000); await dash.evaluate(() => command("camA", { cmd: "rec_stop" })); await t.until(async () => !(await rec()), 15000); await sleep(800); await t.until(() => cam.evaluate(() => sessions.length > 0 && sessions[0].status === "pronta"), 15000);
     await dash.evaluate(() => { location.hash = "#/cam/camA"; Dest.mode = "device"; Xfer.jobs.clear(); Xfer.refresh(); });
     const sid = await cam.evaluate(() => sessions[0].id);
     await t.until(() => dash.evaluate((s) => !!document.querySelector(`[data-xf="go"][data-sid="${s}"]:not([disabled])`), sid));

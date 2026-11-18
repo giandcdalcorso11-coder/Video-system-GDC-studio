@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 47
-**Ultimo aggiornamento:** 2026-11-19 09:00
+**Versione:** 48
+**Ultimo aggiornamento:** 2026-11-19 09:40
 
 ## Vision
 
@@ -189,6 +189,20 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 09:40] Clip vuote dopo una registrazione brevissima
+
+**Riepilogo:** la suite ha mostrato che una registrazione fermata dopo una frazione di secondo lasciava una clip "pronta" senza dati (camera r31).
+
+**Bug: clip "pronta" senza dati dopo una registrazione brevissima**
+
+**Sintomo:** il trasferimento di quella clip falliva con "nessun dato nella registrazione".
+**Causa:** con il formato mp4 il registratore consegna i dati solo dopo un po' (in Chromium allo stop, e se lo stop arriva subito non c'è nulla); la clip veniva comunque marcata pronta.
+**Fix applicato:** se allo stop non c'è nessun dato la clip viene scartata e la camera scrive "Registrazione troppo breve: nessun dato salvato". Prova nuova nel gruppo 14; la prova della chiave ora aspetta una ripresa vera prima di trasferire. Verificato in simulazione.
+
+**File consegnati/modificati:** docs/camera/08-registrazione.js, docs/camera.html (r31), tests/cases/13 e 14; documento v48.
+
+---
 
 ### [2026-11-19 09:00] Permesso REC/STOP del telefono e modo di ripresa per camera
 
