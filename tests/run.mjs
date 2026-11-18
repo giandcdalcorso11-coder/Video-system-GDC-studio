@@ -1,11 +1,11 @@
-// Lancia tutte le prove in cases/ (o solo quelle il cui nome file contiene l'argomento): node run.mjs [filtro]
+// Lancia tutte le prove in cases/ (o solo quelle il cui nome file corrisponde all'espressione data): node run.mjs [filtro]  es. node run.mjs '^0[12]'
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { results } from "./lib.mjs";
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "cases"), filtro = process.argv[2] || "";
-const files = fs.readdirSync(dir).filter((f) => f.endsWith(".mjs") && f.includes(filtro)).sort();
+const files = fs.readdirSync(dir).filter((f) => f.endsWith(".mjs") && new RegExp(filtro).test(f)).sort();
 let fail = 0, tot = 0; const t0 = Date.now();
 for (const f of files) {
   const m = await import(pathToFileURL(path.join(dir, f)).href), start = results.length, t1 = Date.now();
