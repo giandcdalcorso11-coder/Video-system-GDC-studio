@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 52
-**Ultimo aggiornamento:** 2026-11-18 15:26
+**Versione:** 53
+**Ultimo aggiornamento:** 2026-11-18 19:50
 
 ## Vision
 
@@ -178,6 +178,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-18] Mockup aggiornato (nuova scheda "Che cosa riprendi?": quattro tipi di attività, nome del locale, colore, anteprima, nota sul piano Pro; Home → nuova scheda → QR; schede rinumerate 1-9). Da decidere: se il preset "Sport" deve avere REC dal telefono acceso e "file sui telefoni", e se serve un preset "Creator / studio" (REC solo dalla regia, trasferimento automatico nella cartella).
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
 - **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**, e **attenzione: ospita anche un'altra app** (tabelle `thumb_*`, funzioni `is_master`, `owns_client`, `owns_storage_path`, regole relative): non toccarle. Va rimosso solo ciò che ha creato questo progetto: tabella `gdc_dev_logs` (con la sua regola `gdc_dev_logs_insert`, indici, vincoli), funzioni `gdc_dev_logs_cleanup` e `gdc_dev_logs_dedupe`, trigger `gdc_dev_logs_cleanup_trg` e `gdc_dev_logs_dedupe_trg`; prima di cancellare mostrare l'elenco e avere conferma; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
+- [2026-11-18] Nome della sessione e "Nuova sessione" (dashboard r32). Pricing: abbonamento Pro + one shot a ore (pass a blocchi, attivazione esplicita, mai perdere materiale alla scadenza, scadenza come dato della sessione); prezzi e primo pagante da decidere dopo test e clienti.
 
 ### Step 9 — Hardware opzionale
 
@@ -193,6 +194,29 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 19:50] Nome della sessione, nuova sessione e idee sul pricing
+
+**Riepilogo:** La regia ha ora il nome della sessione e "Nuova sessione" (nuovo QR, nuove chiavi, elenco camere vuoto, dashboard r32, 272/272 prove); impostata inoltre la direzione sul pricing (abbonamento Pro e one shot a ore).
+
+**Cosa è stato fatto:**
+- Domanda dell'utente: la logica "QR nuovo a ogni sessione" esiste? Verificato: esisteva solo `Pair.newChannel()` e il pulsante `#newCh` in Avanzata (canale nuovo a mano); nessun concetto di sessione, scadenza o nome.
+- Decisione dell'utente di aspettare prove e test per la parte grossa; costruiti solo nome sessione e "Nuova sessione" (lato regia, senza server).
+- Implementato in `dashboard/10-ingresso.js` (oggetto `Session`): nome nel pannello "Aggiungi un telefono" e in intestazione (senza caratteri di markup, max 60); "Nuova sessione" con avviso (prompt) crea nuovo canale, azzera chiavi (rifatte al riavvio), elenco camere e rifiuti; annullando non cambia nulla. Il nome non è ancora mandato ai telefoni, non c'è scadenza.
+- Nuova prova `tests/cases/15-sessione.mjs` (11 controlli); serie completa 272/272. Documenti aggiornati (ARCHITETTURA, PIPELINE).
+
+**Decisioni prese:**
+- Contesto: pensare al pricing in anticipo.
+- Decisione: due strade insieme. **Abbonamento mensile Pro** (richiede account) e **one shot a ore** (pass a blocchi di ore, per esempio 4/12/24, senza account). Il pass parte da un'**attivazione esplicita** (da rivedere dopo i primi test). **Regola fissa:** mai perdere materiale per colpa del pagamento; alla scadenza la registrazione in corso e i trasferimenti continuano, si bloccano solo le funzioni Pro; i file restano sul telefono. La scadenza è un dato della sessione (ora di fine) separato da come è stata pagata.
+- Alternative scartate: one shot a sessione/evento con N camere (preferito il conteggio a ore).
+- Da rivedere se: i test o i primi clienti indicano un'altra unità di prezzo.
+- Aperti, non decisi: chi è il primo pagante (locale/struttura o creator: dipende da test e clienti), i prezzi, quante camere gratis, cosa mettere nel Pro oltre a preset, vista Personalizzata, più camere, scadenza più lunga, cloud.
+
+**File consegnati/modificati:** `docs/dashboard/10-ingresso.js`, `17-avvio.js`, `dashboard.html` (r32), `tests/cases/15-sessione.mjs`, `docs/ARCHITETTURA.md`, `docs/PIPELINE.md`.
+
+**Impatto su Vision/Pipeline:** Step 11: nome della sessione e "Nuova sessione" fatti (in simulazione, non provati sui telefoni); aggiunta la nota sul pricing.
+
+---
 
 ### [2026-11-18 15:26] Mockup rifatto per telefono, iPad e PC; viste con 3 e 10 camere
 
