@@ -2,7 +2,7 @@
 
 Legenda: ✅ fatto · 🔄 in corso (fatto in simulazione, da provare sui dispositivi veri) · ⏳ da fare · 💤 più avanti
 
-Aggiornata al 2026-11-19 (camera r31, dashboard r32). Il dettaglio è nel documento di sessione.
+Aggiornata al 2026-11-19 (camera r32, dashboard r32). Il dettaglio è nel documento di sessione.
 
 ## 1. Verifiche sui telefoni
 - ✅ iPhone XR (iOS 16.3.1): fotocamera 1080p/4K a 30 fps, MP4 H.264 + AAC, WebRTC, time-lapse, limiti di spazio (circa 0,78 GB). Vedi `docs/RISULTATI-TEST.md`
@@ -26,6 +26,7 @@ Aggiornata al 2026-11-19 (camera r31, dashboard r32). Il dettaglio è nel docume
 ## 3. Pagina camera (telefono)
 - ✅ Registrazione a pezzi su disco, REC/STOP, schermo nero, Wake Lock
 - ✅ Spazio: minuti rimasti, arresto sicuro, misura reale (iPhone 15)
+- 🔄 Anteprima locale a tutto campo con REC, tempo e zoom
 - 🔄 Benvenuto alla prima apertura (nome e permessi)
 - 🔄 Recupero delle clip dopo un blocco della pagina (prova su Safari da fare)
 - 🔄 Postazione fissa: ripresa automatica dopo un blocco, riaccensione della camera, ricreazione del collegamento
@@ -57,7 +58,7 @@ Aggiornata al 2026-11-19 (camera r31, dashboard r32). Il dettaglio è nel docume
 - 💤 Personalizzazione per attività, orologio smart (idea)
 
 ## 8. Qualità del software
-- ✅ Prove automatiche in `tests/` (17 gruppi, browser con camera finta)
+- ✅ Prove automatiche in `tests/` (18 gruppi, browser con camera finta)
 - ✅ Codice diviso in moduli (16 per la camera, 17 per la regia) con controllo delle versioni
 - ✅ Messaggi del canale ripuliti prima di arrivare alle pagine; prova con messaggi ostili
 - ✅ Chiave della regia: comandi firmati, solo la regia può comandare le camere (link nuovi); da provare sui telefoni

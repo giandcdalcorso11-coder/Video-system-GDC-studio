@@ -1,6 +1,6 @@
 # Architettura
 
-Stato aggiornato al 2026-11-19 (camera r31, dashboard r32). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
+Stato aggiornato al 2026-11-19 (camera r32, dashboard r32). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
 
 ## Idea
 
@@ -47,6 +47,7 @@ Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e po
 - **Postazione fissa** (spunta dalla regia): se la camera si blocca o la pagina si chiude, riprende da sola a registrare (nuova clip). Sempre attivi: riaccensione periodica della camera e ricreazione del collegamento se resta giù.
 - **Spazio:** quota e uso dal browser, riserva di 200 MB, limite prudente di 700 MB dove la quota non è nota (iOS), misura reale con il pulsante "Misura spazio reale". Minuti rimasti, avvisi (giallo/rosso), arresto sicuro prima di finire, REC rifiutato sotto 1 minuto. Eliminazione facoltativa delle clip già trasferite e verificate (spenta di default).
 - **Nome dei file:** `Camera<N>_<nome scelto sul telefono>_<AAAA-MM-GG>_<hh-mm-ss>.mp4` (ora di inizio corretta con lo scarto dell'orologio rispetto alla regia).
+- **Anteprima locale:** la camera mostra l'immagine a tutto campo con griglia dei terzi, badge REC con il tempo, zoom e "Anteprima in diretta · qualità" sopra l'immagine (compare quando la camera è accesa).
 - **Controlli avanzati** (torcia, fuoco, bianco, esposizione) mostrati solo se il telefono li dichiara; zoom nativo con salita morbida.
 
 ## Trasferimento dei file

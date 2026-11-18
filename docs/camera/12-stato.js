@@ -103,9 +103,17 @@ function stateObj() {
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s, /webm/.test(s.mime || "") ? "webm" : "mp4"), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
 function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
+/* anteprima locale a tutto campo: REC con tempo, zoom e qualità sopra l'immagine */
+function stageUpdate(s) {
+  const r = $("stRec"), z = $("stZoom"), l = $("stLive"); if (!r || !z || !l) return; $("stage").classList.toggle("on", !!stream);
+  r.hidden = !(s.rec && recording); if (!r.hidden) $("stTime").textContent = "REC · " + fmtT(Date.now() - recording.start);
+  const zi = s.zoom, zv = zi && zi.native ? Number(zi.cur) : 0; z.hidden = !(stream && zv >= 1.05); if (!z.hidden) z.textContent = zv.toFixed(1).replace(".", ",") + "×";
+  l.hidden = !stream; if (stream) l.textContent = "Anteprima in diretta" + (s.vh ? ` · ${s.vh >= s.vw ? s.vw : s.vh}p` : "");
+}
 function renderStat() {
   const s = stateObj(), row = (a, b, adv) => `<tr${adv ? ' class="adv-only"' : ""}><td>${a}</td><td>${b}</td></tr>`;
   $("stat").innerHTML = row("Regia", joinText() + (label ? " · " + label : "")) + row("Protezione", pairing && pairing.p ? "comandi firmati dalla regia" : "nessuna (link senza chiave)", 1) + row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`, 1) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>', storageMode === "indexeddb") + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no", !s.tl) + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent, 1) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`, 1);
+  stageUpdate(s);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
   { const b = $("recLocal"); if (b) { b.hidden = !(cfg.localRec && stream); b.textContent = s.rec ? "■ STOP" : "● REC"; b.classList.toggle("on", !!s.rec); } }
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";

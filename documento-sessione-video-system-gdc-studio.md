@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 53
-**Ultimo aggiornamento:** 2026-11-18 19:50
+**Versione:** 54
+**Ultimo aggiornamento:** 2026-11-18 21:30
 
 ## Vision
 
@@ -194,6 +194,30 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 21:30] Viste delle camere nella regia e anteprima nella pagina camera
+
+**Riepilogo:** Costruite nella dashboard le viste Automatico, Scorrimento e Personalizzato (Pro in prova) con finestra "Aggiungi camera", e nella pagina camera l'anteprima a tutto campo con REC, tempo e zoom; 300+ controlli automatici superati (serie completa da riconfermare).
+
+**Cosa è stato fatto:**
+- Chiarimento con l'utente: non si costruisce un sito separato; la dashboard attuale e la pagina camera sono la base della webapp pubblica. Mantenuta la divisione **Base / Avanzata**: Base più simile alla webapp (come nel mockup), Avanzata grezza con tutti i settaggi; **log sempre attivi** in entrambe.
+- Dashboard r32 (nuovo modulo `14a-viste-camere.js`): barra delle viste in Base e Avanzata; Automatico (griglia, compatta oltre 4 camere), Scorrimento (una camera alla volta, ↔ o ↕, tessere numerate con pallino e "x di N"), Personalizzato (spostare dalla testata, ridimensionare dall'angolo, posizione salvata sul dispositivo, Ripristina disposizione). Su telefono in verticale si parte da Scorrimento. Finestra "Aggiungi camera" (QR, nome sessione, richieste di ingresso, Esc/Chiudi) al posto del pannello inline; la finestra resta aperta se la home si ridisegna.
+- Interruttore **Funzioni Pro (prova)** solo in Base (in Avanzata Personalizzato è già sbloccato). Nessun pagamento, profilo o cloud.
+- Camera r32: anteprima locale a tutto campo con griglia, badge REC con tempo, zoom e "Anteprima in diretta · qualità".
+- Prove: nuove `16-viste` (25 controlli) e `17-anteprima-camera` (6); adattate 06 e 15 (aprono la finestra Aggiungi). Piano di test: nuova sezione **O** (viste). Documenti ARCHITETTURA e PIPELINE aggiornati.
+- Mockup dell'uso pubblico rifatto per telefono, iPad e PC con schede 3 e 10 camere (vedi voce precedente).
+
+**Decisioni prese:**
+- Contesto: vista Pro da provare senza sistema di pagamento.
+- Decisione: un interruttore "Funzioni Pro (prova)" solo in Base sblocca Personalizzato; nessun cloud né profilo per ora.
+- Alternative scartate: sito pubblico separato dalla dashboard (la dashboard attuale è la base); sostituire la Avanzata con il nuovo layout (si perderebbero pannelli e prove).
+- Da rivedere se: i test su telefoni/iPad mostrano trascinamento scomodo o anteprime troppo piccole con tante camere.
+
+**File consegnati/modificati:** `docs/dashboard/14a-viste-camere.js` (nuovo), `14-viste.js`, `10-ingresso.js`, `dashboard.html` (r32), `docs/camera.html` e `camera/12-stato.js` (r32), `tests/cases/16-viste.mjs`, `17-anteprima-camera.mjs` (nuovi), `06`, `15`, `piano-test-interno.md`, `docs/ARCHITETTURA.md`, `docs/PIPELINE.md`.
+
+**Impatto su Vision/Pipeline:** Step 11 e Pipeline: viste e anteprima camera in "in corso" (verificate in simulazione, da provare sui dispositivi veri).
+
+---
 
 ### [2026-11-18 19:50] Nome della sessione, nuova sessione e idee sul pricing
 

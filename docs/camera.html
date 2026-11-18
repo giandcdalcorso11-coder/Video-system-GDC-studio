@@ -19,6 +19,14 @@
   button:disabled { opacity: .45; }
   input, select, textarea { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 40px; width: 100%; }
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  #stage { display: none; position: relative; border-radius: 14px; overflow: hidden; background: #000; margin-top: 8px; max-height: 64vh; }
+  #stage.on { display: block; }
+  #stage video { border-radius: 0; max-height: 64vh; min-height: 200px; }
+  .stGrid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, transparent 33.2%, rgba(255,255,255,.18) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,.18) 66.6%, transparent 66.8%), linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.18) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,.18) 66.6%, transparent 66.8%); }
+  .stRec { position: absolute; left: 10px; top: 10px; display: flex; align-items: center; gap: 7px; background: #ff4d3d; color: #000; font-weight: 700; font-size: 14px; padding: 5px 11px; border-radius: 10px; }
+  .stRec i { width: 9px; height: 9px; border-radius: 50%; background: #000; }
+  .stZoom { position: absolute; right: 10px; top: 10px; background: rgba(0,0,0,.65); color: #fff; font-weight: 600; font-size: 13px; padding: 5px 10px; border-radius: 10px; }
+  .stLive { position: absolute; left: 10px; bottom: 10px; background: rgba(0,0,0,.65); color: #fff; font-weight: 600; font-size: 12px; padding: 4px 9px; border-radius: 8px; }
   video { width: 100%; max-height: 40vh; background: #000; border-radius: 10px; display: block; object-fit: contain; }
   .pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); } .pill.ok { color: var(--ok); border-color: var(--ok); } .pill.ok .dot { background: var(--ok); } .pill.rec { color: var(--bad); border-color: var(--bad); } .pill.rec .dot { background: var(--bad); animation: pulse 1s infinite; }
@@ -61,7 +69,8 @@
       <div style="flex:1;min-width:130px"><label>Bitrate video<select id="fBps"><option value="8000000">8 Mbps</option><option value="20000000">20 Mbps</option><option value="40000000">40 Mbps</option></select></label></div></div>
     <button class="primary" id="camBtn">Avvia camera</button><button id="camStop" disabled>Ferma camera</button><button id="blackBtn">Schermo nero</button><button class="adv-only" id="myLink">Copia il mio link</button><button class="adv-only" id="batInfo">Dati per Comandi (batteria)</button><button class="adv-only" id="batTest">Prova invio batteria</button><button class="adv-only" id="zoomTest">Test zoom digitale</button><button class="adv-only" id="spaceTest">Misura spazio reale</button>
     <label style="display:flex;gap:8px;align-items:center;margin:4px 0 8px"><input type="checkbox" id="fAuto" style="width:auto;min-height:0"> Avvia la camera all'apertura della pagina</label>
-    <video id="vid" muted playsinline></video>
+    <div id="stage"><video id="vid" muted playsinline></video><div class="stGrid"></div>
+      <span class="stRec" id="stRec" hidden><i></i><span id="stTime">00:00</span></span><span class="stZoom" id="stZoom" hidden></span><span class="stLive" id="stLive" hidden></span></div>
   </section>
 
   <section class="panel" id="statPanel" hidden>
@@ -87,26 +96,26 @@
 <div id="blackout"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r31"></script>
-<script src="auth.js?v=r31"></script>
-<script src="dev.js?v=r31"></script>
-<script src="xfer.js?v=r31"></script>
-<script>"use strict"; const PAGE_VERSION = "camera r31";</script>
-<script defer src="camera/01-base.js?v=r31"></script>
-<script defer src="camera/02-registro.js?v=r31"></script>
-<script defer src="camera/03-identita.js?v=r31"></script>
-<script defer src="camera/04-archivio.js?v=r31"></script>
-<script defer src="camera/05-postazione.js?v=r31"></script>
-<script defer src="camera/06-spazio.js?v=r31"></script>
-<script defer src="camera/07-fotocamera.js?v=r31"></script>
-<script defer src="camera/08-registrazione.js?v=r31"></script>
-<script defer src="camera/09-timelapse.js?v=r31"></script>
-<script defer src="camera/10-zoom-test.js?v=r31"></script>
-<script defer src="camera/11-schermo-nero.js?v=r31"></script>
-<script defer src="camera/12-stato.js?v=r31"></script>
-<script defer src="camera/13-anteprima.js?v=r31"></script>
-<script defer src="camera/14-trasferimento.js?v=r31"></script>
-<script defer src="camera/15-comandi.js?v=r31"></script>
-<script defer src="camera/16-interfaccia.js?v=r31"></script>
+<script src="rt.js?v=r32"></script>
+<script src="auth.js?v=r32"></script>
+<script src="dev.js?v=r32"></script>
+<script src="xfer.js?v=r32"></script>
+<script>"use strict"; const PAGE_VERSION = "camera r32";</script>
+<script defer src="camera/01-base.js?v=r32"></script>
+<script defer src="camera/02-registro.js?v=r32"></script>
+<script defer src="camera/03-identita.js?v=r32"></script>
+<script defer src="camera/04-archivio.js?v=r32"></script>
+<script defer src="camera/05-postazione.js?v=r32"></script>
+<script defer src="camera/06-spazio.js?v=r32"></script>
+<script defer src="camera/07-fotocamera.js?v=r32"></script>
+<script defer src="camera/08-registrazione.js?v=r32"></script>
+<script defer src="camera/09-timelapse.js?v=r32"></script>
+<script defer src="camera/10-zoom-test.js?v=r32"></script>
+<script defer src="camera/11-schermo-nero.js?v=r32"></script>
+<script defer src="camera/12-stato.js?v=r32"></script>
+<script defer src="camera/13-anteprima.js?v=r32"></script>
+<script defer src="camera/14-trasferimento.js?v=r32"></script>
+<script defer src="camera/15-comandi.js?v=r32"></script>
+<script defer src="camera/16-interfaccia.js?v=r32"></script>
 </body>
 </html>
