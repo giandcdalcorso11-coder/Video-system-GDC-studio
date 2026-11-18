@@ -51,7 +51,7 @@ export async function withEnv(opts, fn) {
   await ctx.addInitScript(INIT, { approve: o.approve, welcomed: o.welcomed });
   await ctx.route("https://**", (r) => r.abort());
   const errs = [], t = { base, code, ctx, errs, o };
-  const watch = (p, id) => p.on("pageerror", (e) => errs.push(`${id}: ${e.message}`));
+  const watch = (p, id) => { p.on("pageerror", (e) => errs.push(`${id}: ${e.message}`)); p.on("requestfailed", (r) => { if (r.url().startsWith(base)) errs.push(`${id}: richiesta fallita ${r.url()} (${r.failure() && r.failure().errorText})`); }); p.on("response", (r) => { if (r.url().startsWith(base) && r.status() >= 400) errs.push(`${id}: risposta ${r.status()} per ${r.url()}`); }); p.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errs.push(`${id}: console: ${m.text()}`); }); };
   t.check = (name, ok, detail = "") => results.push({ name, ok: !!ok, detail: ok ? "" : String(detail) });
   t.until = async (f, ms = 20000, step = 250) => { const end = Date.now() + ms; for (;;) { let v; try { v = await f(); } catch { v = false; } if (v) return v; if (Date.now() > end) return false; await sleep(step); } };
   t.dash = async (q = "&dev=1") => { const p = await ctx.newPage(); watch(p, "dashboard"); await p.goto(`${base}/dashboard.html?mock=1${q}#${code}`); await t.until(() => p.evaluate(() => typeof Join !== "undefined" && typeof Xfer !== "undefined")); return p; };

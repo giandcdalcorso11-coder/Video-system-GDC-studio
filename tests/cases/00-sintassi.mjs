@@ -10,7 +10,8 @@ export async function run() {
     const pv = html.match(/PAGE_VERSION = "([^"]+)"/);
     ok(`${page}.html: ha un numero di versione`, pv, "PAGE_VERSION mancante");
     const corto = pv ? pv[1].split(" ").pop() : "?";
-    const tags = [...html.matchAll(/<script src="(\w+\/[\w-]+\.js)\?v=([^"]+)"><\/script>/g)];
+    const tags = [...html.matchAll(/<script defer src="(\w+\/[\w-]+\.js)\?v=([^"]+)"><\/script>/g)];
+    ok(`${page}.html: i moduli usano defer (scaricati insieme, eseguiti in ordine: nessuna esecuzione a metà)`, !/<script src="(camera|dashboard)\//.test(html), "ci sono moduli senza defer");
     ok(`${page}.html: carica i moduli della cartella ${page}/`, tags.length >= 10, tags.length);
     ok(`${page}.html: tutti i moduli hanno lo stesso ?v= della versione (${corto}), così Safari non mescola file vecchi e nuovi`, tags.every((t) => t[2] === corto), tags.filter((t) => t[2] !== corto).map((t) => t[1] + "?v=" + t[2]).join(", "));
     const files = fs.readdirSync(path.join(DOCS, page)).filter((f) => f.endsWith(".js")).map((f) => `${page}/${f}`).sort();
