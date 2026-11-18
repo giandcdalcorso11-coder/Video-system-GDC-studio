@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 43
-**Ultimo aggiornamento:** 2026-11-19 01:30
+**Versione:** 44
+**Ultimo aggiornamento:** 2026-11-19 03:00
 
 ## Vision
 
@@ -173,7 +173,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
 - [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
-- **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**: va solo pulito, cioè rimosso tutto ciò che questo progetto vi ha messo (tabella `gdc_dev_logs`, regole, trigger, funzioni, eventuali altri oggetti), lasciando il progetto vuoto e vivo; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
+- **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**, e **attenzione: ospita anche un'altra app** (tabelle `thumb_*`, funzioni `is_master`, `owns_client`, `owns_storage_path`, regole relative): non toccarle. Va rimosso solo ciò che ha creato questo progetto: tabella `gdc_dev_logs` (con la sua regola `gdc_dev_logs_insert`, indici, vincoli), funzioni `gdc_dev_logs_cleanup` e `gdc_dev_logs_dedupe`, trigger `gdc_dev_logs_cleanup_trg` e `gdc_dev_logs_dedupe_trg`; prima di cancellare mostrare l'elenco e avere conferma; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 
 ### Step 9 — Hardware opzionale
 
@@ -189,6 +189,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 03:00] Prove salvate nel repository, controllo di sicurezza del database, documenti tecnici aggiornati
+
+**Riepilogo:** le prove automatiche ora vivono in `tests/` (11 gruppi, comando unico); controllato il database Supabase (ben protetto, ma il progetto ospita anche un'altra app); riscritti i documenti tecnici in `docs/`; la nuova suite ha trovato e fatto correggere un bug.
+
+**Cosa è stato fatto:**
+- `tests/`: libreria comune, runner (`npm test` o `node run.mjs <filtro>`) e 11 gruppi di prove con controlli espliciti: sintassi, trasferimento con caduta (memoria e cartella, SHA-256), spazio, automatico e anteprima, cartella scollegata/piena, memoria, ingresso e QR, nomi e orologio e Base/Avanzata, segnali, recupero e postazione fissa, controlli avanzati. README in italiano.
+- **Bug trovato dalle prove:** dopo "Accetta" la camera non riceveva il proprio numero (la regia lo mandava prima di creare la camera). Corretto (dashboard r28): la camera viene creata, poi riceve ingresso e numero.
+- Controllo di sicurezza di GDC-project 2 (sola lettura): su `gdc_dev_logs` protezione di riga attiva, solo inserimento per i client (nessuna lettura), limiti di lunghezza, ruoli controllati, cancellazione a 7 giorni, anti-duplicati. Rischio residuo: inserimenti illimitati con la chiave pubblica fino alla pulizia; per il pubblico i log sono spenti di default e servirà informativa e consenso. Gli avvisi di Supabase riguardano l'altra app (funzioni `is_master`, `owns_client`, `owns_storage_path` eseguibili da utenti non autenticati, protezione contro le password trapelate spenta), non il nostro codice: da segnalare al proprietario di quell'app.
+- GDC-WEBAPP (`pnzabwfsgkvejnrtrjcp`, sola lettura): nessun oggetto di questo progetto rimasto (nessuna tabella, funzione, regola o trigger `gdc*`).
+- Documenti: `docs/ARCHITETTURA.md` riscritto, `docs/PIPELINE.md` aggiornato, `docs/RISULTATI-TEST.md` con iPhone 15, Pixel 8 Pro e revisione del database.
+
+**Decisioni prese:**
+- Contesto: l'utente ha rimandato la precisione degli avvii sincronizzati ("REC alle hh:mm:ss") a più avanti: prima funzionamento sicuro e buona struttura. Decisione: nessun REC sincronizzato per ora.
+- Contesto: GDC-project 2 contiene un'altra app. Decisione: la pulizia futura toccherà solo gli oggetti `gdc_*` (elenco nel promemoria dello Step 11).
+
+**File consegnati/modificati:** tests/ (nuova cartella: package.json, README, lib.mjs, run.mjs, cases/*), docs/ARCHITETTURA.md, docs/PIPELINE.md, docs/RISULTATI-TEST.md, docs/dashboard.html (r28); documento v44.
+
+---
 
 ### [2026-11-19 01:30] Controlli avanzati della fotocamera
 

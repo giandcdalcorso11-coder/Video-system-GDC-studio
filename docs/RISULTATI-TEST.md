@@ -30,3 +30,27 @@ Pagina di prova: `docs/camera-test.html`. Test del 15/10/2026, pagina r5.
 - Per riprese lunghe i pezzi vanno inviati al PC mentre si registra (buffer locale che si svuota), non salvati tutti sul telefono.
 - Con Wi-Fi a 2,4 GHz un invio continuo a 20 Mbps è al limite: verificare se la rete ha la banda a 5 GHz (l'XR la supporta).
 - Il file va controllato per frame rate variabile prima del montaggio.
+
+---
+
+# Altri telefoni e prove (novembre 2026)
+
+## iPhone 15 (Safari 27.2, iOS 18.7)
+- Zoom nativo 0,5–10×, torcia, distanza di fuoco e bilanciamento del bianco manuale disponibili; niente API della batteria.
+- Archivio: quota dichiarata 39 GB. **Prova di scrittura: 4096 MB in 32 s senza errori** (il tetto della prova era 4 GB, quindi lo spazio reale è almeno questo). Dopo la pulizia lo spazio usato torna a 0. Con questo dato la camera passa da 700 MB prudenti a circa 3,6 GB (circa 25 minuti a 1080p e 20 Mbps).
+- Registrazione: pezzi continui (10 s = 8 pezzi, 21 MB), quindi il recupero dopo un blocco della pagina è praticabile.
+- Trasferimento verso iPad su rete molto debole (0,2–0,9 Mbps): clip da 6,3 MB arrivata e verificata dopo 3 riprese automatiche; qualità ottima in galleria.
+
+## Pixel 8 Pro (Chrome 157)
+- Batteria dal browser (77%, in carica) senza Comandi. Wake Lock, scelta cartella, condivisione file.
+- Quota di archivio stimata 10 GB. MediaRecorder: mp4 (avc1 + AAC) e webm.
+- Camera posteriore: zoom 1–30×, torcia, fuoco manuale (0,105–5,9), ISO 21–10666, tempo di posa, compensazione ±4, bianco manuale 2850–7000 K, fino a 60 fps, fino a 4080×3072.
+- Anteprima verso l'iPad: connessione diretta, 406×720 a 31 fps su rete mobile, nessun pacchetto perso.
+- Non provati: REC, trasferimento e zoom dalla regia.
+
+## Prove in browser simulato (camera finta)
+Le prove in `tests/` verificano il comportamento del software, non quello dei telefoni. Su Chromium il formato mp4 consegna i pezzi solo allo STOP (con webm arrivano di continuo): su Android il recupero dopo un blocco potrebbe quindi non funzionare con mp4 e va verificato su un telefono vero.
+
+## Esiti della revisione del database (Supabase)
+- Tabella `gdc_dev_logs`: protezione a livello di riga attiva, solo inserimento per i client, nessuna lettura; limiti di lunghezza sui campi, ruoli ammessi controllati, cancellazione dopo 7 giorni, filtro anti-duplicati.
+- Rischio residuo: chiunque abbia la chiave pubblica può inserire righe fino alla pulizia a 7 giorni. Per l'uso pubblico l'invio dei log è spento di default (solo link da sviluppatore); i log contengono modello e browser del dispositivo, quindi con terzi serve informativa e consenso.

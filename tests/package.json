@@ -1,0 +1,8 @@
+{
+  "name": "gdc-multicam-tests",
+  "private": true,
+  "type": "module",
+  "description": "Prove automatiche di Video System GDC Studio (browser simulato con camera finta)",
+  "scripts": { "test": "node run.mjs" },
+  "devDependencies": { "playwright": "*", "jsqr": "^1.4.0" }
+}

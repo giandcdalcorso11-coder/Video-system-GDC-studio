@@ -1,50 +1,60 @@
 # Pipeline del progetto
 
-Legenda: ✅ fatto · 🔄 in corso · ⏳ da fare · 💤 più avanti
+Legenda: ✅ fatto · 🔄 in corso (fatto in simulazione, da provare sui dispositivi veri) · ⏳ da fare · 💤 più avanti
 
-## 1. Verifiche sull'iPhone XR (iOS 16.3.1)
-- ✅ Fotocamera dal browser: 1080p e 4K verticali a 30 fps, MP4 H.264 + audio AAC, bitrate controllabile
-- ✅ WebRTC (anteprima) e raggiungibilità STUN confermati
-- ✅ Time-lapse dal browser (automatico stile iPhone + manuale)
-- ✅ Test approfondito: ripresa lunga a pezzi, 60 fps (solo 720p), foto 12 MP, canale dati, limite di spazio (circa 0,78 GB). Risultati in `docs/RISULTATI-TEST.md`
-- ⏳ Prova del tasto volume nel Time-lapse nativo (solo se si userà l'app Fotocamera)
+Aggiornata al 2026-11-18 (camera r27, dashboard r28). Il dettaglio è nel documento di sessione.
 
-## 2. Dashboard
-- ✅ Prototipo con camere simulate: home, dettaglio camera, rinomina, REC, pan/tilt segnaposto
-- ✅ Registro attività avanzato (dashboard + camera), pulsanti Copia
-- ✅ Anteprime live nella home (interruttore) e pannello Time-lapse nel dettaglio
-- ✅ Unione di camere duplicate ("Stesso telefono?")
-- ⏳ Barra batteria alimentata dai dati reali (vedi punto 5)
-- ⏳ Selettore della destinazione dei file
-- ⏳ Barra di scaricamento dei video con indicatore "puoi chiudere in sicurezza"
-- ✅ Standby / Riattiva (schermo nero sul telefono)
-- ✅ Dashboard collegata alle camere reali tramite Supabase (provato con dispositivi veri)
+## 1. Verifiche sui telefoni
+- ✅ iPhone XR (iOS 16.3.1): fotocamera 1080p/4K a 30 fps, MP4 H.264 + AAC, WebRTC, time-lapse, limiti di spazio (circa 0,78 GB). Vedi `docs/RISULTATI-TEST.md`
+- ✅ iPhone 15 (Safari 27.2): zoom 0,5–10×, torcia, distanza di fuoco, bianco manuale; quota di archivio 39 GB; scritti 4 GB senza errori
+- ✅ Pixel 8 Pro (Chrome 157): batteria dal browser, controlli completi, anteprima a 31 fps su rete mobile
+- ⏳ Android: REC, trasferimento e zoom dalla regia (mai provati)
+- ⏳ Misura dello spazio dell'iPhone 15 oltre i 4 GB
+
+## 2. Dashboard (regia)
+- ✅ Collegata alle camere reali (Supabase), registro, anteprime, time-lapse, unione di camere duplicate
+- ✅ REC/STOP per camera e per tutte, zoom morbido, impostazioni di qualità
+- ✅ "Controllo prima di iniziare" (collegamento, batteria, spazio, cartella)
+- 🔄 QR per aggiungere un telefono, conferma Accetta/Rifiuta/Accetta tutte, numeri unici delle camere
+- 🔄 Segnali per il montaggio (CSV e marcatori per DaVinci Resolve)
+- 🔄 Camere non collegate da giorni: avviso e rimozione
+- 🔄 Controlli camera (torcia, fuoco, bianco, esposizione) in Avanzata
 
 ## 3. Pagina camera (telefono)
-- ✅ Collegamento alla dashboard (REC/STOP, stato, impostazioni, schermo nero) (provato con dispositivi veri)
-- ✅ Comando time-lapse (automatico e manuale): da provare sull'XR
-- ✅ Anteprima in tempo reale (WebRTC) (provato con dispositivi veri)
-- ✅ Registrazione scritta a pezzi su disco (IndexedDB), tetto di sicurezza 700 MB
-- ⏳ File in attesa di invio e scarico continuo verso il PC
-- ✅ Time-lapse integrato (automatico e manuale), video creato sul telefono: da provare sull'XR
+- ✅ Registrazione a pezzi su disco, REC/STOP, schermo nero, Wake Lock
+- ✅ Spazio: minuti rimasti, arresto sicuro, misura reale (iPhone 15)
+- 🔄 Benvenuto alla prima apertura (nome e permessi)
+- 🔄 Recupero delle clip dopo un blocco della pagina (prova su Safari da fare)
+- 🔄 Postazione fissa: ripresa automatica dopo un blocco, riaccensione della camera, ricreazione del collegamento
+- 🔄 Nome dei file con camera, nome, data e ora corretta con l'orologio della regia
 
 ## 4. Canale di comunicazione
-- ✅ Decisione: Supabase Realtime (progetto GDC-thumbnail-generator, per ora) per comandi e segnalazione + collegamento diretto telefono ↔ dashboard per video e file
-- ⏳ Trasferimento file con verifica di integrità
+- ✅ Supabase Realtime per comandi e stato; collegamento diretto per anteprima e file
+- ✅ Progetto "GDC-project 2" (provvisorio)
+- 💤 Progetto dedicato per l'uso pubblico (nuovo account Supabase): da fare prima del primo test esterno, con spostamento e pulizia di quanto messo in GDC-project 2
 
-## 5. App Comandi sull'XR (batteria)
-- ⏳ Comando "Invia batteria" (livello + in carica / non in carica)
-- ⏳ Automazioni alle soglie 100, 90, 80, 70, 60, 50, 40, 35, 30, 25, 20, 15, 10, 5, 4, 3, 2, 1 %
-- ⏳ Automazioni caricabatterie collegato / scollegato
-- ⏳ Verifica che le automazioni partano senza conferma su iOS 16.3.1
-- ⏳ La barra batteria della dashboard mostra livello, fulmine se in carica, ora dell'ultimo aggiornamento
+## 5. Batteria
+- ✅ Android (Chrome): dal browser
+- ⏳ iPhone: Comandi con automazioni (nessun collegamento ancora creato)
 
-## 6. Destinazione dei file
-- ⏳ Cartella del PC (Edge, File System Access): destinazione principale
-- ⏳ Galleria dell'iPad della dashboard (un tocco su "Salva in Foto" sull'iPad)
-- ⏳ Galleria del telefono che registra (un tocco sul telefono)
-- 💤 Cloud online (segnaposto)
+## 6. Trasferimento e destinazione dei file
+- ✅ Camera → iPad con ripresa dopo interruzioni e controllo CRC (provato su rete molto debole)
+- 🔄 Destinazione: cartella del computer (anche disco esterno) o memoria con Salva
+- 🔄 Trasferimento automatico, buffer a rotazione, "Tieni i file sui telefoni"
+- 🔄 Protezioni della regia: cartella scollegata o piena, tetto di memoria dell'iPad, misura della memoria
+- ⏳ Prova con una cartella vera su rete buona
+- 💤 Invio durante la ripresa e trasferimento dei soli momenti segnati
+- 💤 Cloud (versione Pro)
 
-## 7. Hardware opzionale
-- 💤 ESP32: pulsante REC fisico, servo pan/tilt, telecomando Bluetooth per l'app Fotocamera
-- 💤 Altri telefoni (stessa pagina camera)
+## 7. Uso pubblico
+- 🔄 Mockup approvati; QR e conferma realizzati
+- ⏳ Codice a 8 caratteri (serve il progetto dedicato)
+- ⏳ Home con scelta del ruolo, sessioni con scadenza
+- 💤 Personalizzazione per attività, orologio smart (idea)
+
+## 8. Qualità del software
+- ✅ Prove automatiche in `tests/` (11 gruppi, browser con camera finta)
+- ⏳ Prove sui dispositivi veri: vedi `piano-test-interno.md`
+
+## 9. Hardware opzionale
+- 💤 ESP32: pulsante REC fisico, servo pan/tilt, telecomando Bluetooth
