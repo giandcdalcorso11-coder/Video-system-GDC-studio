@@ -22,6 +22,7 @@ export async function run() {
     t.check("durata ricostruita vicina ai secondi registrati", rec && rec.dur >= 3000 && rec.dur <= 9000, rec && rec.dur);
     t.check("la camera avvisa del recupero", await cam.evaluate(() => /recuperata/.test(lastErr)), await cam.evaluate(() => lastErr));
     t.check("postazione fissa: la registrazione riparte da sola (nuova clip)", await t.until(() => cam.evaluate((s) => !!recording && recording.sid !== s, sid1), 30000));
+    await sleep(3000); // una ripresa vera, non di pochi millisecondi
     await dash.evaluate(() => document.getElementById("stopAll").click());
     t.check("dopo STOP non vuole più registrare", await t.until(() => cam.evaluate(() => !recording && wantRec === false), 10000));
     await cam.reload(); await sleep(9000);
