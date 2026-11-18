@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 50
-**Ultimo aggiornamento:** 2026-11-18 14:05
+**Versione:** 51
+**Ultimo aggiornamento:** 2026-11-18 14:21
 
 ## Vision
 
@@ -193,6 +193,24 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 14:21] Viste delle camere nella regia (mockup)
+
+**Riepilogo:** Aggiunte al mockup tre viste delle camere nella regia (Automatico, Scorrimento, Personalizzato Pro) con le scelte sui valori di partenza.
+
+**Cosa è stato fatto:** nel mockup il selettore di vista in alto accanto a REC tutte; schede 8a (automatico), 8b (scorrimento, una camera in primo piano e fila laterale), 8c (personalizzato: camere libere da spostare e ridimensionare).
+
+**Decisioni prese:**
+- Contesto: la regia deve mostrare più camere su schermi di dimensioni diverse.
+- Decisione: tre viste. **Automatico** (tutte visibili, si adattano allo schermo; predefinita su iPad e computer), **Scorrimento** (una camera in primo piano, le altre si scorrono su/giù o destra/sinistra; predefinita su telefono in verticale, con scorrimento orizzontale), **Personalizzato** (piano Pro: spostare e ridimensionare, disposizione salvata).
+- Alternative scartate: nessuna.
+- Da rivedere se: i primi test mostrano che con molte camere l'automatico è illeggibile.
+
+**File consegnati/modificati:** mockup (Regia-Sessione, Regia-Vista-Scorrimento, Regia-Vista-Libera, canvas.json) pubblicato; nessun codice toccato.
+
+**Impatto su Vision/Pipeline:** nessuno (da costruire dopo il flusso di base).
+
+---
 
 ### [2026-11-18 14:05] Mockup del flusso pubblico aggiornato
 
