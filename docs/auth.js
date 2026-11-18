@@ -32,7 +32,8 @@
   /** aggiunge numero, ora e firma a un comando (se la regia ha la chiave privata) */
   async function signCmd(pairing, payload) {
     if (!subtle || !pairing || !okP(pairing.p) || !okD(pairing.d)) return payload;
-    const body = { ...payload, sid, n: ++n, ts: Date.now() };
+    // i campi della firma hanno nomi propri (as, an, at) per non scontrarsi con quelli dei comandi (es. sid = clip da trasferire)
+    const body = { ...payload, as: sid, an: ++n, at: Date.now() };
     const key = await subtle.importKey("jwk", { ...pubJwk(pairing.p), d: pairing.d, key_ops: ["sign"] }, ALG, false, ["sign"]);
     return { ...body, sig: b64u.enc(new Uint8Array(await subtle.sign(SIG, key, txt(canon(body))))) };
   }

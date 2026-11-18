@@ -6,10 +6,10 @@ async function cmdGate(m) {
   if (!m || (m.to !== ID && m.to !== "*")) return;
   if (pairing && pairing.p) {
     const rest = { ...m }; delete rest.sig; let why = "";
-    if (typeof m.sig !== "string" || !m.sid || typeof m.n !== "number" || typeof m.ts !== "number") why = "senza firma";
+    if (typeof m.sig !== "string" || !m.as || typeof m.an !== "number" || typeof m.at !== "number") why = "senza firma";
     else if (!(await GDC_AUTH.verify(pairing.p, rest, m.sig))) why = "firma non valida";
-    else if (Math.abs(Date.now() - m.ts) > 600000) why = "troppo vecchio (o orologio del telefono sfasato di oltre 10 minuti)";
-    else { const seen = cmdSeen[m.sid] || (cmdSeen[m.sid] = []); if (seen.includes(m.n) || (seen.length >= 64 && m.n < Math.min(...seen))) why = "già ricevuto"; else { seen.push(m.n); if (seen.length > 64) seen.shift(); const ks = Object.keys(cmdSeen); while (ks.length > 20) delete cmdSeen[ks.shift()]; store.set("gdc.cmdSeen", cmdSeen); } }
+    else if (Math.abs(Date.now() - m.at) > 600000) why = "troppo vecchio (o orologio del telefono sfasato di oltre 10 minuti)";
+    else { const seen = cmdSeen[m.as] || (cmdSeen[m.as] = []); if (seen.includes(m.an) || (seen.length >= 64 && m.an < Math.min(...seen))) why = "già ricevuto"; else { seen.push(m.an); if (seen.length > 64) seen.shift(); const ks = Object.keys(cmdSeen); while (ks.length > 20) delete cmdSeen[ks.shift()]; store.set("gdc.cmdSeen", cmdSeen); } }
     if (why) {
       dbg("warn", `comando ${String(m.cmd).slice(0, 30)} rifiutato: ${why}`);
       if (Date.now() - denyAt > 10000) { denyAt = Date.now(); try { rt.send("ack", { id: ID, cmd: String(m.cmd).slice(0, 30), rid: m.rid || null, ok: false, detail: "non autorizzato: " + why, ts: Date.now() }); } catch { /* ok */ } }

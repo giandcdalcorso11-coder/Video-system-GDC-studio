@@ -13,6 +13,14 @@ export async function run() {
     // 1) un comando firmato dalla regia viene eseguito
     await dash.evaluate(() => command("camA", { cmd: "rec_start" }));
     t.check("comando firmato dalla regia: REC parte", await t.until(rec, 15000));
+    // 1b) con la chiave i trasferimenti funzionano (i campi della firma non devono toccare quelli dei comandi)
+    await dash.evaluate(() => command("camA", { cmd: "rec_stop" })); await t.until(async () => !(await rec()), 15000); await sleep(800);
+    await dash.evaluate(() => { location.hash = "#/cam/camA"; Dest.mode = "device"; Xfer.jobs.clear(); Xfer.refresh(); });
+    const sid = await cam.evaluate(() => sessions[0].id);
+    await t.until(() => dash.evaluate((s) => !!document.querySelector(`[data-xf="go"][data-sid="${s}"]:not([disabled])`), sid));
+    await dash.evaluate((s) => document.querySelector(`[data-xf="go"][data-sid="${s}"]`).click(), sid);
+    t.check("con la chiave: il trasferimento di una clip arriva", await t.until(() => dash.evaluate(() => [...Xfer.jobs.values()].some((j) => j.state === "ok")), 40000), await dash.evaluate(() => [...Xfer.jobs.values()].map((j) => j.state + ":" + (j.error || "")).join()));
+    await dash.evaluate(() => command("camA", { cmd: "rec_start" })); await t.until(rec, 15000);
     // 2) un intruso (ha solo il link): comandi senza firma, con firma sbagliata e ripetuti
     const intruso = await t.ctx.newPage(); await intruso.goto(`${t.base}/camera-test.html`);
     await intruso.evaluate(() => { window.__visti = []; window.__bc = new BroadcastChannel("gdc-mock-" + window.__c); });
@@ -20,10 +28,10 @@ export async function run() {
     const manda = (event, payload) => intruso.evaluate(([event, payload]) => window.__bc.postMessage({ t: "ev", event, payload }), [event, payload]);
     await manda("cmd", { to: "camA", from: "evil", cmd: "rec_stop" }); await sleep(1500);
     t.check("senza firma: STOP ignorato", await rec());
-    await manda("cmd", { to: "camA", from: "evil", cmd: "rec_stop", sid: "x", n: 1, ts: Date.now(), sig: "A".repeat(86) }); await sleep(1500);
+    await manda("cmd", { to: "camA", from: "evil", cmd: "rec_stop", as: "x", an: 1, at: Date.now(), sig: "A".repeat(86) }); await sleep(1500);
     t.check("firma falsa: STOP ignorato", await rec());
     // firma con un'altra chiave
-    const altra = await intruso.evaluate(async () => { const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]); const body = { to: "camA", from: "evil", cmd: "rec_stop", sid: "y", n: 1, ts: Date.now() }; const sort = (v) => (Array.isArray(v) ? v.map(sort) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => ((o[k] = sort(v[k])), o), {}) : v); const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, kp.privateKey, new TextEncoder().encode(JSON.stringify(sort(body))))); return { ...body, sig: btoa(String.fromCharCode(...sig)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") }; });
+    const altra = await intruso.evaluate(async () => { const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]); const body = { to: "camA", from: "evil", cmd: "rec_stop", as: "y", an: 1, at: Date.now() }; const sort = (v) => (Array.isArray(v) ? v.map(sort) : v && typeof v === "object" ? Object.keys(v).sort().reduce((o, k) => ((o[k] = sort(v[k])), o), {}) : v); const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, kp.privateKey, new TextEncoder().encode(JSON.stringify(sort(body))))); return { ...body, sig: btoa(String.fromCharCode(...sig)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") }; });
     await manda("cmd", altra); await sleep(1500);
     t.check("firma con un'altra chiave: STOP ignorato", await rec());
     t.check("la regia viene avvisata del rifiuto", await t.until(() => dash.evaluate(() => logs.some((l) => /non autorizzato|non riuscito/.test(l.msg)) || adv.some((x) => /non autorizzato/.test(x.m))), 8000));
