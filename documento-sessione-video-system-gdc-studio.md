@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 48
-**Ultimo aggiornamento:** 2026-11-19 09:40
+**Versione:** 49
+**Ultimo aggiornamento:** 2026-11-19 11:00
 
 ## Vision
 
@@ -14,6 +14,8 @@ Il software (dashboard, pagina camera, canale di comunicazione) è il valore pri
 Direzione di prodotto (2026-11-15): oltre allo strumento personale, l'idea è portarla a un livello successivo, come app con piano gratuito (qualità massima e numero di dispositivi limitati, file solo sul dispositivo) e piano Pro (più dispositivi, qualità alta, slow-mo, time-lapse, archiviazione a scelta anche in cloud). Punti di forza da curare: uso senza installare nulla, multi-dispositivo (Apple, Android, PC; in prospettiva action cam), file sul dispositivo madre in una cartella scelta (anche disco esterno). Ancora da fare: lavorare sul funzionamento, sulla grafica e sui limiti di rete.
 
 Primi utenti terzi (2026-11-18): attività che offrono esperienze, a cui proporre il sistema come strumento per il lavoro sui social e come banco di prova reale: go-kart (camera POV al petto), escape room (camere panoramiche fisse della struttura), serate, bar, discoteche, eventi. Idea: personalizzazione in base all'attività (preset di qualità, orientamento, zoom, bilanciamento, torcia; in prospettiva logo e colori dell'attività).
+
+Content creator (2026-11-19): altro pubblico di riferimento, persone che girano contenuti e hanno bisogno di angolazioni diverse senza passare da un dispositivo all'altro per avviare e fermare le registrazioni (una regia sola comanda tutte le camere). Primo test interno previsto nello studio dell'autore, mentre progetta, stampa o assembla componenti. Il profilo (preset, impostazioni e personalizzazione salvati, da non rifare ogni volta) rientra nel piano Pro; il piano base resta "pronto all'uso", senza registrazione.
 
 ## Pipeline
 
@@ -172,6 +174,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
 - [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
+- [2026-11-19] Impostazione del flusso: "pronto all'uso" (senza profilo) con personalizzazione leggera salvata sul dispositivo (tipo di attività con pochi preset, nome del locale, colore); profilo e personalizzazione persistente nel piano Pro; logo rimandato. Prima del flusso reale: mockup aggiornati con la schermata iniziale e la scelta del tipo di attività.
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
 - **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**, e **attenzione: ospita anche un'altra app** (tabelle `thumb_*`, funzioni `is_master`, `owns_client`, `owns_storage_path`, regole relative): non toccarle. Va rimosso solo ciò che ha creato questo progetto: tabella `gdc_dev_logs` (con la sua regola `gdc_dev_logs_insert`, indici, vincoli), funzioni `gdc_dev_logs_cleanup` e `gdc_dev_logs_dedupe`, trigger `gdc_dev_logs_cleanup_trg` e `gdc_dev_logs_dedupe_trg`; prima di cancellare mostrare l'elenco e avere conferma; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 
@@ -189,6 +192,22 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 11:00] Impostazione del flusso pubblico di base
+
+**Riepilogo:** discussione e scelte sul flusso pubblico: "pronto all'uso" con personalizzazione leggera, profilo nel piano Pro, nuovo pubblico (content creator) in Vision.
+
+**Decisioni prese:**
+- Contesto: serviva decidere se partire da una profilazione iniziale o da un uso immediato. Decisione: **pronto all'uso**, senza registrazione; personalizzazione leggera salvata sul dispositivo della regia (tipo di attività con pochi preset, nome del locale, colore); la **profilazione** (preset, impostazioni e personalizzazione da non rifare ogni volta) rientra nel **piano Pro**, insieme a cloud e storico. Alternative scartate: profilo obbligatorio all'inizio (attrito prima della prima ripresa, e oggi non c'è un server per gli account). Da rivedere se: i primi utenti chiedono di ritrovare le impostazioni su altri dispositivi anche nel piano base.
+- **Logo rimandato** (solo nome del locale e colore nella prima versione; il logo non passa dal QR e dal canale verso i telefoni).
+- Preset iniziali proposti: Generico, Sport, Go-kart ed escape room, Locali ed eventi. Un preset sceglie colori e testi, impostazioni di partenza (per esempio "file sui telefoni", trasferimento automatico, permesso REC dal telefono) e le diciture ("Pista 1" al posto di "Camera 1").
+- Nessun primo uso concreto esterno ancora: il primo test sarà interno, nello studio dell'autore, con la prospettiva dei content creator.
+
+**Impatto su Vision/Pipeline:** Vision: aggiunto il pubblico dei content creator e il profilo nel piano Pro; Step 11: nota sull'impostazione del flusso.
+
+**File consegnati/modificati:** documento v49.
+
+---
 
 ### [2026-11-19 09:40] Clip vuote dopo una registrazione brevissima
 
