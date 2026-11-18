@@ -84,18 +84,20 @@ class RealtimeTransport {
     Preview.ensure(m.id); if (REAL) { Xfer.autoTick(m.id); Marks.learn(); }
   }
   sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
+  // ogni comando parte firmato con la chiave privata della regia (in ordine, uno dopo l'altro)
+  sendCmd(p) { this.q = (this.q || Promise.resolve()).then(() => GDC_AUTH.signCmd(pairing, p)).then((sp) => this.rt.send("cmd", sp)).catch((e) => dbg("error", "tx", `comando ${p.cmd} non inviato: ${e.message}`)); }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
     if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
-    this.rt.send("cmd", { ...m, to: id, from: this.id });
+    this.sendCmd({ ...m, to: id, from: this.id });
   }
 }
 const plainDesc = (d) => ({ type: d.type, sdp: d.sdp });
 const Preview = {
   pcs: {}, active: {},
   want(id) { if (!REAL) return null; if (typeof Xfer !== "undefined" && Xfer.active().length && !Xfer.keepPrev) return null; if (curDetail) return curDetail === id ? "full" : null; return store.get("gdc.homePrev", true) ? "mini" : null; },
-  start(id, mode) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = mode || "full"; dbg("info", "anteprima", `richiedo l'anteprima ${this.active[id]} a ${id}`); transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_start", q: this.active[id], rid: rid() }); },
-  stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.rt.send("cmd", { to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
+  start(id, mode) { if (!REAL || !transport.rt || this.active[id]) return; this.active[id] = mode || "full"; dbg("info", "anteprima", `richiedo l'anteprima ${this.active[id]} a ${id}`); transport.sendCmd({ to: id, from: transport.id, cmd: "preview_start", q: this.active[id], rid: rid() }); },
+  stop(id) { if (!this.active[id] && !this.pcs[id]) return; dbg("info", "anteprima", `fermo l'anteprima di ${id}`); if (transport.rt) transport.sendCmd({ to: id, from: transport.id, cmd: "preview_stop", rid: rid() }); this.reset(id); },
   stopAll() { Object.keys({ ...this.active, ...this.pcs }).forEach((id) => this.stop(id)); },
   reset(id) { const e = this.pcs[id]; if (e) clearInterval(e.statT); this.active[id] = false; try { e && e.pc && e.pc.close(); } catch { /* ok */ } delete this.pcs[id]; this.detach(id); },
   ensure(id) {

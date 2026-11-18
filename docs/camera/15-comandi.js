@@ -1,5 +1,23 @@
 "use strict";
 /* ===== Comandi dalla dashboard ===== */
+// Con un link di camera che contiene la chiave pubblica della regia, si eseguono solo comandi firmati, non ripetuti e recenti
+const cmdSeen = store.get("gdc.cmdSeen", {}); let denyAt = 0;
+async function cmdGate(m) {
+  if (!m || (m.to !== ID && m.to !== "*")) return;
+  if (pairing && pairing.p) {
+    const rest = { ...m }; delete rest.sig; let why = "";
+    if (typeof m.sig !== "string" || !m.sid || typeof m.n !== "number" || typeof m.ts !== "number") why = "senza firma";
+    else if (!(await GDC_AUTH.verify(pairing.p, rest, m.sig))) why = "firma non valida";
+    else if (Math.abs(Date.now() - m.ts) > 600000) why = "troppo vecchio (o orologio del telefono sfasato di oltre 10 minuti)";
+    else { const seen = cmdSeen[m.sid] || (cmdSeen[m.sid] = []); if (seen.includes(m.n) || (seen.length >= 64 && m.n < Math.min(...seen))) why = "già ricevuto"; else { seen.push(m.n); if (seen.length > 64) seen.shift(); const ks = Object.keys(cmdSeen); while (ks.length > 20) delete cmdSeen[ks.shift()]; store.set("gdc.cmdSeen", cmdSeen); } }
+    if (why) {
+      dbg("warn", `comando ${String(m.cmd).slice(0, 30)} rifiutato: ${why}`);
+      if (Date.now() - denyAt > 10000) { denyAt = Date.now(); try { rt.send("ack", { id: ID, cmd: String(m.cmd).slice(0, 30), rid: m.rid || null, ok: false, detail: "non autorizzato: " + why, ts: Date.now() }); } catch { /* ok */ } }
+      return;
+    }
+  }
+  return onCmd(m);
+}
 async function onCmd(m) {
   if (m.to !== ID && m.to !== "*") return;
   dbg("info", `comando ricevuto: ${m.cmd}`, m);

@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 45
-**Ultimo aggiornamento:** 2026-11-19 05:00
+**Versione:** 46
+**Ultimo aggiornamento:** 2026-11-19 07:00
 
 ## Vision
 
@@ -189,6 +189,24 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 07:00] Chiave della regia: solo la regia può comandare le camere
+
+**Riepilogo:** i comandi della regia sono ora firmati e le camere con link nuovo eseguono solo comandi firmati (camera r29, dashboard r30, nuovo `docs/auth.js`).
+
+**Cosa è stato fatto:**
+- Coppia di chiavi ECDSA P-256 generata dalla regia al primo avvio. Chiave pubblica nei link delle camere e nel QR; chiave privata solo nel link della dashboard ("Copia link dashboard"). Il link della camera non contiene mai la chiave privata.
+- Ogni comando (anche anteprima) parte firmato con numero progressivo, ora e id di sessione; la camera verifica firma, ripetizione (ultimi 64 numeri per sessione, 20 sessioni ricordate) ed età (massimo 10 minuti); altrimenti ignora e risponde "non autorizzato" (al massimo una volta ogni 10 s). I link vecchi senza chiave funzionano come prima.
+- Interfaccia: riga "Protezione" sulla camera (Avanzata) e stato della chiave nel pannello Collegamento della regia; "Nuovo canale" rifà anche le chiavi.
+- Prove (13 gruppi → 14): link con e senza chiave privata, comando firmato eseguito, intruso senza firma / con firma falsa / con un'altra chiave / con un comando già usato rimandato, seconda regia con il link della dashboard (funziona) e con quello della camera (non comanda), collegamento senza chiave invariato. Senza la difesa 6 controlli falliscono.
+
+**Decisioni prese:**
+- Contesto: per cambiare regia (iPad poi computer) serve condividere la chiave. Decisione: la chiave privata viaggia nel link della dashboard, che resta segreto come già era il canale. Alternative scartate: chiave scambiata alla prima accettazione del telefono (il primo che arriva vince, un intruso potrebbe prendere la camera) e firma con segreto condiviso (la camera potrebbe falsificare comandi e il segreto starebbe nel link della camera).
+- Limiti dichiarati: il canale non è cifrato (chi ha il link legge stato e comandi firmati), una camera finta può ancora presentarsi (la conferma resta il filtro), i telefoni con orologio sfasato di oltre 10 minuti rifiutano i comandi.
+
+**File consegnati/modificati:** docs/auth.js (nuovo), docs/rt.js, docs/camera.html, docs/dashboard.html, docs/camera/12-stato.js, 15-comandi.js, 16-interfaccia.js, docs/dashboard/04-camere.js, 05-trasporto.js, 09-viste-base.js, 13-viste.js, docs/ARCHITETTURA.md, docs/PIPELINE.md, piano-test-interno.md, tests/lib.mjs e cases/13-chiave-regia.mjs; documento v46.
+
+---
 
 ### [2026-11-19 05:00] Riordino in moduli e rinforzo della sicurezza dei messaggi
 

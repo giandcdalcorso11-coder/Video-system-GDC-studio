@@ -54,7 +54,7 @@ function showHome() {
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }
     if (e.target.closest("#mergeNo")) { dbg("info", "camere", "unione rifiutata dall'utente"); suggestMerge = null; showHome(); return; }
     if (e.target.closest("#cpCam") || e.target.closest("#cpDash")) { const link = GDC_RT.Pair.link(e.target.closest("#cpCam") ? "camera.html" : "dashboard.html", pairing); try { await navigator.clipboard.writeText(link); e.target.textContent = "Copiato ✓"; } catch { prompt("Copia questo link", link); } return; }
-    if (e.target.closest("#newCh")) { if (confirm("Creo un nuovo canale: i link già inviati ai telefoni smetteranno di funzionare. Continuare?")) { GDC_RT.Pair.save({ ...pairing, c: GDC_RT.Pair.newChannel() }); location.reload(); } return; }
+    if (e.target.closest("#newCh")) { if (confirm("Creo un nuovo canale: i link già inviati ai telefoni smetteranno di funzionare. Continuare?")) { GDC_RT.Pair.save({ u: pairing.u, k: pairing.k, c: GDC_RT.Pair.newChannel() }); /* le chiavi della regia si rifanno al riavvio */ location.reload(); } return; }
     if (e.target.closest("#unpair")) { if (confirm("Scollego questa dashboard dal canale?")) { GDC_RT.Pair.clear(); location.reload(); } return; }
     if (e.target.closest("#pairBtn")) { const p = GDC_RT.Pair.decode($("#pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); return; }
     const act = e.target.closest("[data-act]");

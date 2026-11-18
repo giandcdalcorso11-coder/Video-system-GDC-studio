@@ -56,7 +56,7 @@ Aggiornata al 2026-11-19 (camera r28, dashboard r29). Il dettaglio è nel docume
 - ✅ Prove automatiche in `tests/` (13 gruppi, browser con camera finta)
 - ✅ Codice diviso in moduli (16 per pagina) con controllo delle versioni
 - ✅ Messaggi del canale ripuliti prima di arrivare alle pagine; prova con messaggi ostili
-- ⏳ Chiave della regia per impedire comandi da chi ha solo il link
+- ✅ Chiave della regia: comandi firmati, solo la regia può comandare le camere (link nuovi); da provare sui telefoni
 - ⏳ Prove sui dispositivi veri: vedi `piano-test-interno.md`
 
 ## 9. Hardware opzionale

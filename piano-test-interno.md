@@ -88,6 +88,15 @@ REC, trasferimento, zoom e batteria, come nelle prove B e C. La sonda ha già mo
 
 Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashboard mostra "n/d" su iPhone.
 
+## M. Chiave della regia (10 minuti)
+
+**Scopo:** verificare che solo la regia comandi le camere e che il cambio di regia funzioni.
+1. Apri la dashboard e mostra il QR; con un telefono nuovo aprilo dal QR (il link ha la chiave pubblica). Dai REC e STOP dalla regia.
+2. In Avanzata, sulla camera, la riga "Protezione" deve dire "comandi firmati dalla regia".
+3. Apri la dashboard su un secondo dispositivo con **"Copia link dashboard"** (pannello Collegamento, Avanzata): deve poter comandare la camera.
+4. Apri la dashboard su un secondo dispositivo con il link della **camera**: la camera non deve obbedire e la regia deve scrivere "non autorizzato".
+5. Un telefono aperto con un link vecchio (senza chiave) resta comandabile come prima, e "Protezione" dice "nessuna".
+
 ## Cosa mi mandi
 
 Per ogni prova: **"fatto"**, il numero della prova, e un commento solo se qualcosa ti ha stupito. Il resto lo leggo nei log (stato, velocità, errori, tempi).

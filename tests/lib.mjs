@@ -45,16 +45,19 @@ export async function withEnv(opts, fn) {
   const o = { approve: false, welcomed: true, ...opts };
   const srv = http.createServer((q, r) => { const f = path.join(DOCS, q.url.split("?")[0]); if (!f.startsWith(DOCS) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; } const ritardo = typeof o.delay === "function" ? o.delay(q.url) : 0; setTimeout(() => { r.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); r.end(fs.readFileSync(f)); }, ritardo || 0); });
   await new Promise((res) => srv.listen(0, res)); const base = `http://localhost:${srv.address().port}`;
-  const code = "gdc1." + b64u(JSON.stringify({ u: "https://fake.supabase.test", k: "k", c: ("t" + Math.random().toString(36).slice(2) + "0000000000000000").slice(0, 24) }));
+  const base0 = { u: "https://fake.supabase.test", k: "k", c: ("t" + Math.random().toString(36).slice(2) + "0000000000000000").slice(0, 24) };
+  // con secure:true la regia ha una coppia di chiavi: il link delle camere ha la parte pubblica, quello della dashboard anche la privata
+  let keys = null; if (o.secure) { const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]), j = await crypto.subtle.exportKey("jwk", kp.privateKey); keys = { p: j.x + j.y, d: j.d }; }
+  const code = "gdc1." + b64u(JSON.stringify(keys ? { ...base0, p: keys.p } : base0)), codeDash = keys ? "gdc1." + b64u(JSON.stringify({ ...base0, ...keys })) : code;
   const br = await playwright().chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
   const ctx = await br.newContext({ permissions: ["camera", "microphone"] });
   await ctx.addInitScript(INIT, { approve: o.approve, welcomed: o.welcomed });
   await ctx.route("https://**", (r) => r.abort());
-  const errs = [], t = { base, code, ctx, errs, o };
+  const errs = [], t = { base, code, codeDash, keys, ctx, errs, o };
   const watch = (p, id) => { p.on("pageerror", (e) => errs.push(`${id}: ${e.message}${process.env.TEST_STACK ? " @ " + String(e.stack).split("\n").slice(1, 5).join(" <- ") : ""}`)); p.on("requestfailed", (r) => { if (r.url().startsWith(base)) errs.push(`${id}: richiesta fallita ${r.url()} (${r.failure() && r.failure().errorText})`); }); p.on("response", (r) => { if (r.url().startsWith(base) && r.status() >= 400) errs.push(`${id}: risposta ${r.status()} per ${r.url()}`); }); p.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errs.push(`${id}: console: ${m.text()}`); }); };
   t.check = (name, ok, detail = "") => results.push({ name, ok: !!ok, detail: ok ? "" : String(detail) });
   t.until = async (f, ms = 20000, step = 250) => { const end = Date.now() + ms; for (;;) { let v; try { v = await f(); } catch { v = false; } if (v) return v; if (Date.now() > end) return false; await sleep(step); } };
-  t.dash = async (q = "&dev=1") => { const p = await ctx.newPage(); watch(p, "dashboard"); await p.goto(`${base}/dashboard.html?mock=1${q}#${code}`); await t.until(() => p.evaluate(() => typeof Join !== "undefined" && typeof Xfer !== "undefined")); return p; };
+  t.dash = async (q = "&dev=1", c = null) => { const p = await ctx.newPage(); watch(p, "dashboard"); await p.goto(`${base}/dashboard.html?mock=1${q}#${c || codeDash}`); await t.until(() => p.evaluate(() => typeof Join !== "undefined" && typeof Xfer !== "undefined")); return p; };
   t.cam = async (id, c = {}) => { const p = await ctx.newPage(); watch(p, "camera " + id); if (c.init) await p.addInitScript(c.init); await p.goto(`${base}/camera.html?mock=1${c.name ? "&name=" + encodeURIComponent(c.name) : ""}#${code}~${id}`); await t.until(() => p.evaluate(() => typeof db !== "undefined" && typeof sessions !== "undefined")); return p; };
   /** la camera è collegata alla regia e accesa */
   t.ready = (dash, id) => t.until(() => dash.evaluate((id) => state[id] && state[id].online && state[id].camReady, id), 25000);

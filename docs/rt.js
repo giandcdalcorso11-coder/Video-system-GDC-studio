@@ -9,22 +9,32 @@
   };
   const KEY = "gdc.pair";
   const Pair = {
-    encode: (p) => "gdc1." + b64u.enc(JSON.stringify({ u: p.u, k: p.k, c: p.c })),
+    // p = chiave pubblica della regia (nei link delle camere), d = chiave privata (solo nel link della dashboard)
+    encode: (p, conChiavePrivata) => "gdc1." + b64u.enc(JSON.stringify({ u: p.u, k: p.k, c: p.c, ...(p.p ? { p: p.p } : {}), ...(conChiavePrivata && p.d ? { d: p.d } : {}) })),
     decode(str) {
       try {
         const m = String(str).trim().match(/gdc1\.([A-Za-z0-9_-]+)(?:~([A-Za-z0-9_-]{3,40}))?/); if (!m) return null;
         const p = JSON.parse(b64u.dec(m[1])); if (!(p && p.u && p.k && p.c)) return null;
+        if (!/^[A-Za-z0-9_-]{86}$/.test(String(p.p || ""))) delete p.p; if (!/^[A-Za-z0-9_-]{43}$/.test(String(p.d || "")) || !p.p) delete p.d;
         if (m[2]) p.linkId = m[2]; return p;
       } catch { return null; }
     },
     load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } },
-    save(p) { try { localStorage.setItem(KEY, JSON.stringify({ u: p.u, k: p.k, c: p.c })); } catch { /* storage non disponibile */ } },
+    save(p) { try { localStorage.setItem(KEY, JSON.stringify({ u: p.u, k: p.k, c: p.c, ...(p.p ? { p: p.p } : {}), ...(p.d ? { d: p.d } : {}) })); } catch { /* storage non disponibile */ } },
     clear() { try { localStorage.removeItem(KEY); } catch { /* ok */ } },
     fromHash() { const p = Pair.decode(location.hash.slice(1)); if (p) { Pair.save(p); history.replaceState(null, "", location.pathname + location.search); } return p; },
-    link(page, p, id) { return new URL(page, location.href).href.split("#")[0].split("?")[0] + "#" + Pair.encode(p) + (id ? "~" + id : ""); },
+    link(page, p, id) { return new URL(page, location.href).href.split("#")[0].split("?")[0] + "#" + Pair.encode(p, /^dashboard/.test(page)) + (id ? "~" + id : ""); },
     newChannel() { const a = new Uint8Array(16); crypto.getRandomValues(a); return [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); },
   };
 
+  // ripulisce un messaggio ricevuto: niente caratteri di markup, testi e liste limitati, chiavi semplici
+  const clean = (v, d = 0) => {
+    if (v == null || typeof v === "boolean") return v; if (typeof v === "string") return v.replace(/[<>&"\u0000-\u001f]/g, "").slice(0, 400);
+    if (typeof v === "number") return Number.isFinite(v) ? v : null; if (d > 5) return null;
+    if (Array.isArray(v)) return v.slice(0, 40).map((x) => clean(x, d + 1));
+    if (typeof v === "object") { const o = {}; let n = 0; for (const k of Object.keys(v)) { if (n++ >= 60) break; if (/^[A-Za-z0-9_]{1,40}$/.test(k)) o[k] = clean(v[k], d + 1); } return o; }
+    return null;
+  };
   function connect({ pairing, role, id, meta, mock, log }) {
     const L = (lv, m) => { try { log && log(lv, m); } catch { /* ok */ } };
     const handlers = {}, peerCbs = [], statusCbs = []; let peers = [], status = "connessione…", lastSig = "", prevKeys = new Set();
@@ -35,13 +45,6 @@
     // Chi conosce il link può scrivere sul canale: i messaggi che finiscono nelle pagine (stato, comandi, risposte) vengono ripuliti
     // (niente caratteri di markup, testi e liste limitati, chiavi semplici); i messaggi di collegamento diretto (rtc, xrtc) e i log non si toccano.
     const SAFE_EV = new Set(["state", "ack", "cmd", "xdone", "battery", "hello"]);
-    const clean = (v, d = 0) => {
-      if (v == null || typeof v === "boolean") return v; if (typeof v === "string") return v.replace(/[<>&"\u0000-\u001f]/g, "").slice(0, 400);
-      if (typeof v === "number") return Number.isFinite(v) ? v : null; if (d > 5) return null;
-      if (Array.isArray(v)) return v.slice(0, 40).map((x) => clean(x, d + 1));
-      if (typeof v === "object") { const o = {}; let n = 0; for (const k of Object.keys(v)) { if (n++ >= 60) break; if (/^[A-Za-z0-9_]{1,40}$/.test(k)) o[k] = clean(v[k], d + 1); } return o; }
-      return null;
-    };
     const onRx = (ev, payload) => {
       if (!noisy(ev) && !skipState(ev, "rx")) L("trace", `rx ${ev} ${size(payload)}B`);
       if (SAFE_EV.has(ev)) { if (size(payload) > 40000) { L("warn", `messaggio ${ev} troppo grande (${size(payload)}B): ignorato`); return; } payload = clean(payload); }
@@ -87,5 +90,5 @@
     rt.close = () => sb.removeChannel(ch);
     return rt;
   }
-  window.GDC_RT = { Pair, connect };
+  window.GDC_RT = { Pair, connect, clean };
 })();

@@ -2,6 +2,7 @@
 /* ===== Camere (nome dispositivo + nome camera, rinominabili) ===== */
 const PAN_LIMIT = 90, TILT_LIMIT = 45, STEP = 5, MB_PER_MIN = 100; // stima 1080p30
 const pairing = (window.GDC_RT && (GDC_RT.Pair.fromHash() || GDC_RT.Pair.load())) || null;
+if (pairing && window.GDC_AUTH) GDC_AUTH.ensure(pairing).catch((e) => console.warn("chiavi della regia: " + e.message));
 const REAL = !!pairing, MOCK_RT = new URLSearchParams(location.search).has("mock");
 if (window.GDC_DEV) GDC_DEV.init({ role: "dashboard", dev: () => "dashboard", ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, "ui", m), backlog: () => advSorted().filter((x) => !/^cam /.test(x.s)).slice(-300).map((x) => ({ t: x.t, l: x.l, m: `${x.s}: ${x.m}` })), host: $("#modeHost") });
 const CAM_KEY = REAL ? "gdc.cams.real" : "gdc.cameras";
