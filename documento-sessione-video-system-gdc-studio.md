@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 49
-**Ultimo aggiornamento:** 2026-11-19 11:00
+**Versione:** 50
+**Ultimo aggiornamento:** 2026-11-18 14:05
 
 ## Vision
 
@@ -163,7 +163,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 11 — Uso pubblico: sessioni con QR e codice
 
-**Stato:** da fare (mockup approvati nella forma, flusso reale non ancora costruito)
+**Stato:** in corso (fatti: QR, conferma Accetta/Rifiuta, benvenuto della camera, numeri unici, chiave della regia, permesso REC dal telefono; mancano: home con scelta del ruolo, scelta del tipo di attività con nome e colore, codice a 8 caratteri, sessioni con scadenza)
 
 **Obiettivo:** un percorso per terzi, separato dal link developer: pagina iniziale con scelta del ruolo, creazione di una sessione dalla regia con QR e codice, ingresso delle camere con nome e permessi, accettazione dalla regia, comandi essenziali, file; nessuno strumento da sviluppatore.
 
@@ -175,6 +175,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-18] Mockup a 8 schermate (scelta ruolo, camera: entra/nome e permessi/in ripresa, regia: nuova sessione/accetta/tutte le camere/file) pubblicati come tela di lavoro; confermati QR e codice insieme e l'interruttore di approvazione sulla regia; grafica e Gratis/Pro rimandati ai test.
 - [2026-11-18] QR e conferma accetta/rifiuta (dashboard r22, camera r23); schermata di benvenuto della camera con nome e permessi (camera r24). Codice a 8 caratteri rimandato.
 - [2026-11-19] Impostazione del flusso: "pronto all'uso" (senza profilo) con personalizzazione leggera salvata sul dispositivo (tipo di attività con pochi preset, nome del locale, colore); profilo e personalizzazione persistente nel piano Pro; logo rimandato. Prima del flusso reale: mockup aggiornati con la schermata iniziale e la scelta del tipo di attività.
+- [2026-11-18] Mockup aggiornato (nuova scheda "Che cosa riprendi?": quattro tipi di attività, nome del locale, colore, anteprima, nota sul piano Pro; Home → nuova scheda → QR; schede rinumerate 1-9). Da decidere: se il preset "Sport" deve avere REC dal telefono acceso e "file sui telefoni", e se serve un preset "Creator / studio" (REC solo dalla regia, trasferimento automatico nella cartella).
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
 - **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**, e **attenzione: ospita anche un'altra app** (tabelle `thumb_*`, funzioni `is_master`, `owns_client`, `owns_storage_path`, regole relative): non toccarle. Va rimosso solo ciò che ha creato questo progetto: tabella `gdc_dev_logs` (con la sua regola `gdc_dev_logs_insert`, indici, vincoli), funzioni `gdc_dev_logs_cleanup` e `gdc_dev_logs_dedupe`, trigger `gdc_dev_logs_cleanup_trg` e `gdc_dev_logs_dedupe_trg`; prima di cancellare mostrare l'elenco e avere conferma; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 
@@ -192,6 +193,22 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 14:05] Mockup del flusso pubblico aggiornato
+
+**Riepilogo:** aggiunta al mockup la schermata facoltativa "Che cosa riprendi?" (tipo di attività, nome del locale, colore) tra la Home e il QR, in coerenza con le scelte del flusso "pronto all'uso".
+
+**Cosa è stato fatto:** nuova scheda `Regia-Tipo.dc.html` (preset Generico, Sport, Go-kart ed escape room, Locali ed eventi, con una riga su ciò che ciascuno imposta; nome del locale; cinque colori; anteprima; nota "con il piano Pro preset e personalizzazione restano salvati"; pulsanti Continua e "Salta: parti subito"); la Home ora porta a questa scheda; le schede della regia sono rinumerate (da 6 a 9). Pubblicato sulla tela esistente: https://claude.ai/artifact/YEpShwhckdTS8tYVcoMpGe (la tela risulta visibile a chiunque abbia il link: contiene solo schermate generiche).
+
+**Decisioni prese:** nessuna nuova; resta aperta la scelta dei valori di partenza dei preset (vedi nota in Step 11).
+
+**Discrepanza di date da segnalare:** le voci dalla v30 in poi (da "2026-11-18 16:00" a "2026-11-19 11:00") hanno orari stimati e non letti dall'orologio di sistema, che segna ora 2026-11-18 14:05. Le voci non sono state riscritte; l'ordine cronologico delle sessioni è quello in cui compaiono. Dalle voci successive si usa l'orologio di sistema.
+
+**File consegnati/modificati:** tela di mockup (Regia-Tipo.dc.html nuova, Home.dc.html, canvas.json); documento v50.
+
+**Impatto su Vision/Pipeline:** Step 11: stato aggiornato da "da fare" a "in corso" con l'elenco di ciò che è fatto e di ciò che manca.
+
+---
 
 ### [2026-11-19 11:00] Impostazione del flusso pubblico di base
 
