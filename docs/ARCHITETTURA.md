@@ -13,7 +13,7 @@ Non c'è un server proprio: per comandi e stato si usa un canale in tempo reale 
 | File | Ruolo |
 |---|---|
 | `docs/camera.html` + `docs/camera/` | pagina del telefono: la pagina contiene la struttura e carica 16 moduli in ordine (registro, identità, archivio IndexedDB, postazione fissa, spazio, fotocamera, registrazione, time-lapse, prova zoom, schermo nero, stato/zoom/controlli, anteprima, trasferimento, comandi, interfaccia) |
-| `docs/dashboard.html` + `docs/dashboard/` | pagina della regia: 17 moduli (utilità, registro, pannello registri, camere, trasporto e anteprima, destinazione, trasferimento, binding dello stato, viste, ingresso, orologio, segnali, permessi e modi di ripresa, viste principali, router e REC, anteprima simulata, avvio) |
+| `docs/dashboard.html` + `docs/dashboard/` | pagina della regia: 18 moduli (utilità, registro, pannello registri, camere, trasporto e anteprima, destinazione, trasferimento, binding dello stato, viste, ingresso, orologio, segnali, permessi e modi di ripresa, viste principali, viste delle camere, router e REC, anteprima simulata, avvio) |
 | `docs/rt.js` | canale in tempo reale: abbinamento (link `#gdc1.…`), eventi, presenza; modalità simulata per le prove |
 | `docs/xfer.js` | trasferimento dei file (protocollo, controllo di integrità CRC32, ripresa, destinazioni cartella/memoria) |
 | `docs/dev.js` | modalità Base/Avanzata e invio dei log tecnici (tabella `gdc_dev_logs`) |
@@ -58,6 +58,10 @@ Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e po
 - **"Tieni i file sui telefoni":** nessun trasferimento automatico e nessuna eliminazione; si scarica tutto dopo.
 - **Protezioni della regia:** prova reale della cartella (file di prova) all'avvio, ogni 15 s e prima di ogni trasferimento; disco scollegato o pieno mettono in pausa e il trasferimento riparte da solo (anche cambiando cartella); i file restano sempre sul telefono finché non sono arrivati e verificati.
 - **Anteprima durante i trasferimenti:** scelta dell'utente (accesa di default con avviso).
+
+## Viste delle camere
+
+Barra sopra le schede della home, in Base e in Avanzata: **Automatico** (griglia che si adatta; con più di 4 camere diventa compatta), **Scorrimento** (una camera alla volta, scorrendo a destra e a sinistra o su e giù; tessere numerate con pallino rosso/verde e "x di N"), **Personalizzato** (le schede si spostano dalla testata e si ridimensionano dall'angolo; posizione e misura restano sul dispositivo; "Ripristina disposizione"). Tutte e tre usano le stesse schede, quindi anteprime e pulsanti non cambiano. Su telefono in verticale si parte da Scorrimento, altrove da Automatico; l'ultima scelta resta. "Aggiungi camera" (o il riquadro tratteggiato) apre una finestra con QR, nome della sessione e richieste di ingresso (si chiude con Chiudi o Esc). **Funzioni Pro (prova):** in Base un interruttore sblocca Personalizzato; in Avanzata è sbloccato. È solo una prova: nessun pagamento, nessun profilo, niente cloud.
 
 ## Permessi e modi di ripresa
 

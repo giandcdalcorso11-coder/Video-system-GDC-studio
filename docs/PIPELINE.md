@@ -20,6 +20,7 @@ Aggiornata al 2026-11-19 (camera r31, dashboard r32). Il dettaglio è nel docume
 - 💤 Ralenti a 60 fotogrammi (dopo la misura sull'iPhone 15)
 - 🔄 Segnali per il montaggio (CSV e marcatori per DaVinci Resolve)
 - 🔄 Camere non collegate da giorni: avviso e rimozione
+- 🔄 Viste delle camere (Automatico, Scorrimento, Personalizzato Pro in prova) e finestra Aggiungi camera
 - 🔄 Controlli camera (torcia, fuoco, bianco, esposizione) in Avanzata
 
 ## 3. Pagina camera (telefono)
@@ -56,7 +57,7 @@ Aggiornata al 2026-11-19 (camera r31, dashboard r32). Il dettaglio è nel docume
 - 💤 Personalizzazione per attività, orologio smart (idea)
 
 ## 8. Qualità del software
-- ✅ Prove automatiche in `tests/` (16 gruppi, browser con camera finta)
+- ✅ Prove automatiche in `tests/` (17 gruppi, browser con camera finta)
 - ✅ Codice diviso in moduli (16 per la camera, 17 per la regia) con controllo delle versioni
 - ✅ Messaggi del canale ripuliti prima di arrivare alle pagine; prova con messaggi ostili
 - ✅ Chiave della regia: comandi firmati, solo la regia può comandare le camere (link nuovi); da provare sui telefoni

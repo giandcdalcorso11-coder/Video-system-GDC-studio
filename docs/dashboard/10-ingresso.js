@@ -30,8 +30,9 @@ const Join = {
   render() {
     let el = $("#joinBar"); if (!el) { el = document.createElement("div"); el.id = "joinBar"; const v = $("#view"); v.parentNode.insertBefore(el, v); }
     const ids = Object.keys(this.pending); el.hidden = !ids.length;
-    el.innerHTML = ids.map((id) => { const m = this.pending[id].m, sp = m.space && m.space.known ? ` · spazio per circa ${m.space.minLeft} min` : "";
+    const html = ids.map((id) => { const m = this.pending[id].m, sp = m.space && m.space.known ? ` · spazio per circa ${m.space.minLeft} min` : "";
       return `<section class="panel" style="margin-bottom:12px;border-color:var(--warn,#c77d00);display:flex;flex-wrap:wrap;gap:12px;align-items:center"><div style="flex:1;min-width:220px"><b>“${esc(m.name || id)}” vuole entrare</b><div class="muted">${esc(m.device || "Telefono")} · ${esc(m.os || "—")}${m.battery != null ? " · batteria " + Math.round(m.battery) + "%" : ""}${sp}</div></div><button class="ghost" data-jn="rej" data-id="${esc(id)}">Rifiuta</button><button class="primary" data-jn="acc" data-id="${esc(id)}">Accetta</button></section>`; }).join("") + (ids.length > 1 ? `<div style="margin:-4px 0 12px;text-align:right"><button class="ghost" data-jn="all">Accetta tutte (${ids.length})</button></div>` : "");
+    el.innerHTML = html; const mb = $("#joinModalBar"); if (mb) { mb.innerHTML = html; }
   },
   link() { const l = GDC_RT.Pair.link("camera.html", pairing); return new URLSearchParams(location.search).get("dev") === "1" ? l.replace("#", "?dev=1#") : l; },
   panel() {

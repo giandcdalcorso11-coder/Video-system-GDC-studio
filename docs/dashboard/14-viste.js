@@ -15,7 +15,7 @@ function showHome() {
   $("#view").innerHTML = `
     ${mergeBanner()}
     ${staleBanner()}
-    ${Join.panel()}
+    ${Views.modal()}
     ${Perm.panel()}
     ${Marks.panel()}
     <section class="panel" id="preflight" hidden></section>
@@ -25,6 +25,7 @@ function showHome() {
       <div class="tile"><small>Batteria minima</small><b id="sBat">—</b></div>
       <div class="tile"><small>Spazio minimo</small><b id="sFree">—</b></div>
     </section>
+    ${Views.bar()}
     <section class="grid" id="homeGrid">
       ${cameras.map((c) => `
       <article class="card click" data-cam="${c.id}" data-bind="card" data-go="${c.id}">
@@ -46,7 +47,7 @@ function showHome() {
           <button class="ghost" data-go="${c.id}">Dettagli</button>
         </div>
       </article>`).join("")}
-      ${REAL ? `<div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
+      ${REAL ? `<button class="add" id="addDev">+ Aggiungi dispositivo<small class="muted" style="display:block;font-weight:400">QR o codice · tu confermi</small></button><div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
     <section class="panel adv-only" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     ${logPanel("")}`;
@@ -65,7 +66,7 @@ function showHome() {
     if (go) location.hash = "#/cam/" + go.dataset.go;
     if (e.target.closest("#addCam")) addCamera();
   };
-  applyLogTab(); refresh(); Preview.ensureAll();
+  Views.apply(); Join.render(); applyLogTab(); refresh(); Preview.ensureAll();
 }
 
 function showDetail(id) {

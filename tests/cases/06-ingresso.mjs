@@ -36,12 +36,12 @@ export async function run() {
     t.check("con la conferma spenta entra subito", await t.until(async () => (await cams()).split(",").includes("camE") && (await pend()) === ""), `${await cams()} / ${await pend()}`);
     // QR: la regia lo mostra e il contenuto si legge identico
     await dash.evaluate(() => { location.hash = "#/"; route(); });
-    await dash.evaluate(() => { if (document.querySelector("#qrBox").hidden) document.querySelector("#qrBtn").click(); });
+    await dash.evaluate(() => { document.querySelector("#addCam2").click(); if (document.querySelector("#qrBox").hidden) document.querySelector("#qrBtn").click(); });
     const lib = jsqrPath();
     if (!lib) { t.check("QR: libreria di lettura (jsqr) presente: esegui npm install nella cartella tests", false, "jsqr non installato"); return; }
     for (const lunghezza of [0, 500]) {
       await dash.evaluate((n) => { Join.link = n ? () => "http://localhost:1/camera.html?dev=1#gdc1." + "A".repeat(100) + btoa("x".repeat(n)).replace(/=/g, "") : Object.getPrototypeOf(Join).link || (() => ""); if (n) { Join.qrOpen = true; route(); } }, lunghezza);
-      if (!lunghezza) { await dash.reload(); await t.until(() => dash.evaluate(() => typeof Join !== "undefined")); await dash.evaluate(() => { if (document.querySelector("#qrBox").hidden) document.querySelector("#qrBtn").click(); }); }
+      if (!lunghezza) { await dash.reload(); await t.until(() => dash.evaluate(() => typeof Join !== "undefined")); await dash.evaluate(() => { document.querySelector("#addCam2").click(); if (document.querySelector("#qrBox").hidden) document.querySelector("#qrBtn").click(); }); }
       if (!(await dash.evaluate(() => typeof jsQR !== "undefined"))) await dash.addScriptTag({ path: lib });
       const link = await dash.evaluate(() => Join.link()), png = await (await dash.$("#qrImg")).screenshot();
       const dec = await dash.evaluate(async (b64) => { const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); const d = x.getImageData(0, 0, c.width, c.height), r = jsQR(d.data, d.width, d.height); return r ? r.data : null; }, png.toString("base64"));

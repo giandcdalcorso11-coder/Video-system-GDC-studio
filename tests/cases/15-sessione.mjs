@@ -11,6 +11,7 @@ export async function run() {
     t.check("senza nome: l'intestazione dice 'Sessione senza nome'", /Sessione senza nome/.test(s0.hdr), s0.hdr);
     // nome: scritto nel campo, ricordato e mostrato in intestazione
     await ev(() => { location.hash = "#/"; route(); });
+    await dash.click("#addCam2");
     await dash.fill("#sessName", "Set di domenica"); await dash.dispatchEvent("#sessName", "change");
     const s1 = await stato();
     t.check("il nome compare in intestazione", /Set di domenica/.test(s1.hdr), s1.hdr);

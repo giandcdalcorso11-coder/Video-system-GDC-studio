@@ -56,7 +56,7 @@
   .kv span { font-weight: 600; font-variant-numeric: tabular-nums; }
   .card-f { display: flex; gap: 8px; padding: 0 14px 14px; flex-wrap: wrap; }
   .card-f button { flex: 1; }
-  .add { display: flex; align-items: center; justify-content: center; min-height: 160px; border: 2px dashed var(--line); background: transparent; color: var(--muted); border-radius: 14px; cursor: pointer; font: inherit; }
+  .add { display: flex; flex-direction: column; gap: 4px; text-align: center; align-items: center; justify-content: center; min-height: 160px; border: 2px dashed var(--line); background: transparent; color: var(--muted); border-radius: 14px; cursor: pointer; font: inherit; }
   .view { position: relative; background: #000; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 8px; }
   .view.mini { width: 104px; flex: none; }
   .view.big { width: min(100%, 340px); margin: 0 auto; max-height: 62vh; }
@@ -78,6 +78,46 @@
   .back { display: inline-block; margin-bottom: 12px; color: var(--accent); text-decoration: none; font-weight: 600; }
   .detail { display: grid; gap: 16px; grid-template-columns: minmax(280px, 380px) 1fr; align-items: start; }
   @media (max-width: 760px) { .detail { grid-template-columns: 1fr; } }
+  /* viste delle camere */
+  body.adv .base-only { display: none !important; }
+  .viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; }
+  .seg3 { display: inline-flex; gap: 3px; background: var(--panel-2); padding: 3px; border-radius: 10px; border: 1px solid var(--line); }
+  .seg3 button { border: 0; background: transparent; min-height: 34px; padding: 5px 12px; border-radius: 8px; color: var(--muted); font-weight: 600; margin: 0; }
+  .seg3 button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .seg3 button:disabled { opacity: .5; }
+  .seg3 small { font-size: 10px; border: 1px solid var(--line); border-radius: 5px; padding: 0 4px; margin-left: 3px; }
+  .proLbl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin: 0; }
+  .proLbl input { width: auto; min-height: 0; margin: 0; }
+  .vwchips { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; overflow-x: auto; }
+  .vwchips button { flex: none; min-width: 44px; min-height: 44px; border-radius: 12px; font-weight: 600; position: relative; margin: 0; }
+  .vwchips button[aria-pressed="true"] { border: 2px solid var(--text); }
+  .vwchips i { position: absolute; right: 6px; top: 6px; width: 7px; height: 7px; border-radius: 50%; background: transparent; }
+  .vwchips i.g { background: #3ddc97; } .vwchips i.r { background: #ff5a4a; }
+  #homeGrid.dense { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  #homeGrid.dense .card-b { flex-direction: column; }
+  #homeGrid.dense .view.mini { width: 100%; }
+  #homeGrid.dense .info .kv:nth-child(n+3) { display: none; }
+  #homeGrid.v-scroll { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  #homeGrid.v-scroll .card { flex: 0 0 min(86%, 560px); scroll-snap-align: start; }
+  #homeGrid.v-scroll .card-b { flex-direction: column; }
+  #homeGrid.v-scroll .view.mini { width: min(100%, 320px); margin: 0 auto; max-height: 58vh; }
+  #homeGrid.v-scroll .add { flex: 0 0 min(70%, 260px); scroll-snap-align: start; }
+  #homeGrid.v-scroll.dir-v { flex-direction: column; overflow-x: hidden; overflow-y: auto; max-height: 78vh; scroll-snap-type: y mandatory; }
+  #homeGrid.v-scroll.dir-v .card, #homeGrid.v-scroll.dir-v .add { flex: 0 0 auto; width: 100%; }
+  #homeGrid.v-free { display: block; position: relative; border: 1px dashed var(--line); border-radius: 14px; background: var(--panel-2); overflow: auto; }
+  #homeGrid.v-free .card { position: absolute; display: flex; flex-direction: column; }
+  #homeGrid.v-free .card-h { cursor: grab; touch-action: none; user-select: none; }
+  #homeGrid.v-free .card.moving { box-shadow: 0 8px 28px rgba(0,0,0,.4); z-index: 5; }
+  #homeGrid.v-free .card-b { flex: 1; min-height: 0; flex-direction: column; align-items: center; }
+  #homeGrid.v-free .view.mini { width: auto; height: 100%; max-width: 100%; }
+  #homeGrid.v-free .info, #homeGrid.v-free .add { display: none; }
+  #homeGrid.v-free .card-f { padding-top: 0; }
+  .rz { display: none; position: absolute; right: 0; bottom: 0; width: 28px; height: 28px; cursor: nwse-resize; touch-action: none; z-index: 3; }
+  .rz::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 12px; height: 12px; border-right: 3px solid var(--muted); border-bottom: 3px solid var(--muted); border-radius: 0 0 4px 0; }
+  #homeGrid.v-free .rz { display: block; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-start; justify-content: center; z-index: 50; padding: 24px 12px; overflow: auto; }
+  .modal[hidden] { display: none; }
+  .modal-card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; width: min(600px, 100%); box-shadow: var(--shadow); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: var(--shadow); }
   .panel + .panel { margin-top: 16px; }
   .kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
@@ -140,6 +180,7 @@
 <script defer src="dashboard/12-segnali.js?v=r32"></script>
 <script defer src="dashboard/13-permessi-modi.js?v=r32"></script>
 <script defer src="dashboard/14-viste.js?v=r32"></script>
+<script defer src="dashboard/14a-viste-camere.js?v=r32"></script>
 <script defer src="dashboard/15-router-rec.js?v=r32"></script>
 <script defer src="dashboard/16-anteprima-simulata.js?v=r32"></script>
 <script defer src="dashboard/17-avvio.js?v=r32"></script>

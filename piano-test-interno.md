@@ -103,6 +103,15 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 2. Nella home accendi "Tutte le camere possono avviare…": compare su tutti i telefoni e anche su uno nuovo che entra. Spegni: sparisce ovunque.
 3. Metti una camera in modo **Time-lapse** (selettore "Modo" accanto a REC) e un'altra in **Video**. Premi "REC tutte": una registra, l'altra fa il time-lapse. "STOP tutte" le ferma e il time-lapse produce il suo video.
 
+## O. Viste delle camere (10 minuti)
+
+1. Con 2 o 3 camere collegate, prova **Automatico**, **Scorrimento** (tocca le tessere numerate; prova le frecce ↔ e ↕) e, dopo aver acceso **Funzioni Pro (prova)**, **Personalizzato**: sposta una camera dalla testata, ridimensionala dall'angolo, ricarica la pagina (devono restare), poi "Ripristina disposizione".
+2. Su iPad e su telefono: il dito deve poter trascinare e ridimensionare; su telefono in verticale la vista di partenza deve essere Scorrimento.
+3. "Aggiungi camera": si apre la finestra con il QR; mentre è aperta, una richiesta di ingresso compare dentro la finestra.
+4. In Avanzata: Personalizzato è subito disponibile e l'interruttore Pro non c'è.
+
+Dimmi come ti sembrano le anteprime con tante camere (se hai modo, 4 o più) e se il trascinamento è comodo.
+
 ## Cosa mi mandi
 
 Per ogni prova: **"fatto"**, il numero della prova, e un commento solo se qualcosa ti ha stupito. Il resto lo leggo nei log (stato, velocità, errori, tempi).
