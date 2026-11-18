@@ -64,15 +64,15 @@ class RealtimeTransport {
     if (!m || !/^[A-Za-z0-9_-]{3,40}$/.test(String(m.id))) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
     let cam = camById(m.id);
     if (REAL && !cam && !Join.ok.has(m.id)) { if (Join.rejected.has(m.id)) { Join.deny(m.id); return; } if (Join.approve) { Join.hold(m); return; } }
-    if (REAL && cam) { Join.greet(m.id); Clock.maybe(m.id); if (now - (cam.seen || 0) > 60000) { cam.seen = now; saveCams(); } }
+    if (REAL && cam) { Join.greet(m.id); Clock.maybe(m.id); Perm.sync(cam, { localRec: !!m.localRec }); if (now - (cam.seen || 0) > 60000) { cam.seen = now; saveCams(); } }
     if (!cam) {
-      cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp, num: REAL ? (() => { const k = Number((String(m.label || "").match(/^Camera (\d+)$/) || [])[1]); return k > 0 && !cameras.some((x) => x.num === k) ? k : nextNum(); })() : 0, seen: now }; cameras.push(cam); saveCams(); isNew = true;
+      cam = { id: m.id, device: m.device || "Telefono", name: m.name || m.id, os: m.os || "—", totalGb: 0, freeGb: 0, fp: m.fp, num: REAL ? (() => { const k = Number((String(m.label || "").match(/^Camera (\d+)$/) || [])[1]); return k > 0 && !cameras.some((x) => x.num === k) ? k : nextNum(); })() : 0, seen: now, localRec: Perm.all }; cameras.push(cam); saveCams(); isNew = true;
       log(m.id, `${cam.device} · ${cam.name}: camera collegata`); dbg("info", "camere", `nuova camera ${m.id}`, { device: m.device, name: m.name, os: m.os, fp: m.fp });
       const twin = m.fp && cameras.find((c) => c.id !== m.id && c.fp && c.fp === m.fp && !(this.s[c.id] && this.s[c.id].online));
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
-    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, pro: m.pro || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
+    Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, localRec: !!m.localRec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, pro: m.pro || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
@@ -88,7 +88,7 @@ class RealtimeTransport {
   sendCmd(p) { this.q = (this.q || Promise.resolve()).then(() => GDC_AUTH.signCmd(pairing, p)).then((sp) => this.rt.send("cmd", sp)).catch((e) => dbg("error", "tx", `comando ${p.cmd} non inviato: ${e.message}`)); }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro", "perm_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.sendCmd({ ...m, to: id, from: this.id });
   }
 }

@@ -10,8 +10,8 @@ function route() {
 addEventListener("hashchange", route);
 
 /* ===== REC globale + scorciatoia ===== */
-$("#recAll").onclick = () => cameras.forEach((c) => state[c.id]?.online && !state[c.id].rec && command(c.id, { cmd: "rec_start" }));
-$("#stopAll").onclick = () => cameras.forEach((c) => state[c.id]?.rec && command(c.id, { cmd: "rec_stop" }));
+$("#recAll").onclick = () => cameras.forEach((c) => (REAL ? Mode.start(c.id) : state[c.id]?.online && !state[c.id].rec && command(c.id, { cmd: "rec_start" })));
+$("#stopAll").onclick = () => cameras.forEach((c) => (REAL ? Mode.stop(c.id) : state[c.id]?.rec && command(c.id, { cmd: "rec_stop" })));
 document.addEventListener("keydown", (e) => {
   if (e.target.closest("input,textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key.toLowerCase() === "m" && REAL) { Marks.add(); return; }

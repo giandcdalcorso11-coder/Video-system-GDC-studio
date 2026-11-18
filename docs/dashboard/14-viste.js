@@ -16,6 +16,7 @@ function showHome() {
     ${mergeBanner()}
     ${staleBanner()}
     ${Join.panel()}
+    ${Perm.panel()}
     ${Marks.panel()}
     <section class="panel" id="preflight" hidden></section>
     <section class="tiles" id="sum" aria-label="Riepilogo">
@@ -36,6 +37,7 @@ function showHome() {
               <div class="warn" data-bind="batWarn" data-cam="${c.id}"></div></div>
             <div class="kv"><small>Memoria camera</small><span data-bind="free" data-cam="${c.id}"></span></div>
             <div class="kv"><small>Registrazione</small><span data-bind="timer" data-cam="${c.id}"></span></div>
+            ${REAL ? `<div class="kv"><small>Modo</small><span data-bind="modeTxt" data-cam="${c.id}"></span></div>` : ""}
           </div>
         </div>
         <div class="card-f">
@@ -58,7 +60,7 @@ function showHome() {
     if (e.target.closest("#unpair")) { if (confirm("Scollego questa dashboard dal canale?")) { GDC_RT.Pair.clear(); location.reload(); } return; }
     if (e.target.closest("#pairBtn")) { const p = GDC_RT.Pair.decode($("#pairTxt").value); if (!p) { alert("Codice non valido"); return; } GDC_RT.Pair.save(p); location.reload(); return; }
     const act = e.target.closest("[data-act]");
-    if (act) { command(act.dataset.cam, { cmd: act.dataset.act }); return; }
+    if (act) { const a = act.dataset.act; if (REAL && a === "rec_start") Mode.start(act.dataset.cam); else if (REAL && a === "rec_stop") Mode.stop(act.dataset.cam); else command(act.dataset.cam, { cmd: a }); return; }
     const go = e.target.closest("[data-go]");
     if (go) location.hash = "#/cam/" + go.dataset.go;
     if (e.target.closest("#addCam")) addCamera();
@@ -82,6 +84,7 @@ function showDetail(id) {
             <div class="btns">
               <button class="primary" data-bind="recBtn" data-cam="${id}" data-act="rec_start">● REC</button>
               <button data-bind="stopBtn" data-cam="${id}" data-act="rec_stop">■ STOP</button>
+              ${REAL ? `<label class="f" data-cam="${id}" style="margin:0;display:flex;gap:6px;align-items:center">Modo <select id="modeSel" data-bind="modeUi" data-cam="${id}"><option value="video">Video</option><option value="timelapse">Time-lapse</option></select></label>` : ""}
               ${REAL ? `<button class="ghost" data-bind="standbyBtn" data-cam="${id}" data-act="standby">Schermo nero</button>` : `<button class="ghost" data-cam="${id}" data-act="webcam">Usa webcam di questo PC (test)</button>`}
             </div>
             <div class="adv-only">
@@ -110,7 +113,8 @@ function showDetail(id) {
         <div class="panel"><h2>Spazio</h2>
           <div class="kv"><span data-bind="freeLong" data-cam="${id}"></span></div>
           <div class="muted" data-bind="freeEst" data-cam="${id}" style="font-weight:600;margin-top:4px"></div>
-          ${REAL ? `<div data-bind="stationUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="stationChk" style="width:auto;min-height:0;margin-top:3px"><span>Postazione fissa: se la camera si blocca o la pagina si chiude, riprende da sola a registrare</span></label><div class="muted" style="margin:0 0 4px 26px;font-size:13px">Vale solo se hai avviato la registrazione da qui. Si ferma con STOP. Il recupero dei file dopo un blocco è sempre attivo.</div></div>
+          ${REAL ? `<div data-bind="localRecUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="localRecChk" style="width:auto;min-height:0;margin-top:3px"><span>Il telefono può avviare e fermare la registrazione da solo</span></label><div class="muted" style="margin:0 0 4px 26px;font-size:13px">Spenta, sul telefono non compare il pulsante REC e comanda solo la regia.</div></div>
+          <div data-bind="stationUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="stationChk" style="width:auto;min-height:0;margin-top:3px"><span>Postazione fissa: se la camera si blocca o la pagina si chiude, riprende da sola a registrare</span></label><div class="muted" style="margin:0 0 4px 26px;font-size:13px">Vale solo se hai avviato la registrazione da qui. Si ferma con STOP. Il recupero dei file dopo un blocco è sempre attivo.</div></div>
           <div data-bind="autoFreeUi" data-cam="${id}"><label class="f" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px"><input type="checkbox" id="autoFree" style="width:auto;min-height:0;margin-top:3px"><span>Se lo spazio sta finendo, elimina le clip più vecchie già trasferite e verificate</span></label>
             <div class="muted">Predefinito: spenta. In quel caso la camera si ferma in modo sicuro e avvisa. Le clip non ancora trasferite non vengono mai eliminate.</div></div>
           <div class="muted adv-only" data-bind="spaceNote" data-cam="${id}" style="margin-top:6px"></div>` : ""}</div>
@@ -160,12 +164,15 @@ function showDetail(id) {
     else if (act === "standby") command(id, { cmd: "standby", on: !state[id].standby });
     else if (act === "tl_start") command(id, { cmd: "tl_start", mode: $("#tlMode").value, int: Number($("#tlInt").value), fps: Number($("#tlFps").value), q: Number($("#tlQ").value) });
     else if (act === "tl_stop") command(id, { cmd: "tl_stop" });
+    else if (REAL && act === "rec_start") Mode.start(id);
+    else if (REAL && act === "rec_stop") Mode.stop(id);
     else command(id, { cmd: act });
   };
   const rename = () => {
     c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
     saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
   };
+  if (REAL) { const t0 = Mode.tl(c); $("#tlMode").value = t0.mode; $("#tlInt").value = String(t0.int); $("#tlFps").value = String(t0.fps); $("#tlQ").value = String(t0.q); [["tlMode", "mode", String], ["tlInt", "int", Number], ["tlFps", "fps", Number], ["tlQ", "q", Number]].forEach(([i, k, f]) => { $("#" + i).addEventListener("change", (e) => Mode.saveTl(id, { [k]: f(e.target.value) })); }); }
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }
   if (REAL) $("#cpThis").onclick = (e) => copyText(GDC_RT.Pair.link("camera.html", pairing, id), e.currentTarget);
   if (REAL) { const sc = $("#stationChk"); if (sc) sc.onchange = () => command(id, { cmd: "station_cfg", on: sc.checked }); }

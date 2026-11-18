@@ -1,6 +1,6 @@
 # Architettura
 
-Stato aggiornato al 2026-11-19 (camera r28, dashboard r29). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
+Stato aggiornato al 2026-11-19 (camera r30, dashboard r31). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
 
 ## Idea
 
@@ -13,7 +13,7 @@ Non c'è un server proprio: per comandi e stato si usa un canale in tempo reale 
 | File | Ruolo |
 |---|---|
 | `docs/camera.html` + `docs/camera/` | pagina del telefono: la pagina contiene la struttura e carica 16 moduli in ordine (registro, identità, archivio IndexedDB, postazione fissa, spazio, fotocamera, registrazione, time-lapse, prova zoom, schermo nero, stato/zoom/controlli, anteprima, trasferimento, comandi, interfaccia) |
-| `docs/dashboard.html` + `docs/dashboard/` | pagina della regia: 16 moduli (utilità, registro, pannello registri, camere, trasporto e anteprima, destinazione, trasferimento, binding dello stato, viste, ingresso, orologio, segnali, viste principali, router e REC, anteprima simulata, avvio) |
+| `docs/dashboard.html` + `docs/dashboard/` | pagina della regia: 17 moduli (utilità, registro, pannello registri, camere, trasporto e anteprima, destinazione, trasferimento, binding dello stato, viste, ingresso, orologio, segnali, permessi e modi di ripresa, viste principali, router e REC, anteprima simulata, avvio) |
 | `docs/rt.js` | canale in tempo reale: abbinamento (link `#gdc1.…`), eventi, presenza; modalità simulata per le prove |
 | `docs/xfer.js` | trasferimento dei file (protocollo, controllo di integrità CRC32, ripresa, destinazioni cartella/memoria) |
 | `docs/dev.js` | modalità Base/Avanzata e invio dei log tecnici (tabella `gdc_dev_logs`) |
@@ -23,7 +23,7 @@ Non c'è un server proprio: per comandi e stato si usa un canale in tempo reale 
 
 ## Come sono caricate le pagine
 
-Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e poi i moduli come script classici con `defer` e `?v=<versione>` (stesso valore per tutti, per evitare che Safari mescoli file vecchi e nuovi). I moduli condividono lo stesso ambito globale e vanno in ordine numerico: **un modulo definisce, non avvia**. Tutto ciò che parte all'apertura (timer, ripristino di stati salvati) si lancia dall'ultimo modulo (`16-avvio.js` per la regia, `start()` per la camera), quando tutti i moduli sono già caricati. Quando si modifica un modulo si aumenta la versione nella pagina (e il `?v=` in tutti i tag): la prova `00-sintassi` lo controlla.
+Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e poi i moduli come script classici con `defer` e `?v=<versione>` (stesso valore per tutti, per evitare che Safari mescoli file vecchi e nuovi). I moduli condividono lo stesso ambito globale e vanno in ordine numerico: **un modulo definisce, non avvia**. Tutto ciò che parte all'apertura (timer, ripristino di stati salvati) si lancia dall'ultimo modulo (`17-avvio.js` per la regia, `start()` per la camera), quando tutti i moduli sono già caricati. Quando si modifica un modulo si aumenta la versione nella pagina (e il `?v=` in tutti i tag): la prova `00-sintassi` lo controlla.
 
 ## Collegamento e canale
 
@@ -57,6 +57,11 @@ Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e po
 - **"Tieni i file sui telefoni":** nessun trasferimento automatico e nessuna eliminazione; si scarica tutto dopo.
 - **Protezioni della regia:** prova reale della cartella (file di prova) all'avvio, ogni 15 s e prima di ogni trasferimento; disco scollegato o pieno mettono in pausa e il trasferimento riparte da solo (anche cambiando cartella); i file restano sempre sul telefono finché non sono arrivati e verificati.
 - **Anteprima durante i trasferimenti:** scelta dell'utente (accesa di default con avviso).
+
+## Permessi e modi di ripresa
+
+- **Permesso del telefono:** per ogni camera la regia decide se il telefono può avviare e fermare la registrazione da solo (spunta nel dettaglio) oppure lo decide per tutte (pannello in home; vale anche per i telefoni che entreranno). Spento (default), sul telefono non c'è il pulsante REC. L'ultima parola resta alla regia: il suo STOP ferma sempre la camera. Il valore voluto sta nel record di ogni camera e viene riallineato se il telefono dice altro; il comando `perm_cfg` è firmato come gli altri.
+- **Modo di ripresa per camera:** Video o Time-lapse (il ralenti è rimandato: dal browser non esistono i 120/240 fps, solo 60 dove il telefono li dà). "REC tutte" e "STOP tutte" avviano e fermano ogni camera nel suo modo; le impostazioni del time-lapse sono ricordate per camera.
 
 ## Segnali per il montaggio
 

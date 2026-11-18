@@ -54,7 +54,10 @@ const BIND = {
   res: (st, c, el) => { el.textContent = st.res; },
   orient: (st, c, el) => { el.textContent = st.orient; },
   recBtn: (st, c, el) => { el.disabled = !st.online || st.rec || !!st.tl; },
-  stopBtn: (st, c, el) => { el.disabled = !st.rec; },
+  stopBtn: (st, c, el) => { el.disabled = !Mode.busy(st); },
+  modeUi: (st, c, el) => { if (document.activeElement !== el) el.value = Mode.of(c); el.disabled = !st.online || Mode.busy(st); },
+  modeTxt: (st, c, el) => { el.textContent = Mode.of(c) === "timelapse" ? "Time-lapse" : "Video"; },
+  localRecUi: (st, c, el) => { const cb = $("#localRecChk", el); if (!cb) return; if (document.activeElement !== cb) cb.checked = c.localRec !== undefined ? !!c.localRec : !!st.localRec; cb.disabled = !st.online; },
   connBtn: (st, c, el) => { el.disabled = !!st.real; el.textContent = st.real ? "Camera reale" : st.online ? "Disconnetti (sim)" : "Connetti (sim)"; },
   chargeBtn: (st, c, el) => { el.disabled = !st.online || !!st.real; el.hidden = !!st.real; el.textContent = st.charging ? "Scollega cavo (sim)" : "Collega cavo (sim)"; },
   tlStat: (st, c, el) => {
@@ -98,10 +101,10 @@ function refresh() {
     if (st && c && fn) fn(st, c, el);
   });
   const all = cameras.map((c) => state[c.id]).filter(Boolean);
-  const online = all.filter((s) => s.online), recs = all.filter((s) => s.rec);
+  const online = all.filter((s) => s.online), recs = all.filter((s) => Mode.busy(s) || s.tl);
   $("#recAll").disabled = !online.length || recs.length === online.length;
-  $("#stopAll").disabled = !recs.length;
-  renderPreflight(); spaceWatch();
+  $("#stopAll").disabled = !all.some((s) => Mode.busy(s));
+  renderPreflight(); spaceWatch(); Perm.render();
   $("#globalPill").className = "pill " + (recs.length ? "rec" : online.length ? "idle" : "");
   $("#globalTxt").textContent = recs.length ? `IN REC (${recs.length}/${online.length})` : online.length ? `PRONTE (${online.length}/${cameras.length})` : "NESSUNA CAMERA";
   const sum = $("#sum");

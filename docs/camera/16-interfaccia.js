@@ -6,6 +6,7 @@ $("fRes").onchange = $("fBps").onchange = async () => { if (recording) { syncFor
 $("camBtn").onclick = async () => { cfg.autoCam = true; store.set("gdc.camCfg", cfg); syncForm(); try { await openCam(); } catch { /* errore già mostrato */ } };
 $("camStop").onclick = () => { cfg.autoCam = false; store.set("gdc.camCfg", cfg); syncForm(); dbg("info", "camera fermata a mano: avvio automatico disattivato"); stopCam(); };
 $("fAuto").onchange = () => { cfg.autoCam = $("fAuto").checked; store.set("gdc.camCfg", cfg); dbg("info", `avvio automatico ${cfg.autoCam ? "attivato" : "disattivato"}`); if (cfg.autoCam) autoOpen("opzione attivata"); };
+$("recLocal").onclick = () => (recording ? stopRec(true) : startRec());
 $("recBtn").onclick = () => (recording ? stopRec(true) : startRec());
 $("blackBtn").onclick = () => setStandby(true);
 $("blackout").onclick = () => { const n = Date.now(); if (n - lastTapT < 400) setStandby(false); lastTapT = n; };

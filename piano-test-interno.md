@@ -97,6 +97,12 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 4. Apri la dashboard su un secondo dispositivo con il link della **camera**: la camera non deve obbedire e la regia deve scrivere "non autorizzato".
 5. Un telefono aperto con un link vecchio (senza chiave) resta comandabile come prima, e "Protezione" dice "nessuna".
 
+## N. Permesso REC dal telefono e modi di ripresa (10 minuti)
+
+1. Sul telefono, di default, non c'è il pulsante REC. Nel dettaglio della camera accendi "Il telefono può avviare e fermare la registrazione da solo": sul telefono compare un pulsante grande REC/STOP. Avvia dal telefono e ferma dalla regia, poi viceversa.
+2. Nella home accendi "Tutte le camere possono avviare…": compare su tutti i telefoni e anche su uno nuovo che entra. Spegni: sparisce ovunque.
+3. Metti una camera in modo **Time-lapse** (selettore "Modo" accanto a REC) e un'altra in **Video**. Premi "REC tutte": una registra, l'altra fa il time-lapse. "STOP tutte" le ferma e il time-lapse produce il suo video.
+
 ## Cosa mi mandi
 
 Per ogni prova: **"fatto"**, il numero della prova, e un commento solo se qualcosa ti ha stupito. Il resto lo leggo nei log (stato, velocità, errori, tempi).

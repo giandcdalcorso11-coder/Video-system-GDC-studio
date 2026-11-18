@@ -2,7 +2,7 @@
 
 Legenda: ✅ fatto · 🔄 in corso (fatto in simulazione, da provare sui dispositivi veri) · ⏳ da fare · 💤 più avanti
 
-Aggiornata al 2026-11-19 (camera r28, dashboard r29). Il dettaglio è nel documento di sessione.
+Aggiornata al 2026-11-19 (camera r30, dashboard r31). Il dettaglio è nel documento di sessione.
 
 ## 1. Verifiche sui telefoni
 - ✅ iPhone XR (iOS 16.3.1): fotocamera 1080p/4K a 30 fps, MP4 H.264 + AAC, WebRTC, time-lapse, limiti di spazio (circa 0,78 GB). Vedi `docs/RISULTATI-TEST.md`
@@ -16,6 +16,8 @@ Aggiornata al 2026-11-19 (camera r28, dashboard r29). Il dettaglio è nel docume
 - ✅ REC/STOP per camera e per tutte, zoom morbido, impostazioni di qualità
 - ✅ "Controllo prima di iniziare" (collegamento, batteria, spazio, cartella)
 - 🔄 QR per aggiungere un telefono, conferma Accetta/Rifiuta/Accetta tutte, numeri unici delle camere
+- 🔄 Permesso REC/STOP del telefono (per camera o per tutte) e modo di ripresa Video/Time-lapse per camera
+- 💤 Ralenti a 60 fotogrammi (dopo la misura sull'iPhone 15)
 - 🔄 Segnali per il montaggio (CSV e marcatori per DaVinci Resolve)
 - 🔄 Camere non collegate da giorni: avviso e rimozione
 - 🔄 Controlli camera (torcia, fuoco, bianco, esposizione) in Avanzata
@@ -53,8 +55,8 @@ Aggiornata al 2026-11-19 (camera r28, dashboard r29). Il dettaglio è nel docume
 - 💤 Personalizzazione per attività, orologio smart (idea)
 
 ## 8. Qualità del software
-- ✅ Prove automatiche in `tests/` (13 gruppi, browser con camera finta)
-- ✅ Codice diviso in moduli (16 per pagina) con controllo delle versioni
+- ✅ Prove automatiche in `tests/` (15 gruppi, browser con camera finta)
+- ✅ Codice diviso in moduli (16 per la camera, 17 per la regia) con controllo delle versioni
 - ✅ Messaggi del canale ripuliti prima di arrivare alle pagine; prova con messaggi ostili
 - ✅ Chiave della regia: comandi firmati, solo la regia può comandare le camere (link nuovi); da provare sui telefoni
 - ⏳ Prove sui dispositivi veri: vedi `piano-test-interno.md`

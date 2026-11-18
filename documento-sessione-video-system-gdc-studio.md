@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 46
-**Ultimo aggiornamento:** 2026-11-19 07:00
+**Versione:** 47
+**Ultimo aggiornamento:** 2026-11-19 09:00
 
 ## Vision
 
@@ -189,6 +189,23 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 09:00] Permesso REC/STOP del telefono e modo di ripresa per camera
+
+**Riepilogo:** la regia decide se ogni telefono può avviare e fermare la registrazione da solo (per camera o per tutte) e assegna a ogni camera un modo di ripresa (Video o Time-lapse); "REC tutte" rispetta il modo di ciascuna (camera r30, dashboard r31).
+
+**Cosa è stato fatto:**
+- Permesso: comando firmato `perm_cfg`; sul telefono compare un pulsante grande REC/STOP solo se il permesso è dato (default spento); spunta per camera nel dettaglio e spunta "tutte" nella home (vale anche per i telefoni nuovi); il valore voluto sta nel record della camera e viene riallineato se il telefono dice altro; il STOP della regia vale sempre; un intruso non può cambiarlo.
+- Modo per camera: selettore "Modo" (Video / Time-lapse) nel dettaglio, modo mostrato nella scheda in home; "REC tutte", "STOP tutte" e i pulsanti REC/STOP di ogni camera avviano e fermano nel modo scelto; impostazioni del time-lapse ricordate per camera; STOP attivo anche per time-lapse in corso.
+- Riordino: aggiunto il modulo `13-permessi-modi.js` (la regia ora ha 17 moduli, rinumerati).
+- Prove: gruppo 14 (23 controlli): permesso per camera e per tutte, camera che entra dopo, riallineamento, intruso, REC dal telefono, STOP della regia, modi misti con video time-lapse prodotto.
+
+**Decisioni prese:**
+- Contesto: l'utente vuole poter scegliere sempre, per camera o per tutte. Decisione: scelta sempre disponibile dalla regia; default spento. Il ralenti è rimandato ("più avanti"): dal browser non esistono 120/240 fps, solo 60 dove il telefono li dà (iPhone XR solo a 720p, Pixel 8 Pro fino a 60, iPhone 15 da misurare).
+
+**File consegnati/modificati:** docs/dashboard/13-permessi-modi.js (nuovo) e moduli 14-17 rinumerati, 05, 08, 14 (viste), 15 (router); docs/camera/12-stato.js, 15-comandi.js, 16-interfaccia.js; docs/camera.html, docs/dashboard.html; docs/ARCHITETTURA.md, docs/PIPELINE.md, piano-test-interno.md; tests/cases/14-permessi-modi.mjs; documento v47.
+
+---
 
 ### [2026-11-19 07:00] Chiave della regia: solo la regia può comandare le camere
 

@@ -38,6 +38,7 @@ async function onCmd(m) {
       case "preview_stop": try { clearInterval(pcs[m.from]?.statT); pcs[m.from]?.pc.close(); } catch { /* ok */ } delete pcs[m.from]; detail = "chiusa"; break;
       case "zoom": detail = await setZoom(m.z); break;
       case "pro": detail = await applyPro(m.set, !!m.reset); ok = !Object.values(detail).some((x) => x !== "ok") || !!m.reset; break;
+      case "perm_cfg": cfg.localRec = !!m.localRec; store.set("gdc.camCfg", cfg); dbg("info", `la regia ${cfg.localRec ? "permette" : "non permette"} al telefono di avviare e fermare la registrazione`); publish(); detail = { localRec: cfg.localRec }; break;
       case "station_cfg": cfg.station = !!m.on; store.set("gdc.camCfg", cfg); dbg("info", `postazione fissa ${cfg.station ? "attivata" : "spenta"}`); publish(); detail = { station: cfg.station }; break;
       case "space_cfg": cfg.autoFree = !!m.autoFree; store.set("gdc.camCfg", cfg); dbg("info", `spazio: liberazione automatica delle clip verificate ${cfg.autoFree ? "attivata" : "spenta"}`); spaceTick(); publish(); detail = { autoFree: cfg.autoFree }; break;
       case "xfer_start": detail = await xferStart(m); break;

@@ -98,7 +98,7 @@ async function batProbe() {
 }
 function stateObj() {
   const v = $("vid");
-  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, station: !!cfg.station, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
+  return { id: ID, fp: FP, name: cfg.name, device: cfg.device, os: OS, camReady: !!stream, rec: !!recording && !recording.stopping, recSid: recording ? recording.sid : null, station: !!cfg.station, localRec: !!cfg.localRec, recMs: recording ? Date.now() - recording.start : 0, res: cfg.res, bps: Number(cfg.bps),
     bufMB: Math.round(bufBytes() / 1048576), maxBufMB: Math.round(MAX_BUF / 1048576), space: spaceState(), standby, err: lastErr, battery: bat.level, charging: bat.charging, batAt: bat.at, zoom: zoomInfo(), pro: proInfo(), storage: storageMode, tl: tlState(),
     vw: v.videoWidth || 0, vh: v.videoHeight || 0, xfer: xferBusy ? { sid: xferBusy.sid, pct: xferBusy.pct || 0 } : null, label, clockOff, clips: sessions.slice(0, 8).map((s) => ({ id: s.id, file: clipFile(s, /webm/.test(s.mime || "") ? "webm" : "mp4"), dur: s.dur, mb: Math.round(s.bytes / 1048576), status: s.status, kind: s.kind || "video" })), ts: Date.now() };
 }
@@ -107,6 +107,7 @@ function renderStat() {
   const s = stateObj(), row = (a, b, adv) => `<tr${adv ? ' class="adv-only"' : ""}><td>${a}</td><td>${b}</td></tr>`;
   $("stat").innerHTML = row("Regia", joinText() + (label ? " · " + label : "")) + row("Protezione", pairing && pairing.p ? "comandi firmati dalla regia" : "nessuna (link senza chiave)", 1) + row("Camera", s.camReady ? `accesa ${s.vw}×${s.vh}` : "spenta") + row("Trasferimento file", xferBusy ? `in corso ${xferBusy.pct || 0}%` : "nessuno") + row("Registrazione", s.rec ? `<b class="err">IN REC ${fmtT(s.recMs)}</b>` : "ferma") + row("Spazio per registrare", spaceText()) + row("Spazio usato dal buffer", `${s.bufMB} MB su ${s.maxBufMB} MB`, 1) + row("Archivio", storageMode === "indexeddb" ? "su disco" : '<b class="err">solo in memoria (a rischio)</b>', storageMode === "indexeddb") + row("Batteria", s.battery == null ? "non disponibile" : `${Math.round(s.battery)}%${s.charging ? " (in carica)" : ""}`) + row("Time-lapse", s.tl ? `${s.tl.stage === "rendering" ? "creo il video " + Math.round(s.tl.progress * 100) + "%" : "in ripresa"} · ${s.tl.frames} immagini · ogni ${s.tl.intS} s` : "no", !s.tl) + row("Schermo nero", standby ? "attivo" : "no") + row("Collegamento", $("connTxt").textContent, 1) + row("ID camera", `…${ID.slice(-6)} (${idSrc.src})`, 1);
   $("msg").innerHTML = lastErr ? `<span class="err">${lastErr}</span>` : "";
+  { const b = $("recLocal"); if (b) { b.hidden = !(cfg.localRec && stream); b.textContent = s.rec ? "■ STOP" : "● REC"; b.classList.toggle("on", !!s.rec); } }
   $("recBtn").textContent = s.rec ? "■ STOP (prova locale)" : "● REC (prova locale)";
   $("connPill").className = "pill " + (s.rec ? "rec" : /^connesso/.test($("connTxt").textContent) ? "ok" : "");
 }
