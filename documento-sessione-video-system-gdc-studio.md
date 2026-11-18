@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 54
-**Ultimo aggiornamento:** 2026-11-18 21:30
+**Versione:** 55
+**Ultimo aggiornamento:** 2026-11-18 22:14
 
 ## Vision
 
@@ -194,6 +194,20 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 22:14] Piano di test aggiornato e chiarimento sui link di collegamento
+
+**Riepilogo:** Piano di test interno rivisto (camera r32, dashboard r32, nuove prove P e Q) e consegnato anche in chat; chiarito all'utente che i link sono due ma se ne gestisce uno solo.
+
+**Cosa è stato fatto:**
+- Serie completa di prove automatiche: 306/306 (camera r32, dashboard r32).
+- `piano-test-interno.md` riscritto in testa: versioni r32, ordine consigliato (A, P, O, B, C; poi N, Q, D, E), prova A con la finestra "Aggiungi camera", nuova **P** (nome sessione e Nuova sessione), nuova **Q** (anteprima sulla pagina camera), **M** con la finestra Aggiungi. Testo consegnato per intero in chat.
+- Domanda dell'utente sui link: verificato nel codice (`Pair.link` in `rt.js`). Il **link della dashboard** contiene canale e chiave privata (serve per aprire la regia su un altro dispositivo); il **link della camera** contiene canale e chiave pubblica ed è quello nel QR, generato dalla dashboard. Il QR non cambia a ogni telefono né a ogni apertura: cambia solo con "Nuova sessione" (nuovo canale) o scollegando la regia. Se non si può inquadrare il QR c'è "Copia link" nella finestra Aggiungi camera (la conferma Accetta/Rifiuta resta il filtro).
+- Limiti dichiarati: il primo avvio della regia passa ancora dal link da sviluppatore; il codice a 8 caratteri non c'è (serve il nuovo account Supabase).
+
+**File consegnati/modificati:** `piano-test-interno.md`.
+
+---
 
 ### [2026-11-18 21:30] Viste delle camere nella regia e anteprima nella pagina camera
 
