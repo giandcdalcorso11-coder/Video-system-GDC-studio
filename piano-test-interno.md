@@ -1,24 +1,46 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r22**, **dashboard r21**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"** più, se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r32**, **dashboard r32**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
 - 1 PC con **Edge o Chrome** (regia). Un disco esterno o una chiavetta USB capienti.
-- 1 **iPad** (regia alternativa, per le prove G).
+- 1 **iPad** (regia alternativa, prove G e O).
 - 2 o 3 **telefoni**: iPhone 15 (Safari), un secondo iPhone o Android (Chrome).
 - Una **rete buona** (wifi o dati stabili). Per la prova B non serve la stessa rete.
-- Telefoni carichi (almeno 50%) e con spazio libero. Lo schermo dei telefoni resta acceso e la pagina camera aperta.
-- Prima di ogni prova: ricarica le pagine e controlla in Avanzata "camera r22" e "dashboard r21".
+- Telefoni carichi (almeno 50%) e con spazio libero. Schermo acceso e pagina camera aperta.
+- Prima di ogni prova: ricarica le pagine e controlla in Avanzata "camera r32" e "dashboard r32".
+
+## Ordine consigliato
+
+**Se hai poco tempo:** A, P, O, B, C. Poi N, Q, D, E. Le altre quando puoi.
 
 ## A. Collegamento e controllo iniziale (10 minuti)
 
 **Scopo:** vedere se tutte le camere si collegano e se il "Controllo prima di iniziare" dice la verità.
 1. Apri la dashboard sul PC e scegli la cartella dei file (disco esterno).
-2. Apri la camera su ogni telefono con il suo link e avviala.
-3. Guarda il "Controllo prima di iniziare" sul PC.
+2. In regia premi **"+ Aggiungi camera"**: si apre una finestra con il QR. Inquadralo con la fotocamera di ogni telefono (o usa "Copia link").
+3. Su ogni telefono: scrivi il nome, consenti camera e microfono, tocca "Avvia camera".
+4. In regia tocca **Accetta** per ogni richiesta (anche dentro la finestra). Poi chiudi la finestra (Chiudi o Esc).
+5. Guarda il "Controllo prima di iniziare".
 
-**Atteso:** ogni camera online, batteria e minuti di spazio visibili, riga della cartella con ✓. Se manca un dato, scrivimi quale.
+**Atteso:** ogni camera online con il suo numero (Camera 1, 2, 3), batteria e minuti di spazio visibili, riga della cartella con ✓. Se manca un dato, scrivimi quale.
+
+## P. Nome della sessione e Nuova sessione (5 minuti)
+
+1. In "Aggiungi camera" scrivi un nome (per esempio "Prova uno"): deve comparire in intestazione.
+2. Premi **"Nuova sessione"**, scrivi un nome, conferma. La pagina si ricarica.
+3. **Atteso:** il QR è cambiato, l'elenco camere è vuoto, il nome è quello nuovo. I telefoni di prima non rispondono più. Riinquadra il QR nuovo e rientrano. Le clip già registrate restano sul telefono.
+
+## O. Viste delle camere (10 minuti)
+
+1. Con 2 o 3 camere collegate prova **Automatico**, **Scorrimento** (tocca le tessere numerate; prova ↔ e ↕).
+2. Accendi **Funzioni Pro (prova)** e prova **Personalizzato**: sposta una camera dalla testata, ridimensionala dall'angolo, ricarica la pagina (devono restare), poi "Ripristina disposizione".
+3. Ripeti su **iPad** e su **telefono**. Su telefono in verticale si deve partire da Scorrimento.
+4. In **Avanzata**: Personalizzato subito disponibile, interruttore Pro assente.
+5. Se puoi, prova con 4 o più camere.
+
+**Dimmi:** se trascinare e ridimensionare col dito è comodo, come sembrano le anteprime con tante camere.
 
 ## B. Registrazione con più camere (15 minuti)
 
@@ -38,6 +60,17 @@ Versioni da usare: **camera r22**, **dashboard r21**. Tutti i link da sviluppato
 
 **Atteso:** file arrivati e verificati, riproducibili, stessa dimensione. Dimmi i Mbps e i minuti impiegati.
 
+## N. Permesso REC dal telefono e modi di ripresa (10 minuti)
+
+1. Sul telefono, di default, non c'è il pulsante REC. Nel dettaglio della camera accendi "Il telefono può avviare e fermare la registrazione da solo": sul telefono compare un pulsante grande REC/STOP. Avvia dal telefono e ferma dalla regia, poi viceversa.
+2. Nella home accendi "Tutte le camere possono avviare…": compare su tutti i telefoni e anche su uno nuovo che entra. Spegni: sparisce ovunque.
+3. Metti una camera in modo **Time-lapse** (selettore "Modo" accanto a REC) e un'altra in **Video**. Premi "REC tutte": una registra, l'altra fa il time-lapse. "STOP tutte" le ferma e il time-lapse produce il suo video.
+
+## Q. Anteprima sulla pagina camera (5 minuti)
+
+Con la camera accesa, sul telefono deve comparire l'immagine a tutto campo con la griglia dei terzi e "Anteprima in diretta · qualità". In registrazione compare il badge **REC con il tempo**; con lo zoom dalla regia compare "2,0×".
+**Dimmi:** se l'anteprima è troppo grande o copre i pulsanti (su iPhone e su Android).
+
 ## D. Cartella che sparisce (10 minuti)
 
 **Scopo:** il caso del disco scollegato.
@@ -49,7 +82,6 @@ Versioni da usare: **camera r22**, **dashboard r21**. Tutti i link da sviluppato
 
 ## E. Automatico e buffer a rotazione (15 minuti)
 
-**Scopo:** il flusso senza toccare nulla.
 1. Accendi "Trasferisci da solo ogni clip appena fermo la registrazione" e "Elimina dal telefono dopo il trasferimento verificato".
 2. Registra 3 clip brevi di seguito su una camera. Dopo ogni STOP aspetta.
 3. Prova anche a ricominciare a registrare mentre il trasferimento della clip precedente è in corso.
@@ -58,31 +90,28 @@ Versioni da usare: **camera r22**, **dashboard r21**. Tutti i link da sviluppato
 
 ## F. Anteprima durante i trasferimenti (10 minuti)
 
-**Scopo:** vedere se tenere l'anteprima accesa rovina il trasferimento.
 1. Trasferisci un file da 1 minuto con "Tieni l'anteprima accesa durante i trasferimenti" **accesa**.
 2. Ripeti con la spunta **spenta**.
 
-**Atteso:** annota le due velocità e se in uno dei casi il trasferimento si ferma. Con rete buona dovrebbero essere simili.
+**Atteso:** annota le due velocità e se in uno dei casi il trasferimento si ferma.
 
 ## G. iPad come regia (30 minuti)
 
-**Scopo:** i limiti di memoria e il salvataggio su disco.
-1. Apri la dashboard sull'iPad, in Avanzata premi **"Misura memoria di questo dispositivo"** e lascia la pagina aperta. Può durare qualche minuto. Se la pagina si chiude, riaprila: il registro riporta fino a quanto ha retto.
-2. Trasferisci una clip da 1 minuto e una da 2 minuti. Tocca Salva e scegli il disco o la chiavetta collegati.
+1. Apri la dashboard sull'iPad, in Avanzata premi **"Misura memoria di questo dispositivo"** e lascia la pagina aperta (può durare qualche minuto; se la pagina si chiude, riaprila: il registro riporta fino a quanto ha retto).
+2. Trasferisci una clip da 1 minuto e una da 2 minuti. Tocca Salva e scegli il disco o la chiavetta.
 3. Prova a trasferire più file senza salvare, finché compare l'avviso.
 
-**Atteso:** valore reale della memoria, salvataggio su disco funzionante, avviso chiaro quando il tetto è raggiunto. Con questi dati imposto il tetto vero.
+**Atteso:** valore reale della memoria, salvataggio funzionante, avviso chiaro quando il tetto è raggiunto.
 
 ## H. Spazio (15 minuti)
 
-**Scopo:** completare la misura dell'iPhone 15 e provare l'arresto sicuro.
 1. Misura a 16 GB (te lo preparo prima: serve solo un tetto più alto).
-2. Con lo spazio quasi pieno, avvia una registrazione e guarda se si ferma da sola senza rovinare il file.
+2. Con lo spazio quasi pieno, avvia una registrazione: deve fermarsi da sola senza rovinare il file.
 3. Prova la spunta "elimina le clip già trasferite" con lo spazio al limite.
 
 ## I. Android (se hai un telefono) (20 minuti)
 
-REC, trasferimento, zoom e batteria, come nelle prove B e C. La sonda ha già mostrato che il registratore e la batteria funzionano.
+REC, trasferimento, zoom e batteria, come nelle prove B e C.
 
 ## L. Batteria su iPhone (facoltativa)
 
@@ -90,27 +119,11 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 
 ## M. Chiave della regia (10 minuti)
 
-**Scopo:** verificare che solo la regia comandi le camere e che il cambio di regia funzioni.
-1. Apri la dashboard e mostra il QR; con un telefono nuovo aprilo dal QR (il link ha la chiave pubblica). Dai REC e STOP dalla regia.
+1. Dalla finestra "Aggiungi camera" apri un telefono nuovo dal QR (il link ha la chiave pubblica). Dai REC e STOP dalla regia.
 2. In Avanzata, sulla camera, la riga "Protezione" deve dire "comandi firmati dalla regia".
 3. Apri la dashboard su un secondo dispositivo con **"Copia link dashboard"** (pannello Collegamento, Avanzata): deve poter comandare la camera.
 4. Apri la dashboard su un secondo dispositivo con il link della **camera**: la camera non deve obbedire e la regia deve scrivere "non autorizzato".
-5. Un telefono aperto con un link vecchio (senza chiave) resta comandabile come prima, e "Protezione" dice "nessuna".
-
-## N. Permesso REC dal telefono e modi di ripresa (10 minuti)
-
-1. Sul telefono, di default, non c'è il pulsante REC. Nel dettaglio della camera accendi "Il telefono può avviare e fermare la registrazione da solo": sul telefono compare un pulsante grande REC/STOP. Avvia dal telefono e ferma dalla regia, poi viceversa.
-2. Nella home accendi "Tutte le camere possono avviare…": compare su tutti i telefoni e anche su uno nuovo che entra. Spegni: sparisce ovunque.
-3. Metti una camera in modo **Time-lapse** (selettore "Modo" accanto a REC) e un'altra in **Video**. Premi "REC tutte": una registra, l'altra fa il time-lapse. "STOP tutte" le ferma e il time-lapse produce il suo video.
-
-## O. Viste delle camere (10 minuti)
-
-1. Con 2 o 3 camere collegate, prova **Automatico**, **Scorrimento** (tocca le tessere numerate; prova le frecce ↔ e ↕) e, dopo aver acceso **Funzioni Pro (prova)**, **Personalizzato**: sposta una camera dalla testata, ridimensionala dall'angolo, ricarica la pagina (devono restare), poi "Ripristina disposizione".
-2. Su iPad e su telefono: il dito deve poter trascinare e ridimensionare; su telefono in verticale la vista di partenza deve essere Scorrimento.
-3. "Aggiungi camera": si apre la finestra con il QR; mentre è aperta, una richiesta di ingresso compare dentro la finestra.
-4. In Avanzata: Personalizzato è subito disponibile e l'interruttore Pro non c'è.
-
-Dimmi come ti sembrano le anteprime con tante camere (se hai modo, 4 o più) e se il trascinamento è comodo.
+5. Un telefono aperto con un link vecchio (senza chiave) resta comandabile, e "Protezione" dice "nessuna".
 
 ## Cosa mi mandi
 
