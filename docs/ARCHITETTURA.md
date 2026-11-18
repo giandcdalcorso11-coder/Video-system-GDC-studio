@@ -1,6 +1,6 @@
 # Architettura
 
-Stato aggiornato al 2026-11-19 (camera r30, dashboard r31). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
+Stato aggiornato al 2026-11-19 (camera r31, dashboard r32). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
 
 ## Idea
 
@@ -38,6 +38,7 @@ Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e po
 - La regia mostra un **QR** (e il link) per aggiungere un telefono. Alla prima apertura la camera chiede il nome e spiega i permessi, poi si collega.
 - Con la spunta "Chiedi conferma" (accesa di default) un telefono nuovo compare con **Accetta / Rifiuta / Accetta tutte**; i telefoni già noti rientrano da soli. Il rifiuto è lato regia (chi ha il link può comunque scrivere sul canale, la regia lo ignora).
 - Ogni camera riceve un numero unico (`Camera N`) che ricorda anche cambiando regia.
+- **Sessione:** la regia ha un nome di sessione (mostrato in intestazione, salvato sul dispositivo). "Nuova sessione" crea un canale nuovo (quindi un QR nuovo), rifà le chiavi della regia, azzera l'elenco delle camere e i rifiuti; i telefoni collegati prima non rispondono più e rientrano con il nuovo QR (le clip restano su di loro). Non c'è ancora scadenza né codice a 8 caratteri; il nome non viene ancora mandato ai telefoni.
 
 ## Registrazione e archivio sul telefono
 

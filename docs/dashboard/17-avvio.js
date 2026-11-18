@@ -1,6 +1,6 @@
 "use strict";
 /* ===== Avvio ===== */
-destAvvio(); setInterval(() => Join.sweep(), 2000);
+Session.paint(); destAvvio(); setInterval(() => Join.sweep(), 2000);
 cameras.forEach((c, i) => transport.add(c, i === 0 ? 600 : null));
 transport.start();
 route();
