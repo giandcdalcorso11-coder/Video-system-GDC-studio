@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 51
-**Ultimo aggiornamento:** 2026-11-18 14:21
+**Versione:** 52
+**Ultimo aggiornamento:** 2026-11-18 15:26
 
 ## Vision
 
@@ -193,6 +193,29 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-18 15:26] Mockup rifatto per telefono, iPad e PC; viste con 3 e 10 camere
+
+**Riepilogo:** Il mockup dell'uso pubblico è stato rifatto da zero con un disegno proprio per telefono, iPad e PC, con strumento "Aggiungi dispositivo", anteprima nella camera collegata e viste regia con 3 e 10 camere.
+
+**Cosa è stato fatto:**
+- Segnalazioni dell'utente sul primo rifacimento: layout telefono della regia sbagliati, pulsante "Aggiungi camera" non visibile (la barra era troppo stretta e lo schiacciava), layout PC e camera da ridisegnare, anteprima mancante nella camera collegata.
+- Tela riorganizzata: Home in alto, due rami (Camera a sinistra, Regia a destra), ogni pagina su una riga con tre schermi (Telefono 390, iPad 1024, PC 1440). 42 schede generate da un unico generatore (non in repo, nella cartella di lavoro), controllate renderizzandole a dimensione reale (nessun testo tagliato).
+- Camera: anteprima in diretta a tutto schermo con griglia nella schermata di ripresa, anteprima anche nella schermata di preparazione; su iPad/PC due colonne.
+- Regia: barra a due righe (selettore viste, Aggiungi camera, STOP/REC tutte), riquadro tratteggiato "Aggiungi dispositivo". Il pulsante apre una finestra sopra la sessione con QR, codice e richiesta "Camera 4 vuole entrare" (scheda 3.4a-2); il mockup è statico e non aggiunge davvero la camera.
+- Nuove schede: sessione automatica con 10 camere (3.4a-3) e vista a scorrimento con 10 camere (3.4b-2), con tessere numerate sul telefono.
+
+**Decisioni prese:**
+- Contesto: serviva capire il comportamento della regia con molte camere.
+- Decisione: mostrare l'aggiunta di un dispositivo come finestra sopra la sessione; con 10 camere automatico = griglia compatta senza barra dello zoom (zoom da Dettagli), scorrimento = una camera grande più lista delle altre.
+- Alternative scartate: far partire il pulsante verso la pagina "Nuova sessione" (confondeva il flusso).
+- Da rivedere se: le anteprime con 10 camere risultano troppo piccole nei test reali.
+
+**File consegnati/modificati:** mockup pubblicato (42 schede, canvas.json); nessun codice del prodotto toccato.
+
+**Impatto su Vision/Pipeline:** nessuno. Restano aperti i valori di partenza dei preset (Sport: REC dal telefono e file sui telefoni? serve "Creator / studio"?) e la vista Personalizzata Pro con 10 camere (non disegnata).
+
+---
 
 ### [2026-11-18 14:21] Viste delle camere nella regia (mockup)
 
