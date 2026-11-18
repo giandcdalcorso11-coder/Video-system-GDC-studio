@@ -16,6 +16,8 @@ export async function run() {
     ok(`${page}.html: tutti i moduli hanno lo stesso ?v= della versione (${corto}), così Safari non mescola file vecchi e nuovi`, tags.every((t) => t[2] === corto), tags.filter((t) => t[2] !== corto).map((t) => t[1] + "?v=" + t[2]).join(", "));
     const files = fs.readdirSync(path.join(DOCS, page)).filter((f) => f.endsWith(".js")).map((f) => `${page}/${f}`).sort();
     ok(`${page}/: ogni modulo presente nella cartella è caricato dalla pagina e viceversa`, JSON.stringify(files) === JSON.stringify(tags.map((t) => t[1]).sort()), `cartella: ${files.length}, pagina: ${tags.length}`);
+    const locali = [...html.matchAll(/<script src="([\w.\/-]+\.js)(\?v=[^"]*)?"><\/script>/g)];
+    ok(`${page}.html: anche rt.js, dev.js, xfer.js e qr.js hanno ?v= uguale alla versione`, locali.length >= 3 && locali.every((m) => m[2] === "?v=" + corto), locali.map((m) => m[1] + (m[2] || "")).join(", "));
     const ordine = tags.map((t) => t[1]); ok(`${page}.html: i moduli sono caricati in ordine numerico`, JSON.stringify(ordine) === JSON.stringify([...ordine].sort()), ordine.join(" "));
     for (const f of files) {
       const src = fs.readFileSync(path.join(DOCS, f), "utf8"), err = valido(src);

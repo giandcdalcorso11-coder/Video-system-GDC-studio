@@ -22,7 +22,10 @@ const kv = (() => {
   return { get: (k) => open().then((d) => new Promise((res, rej) => { const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); })),
     set: (k, v) => open().then((d) => new Promise((res, rej) => { const t = d.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); })) };
 })();
-{ const m = store.get("gdc.memTest", null); if (m && m.running) { store.set("gdc.memTest", null); dbg("error", "memoria", `LA PROVA DI MEMORIA PRECEDENTE SI È INTERROTTA: la pagina si era richiusa dopo aver retto ${m.mb} MB (il passo successivo non è riuscito)`); log("", `La prova di memoria precedente si è interrotta dopo ${m.mb} MB: è il limite di questo dispositivo.`); } }
-if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); Dest.check(); } }).catch(() => {});
-setInterval(() => { if (typeof Xfer !== "undefined" && Dest.mode === "folder" && Dest.handle && !Xfer.active().some((j) => j.state === "in corso")) Dest.check(); }, 15000);
+// avvii all'apertura della pagina: si lanciano da 16-avvio.js, quando tutti i moduli sono stati caricati
+function destAvvio() {
+  { const m = store.get("gdc.memTest", null); if (m && m.running) { store.set("gdc.memTest", null); dbg("error", "memoria", `LA PROVA DI MEMORIA PRECEDENTE SI È INTERROTTA: la pagina si era richiusa dopo aver retto ${m.mb} MB (il passo successivo non è riuscito)`); log("", `La prova di memoria precedente si è interrotta dopo ${m.mb} MB: è il limite di questo dispositivo.`); } }
+  if (FS) kv.get("dir").then((hd) => { if (hd) { Dest.handle = hd; dbg("info", "file", `cartella ricordata: ${hd.name}`); Xfer.refresh(); Dest.check(); } }).catch(() => {});
+  setInterval(() => { if (typeof Xfer !== "undefined" && Dest.mode === "folder" && Dest.handle && !Xfer.active().some((j) => j.state === "in corso")) Dest.check(); }, 15000);
+}
 const fmtMB = (b) => (b / 1048576 >= 100 ? Math.round(b / 1048576) : (b / 1048576).toFixed(1)) + " MB";

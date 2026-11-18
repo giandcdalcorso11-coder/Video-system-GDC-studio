@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 44
-**Ultimo aggiornamento:** 2026-11-19 03:00
+**Versione:** 45
+**Ultimo aggiornamento:** 2026-11-19 05:00
 
 ## Vision
 
@@ -189,6 +189,27 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 05:00] Riordino in moduli e rinforzo della sicurezza dei messaggi
+
+**Riepilogo:** camera e dashboard divisi in 16 moduli ciascuno (stesso comportamento), avvii spostati a fine caricamento, messaggi del canale ripuliti prima di arrivare alle pagine (camera r28, dashboard r29).
+
+**Cosa è stato fatto:**
+- **Riordino:** `docs/camera/` e `docs/dashboard/` con 16 moduli numerati, caricati in ordine con `defer` e `?v=<versione>` (anche rt.js, dev.js, xfer.js, qr.js). Le pagine HTML restano con struttura e stile. Nessuna modifica di logica nello spostamento.
+- **Bug: errore se la pagina si riapre dopo una prova di memoria interrotta**
+  **Sintomo:** dopo il riordino, la riapertura della regia con una prova di memoria "in corso" dava "renderLogs is not defined" (trovato dalla suite).
+  **Causa:** codice eseguito all'apertura (nel modulo 06) chiamava funzioni definite in un modulo successivo; nel file unico di prima le funzioni erano disponibili subito.
+  **Fix applicato:** tutti gli avvii (ripristino della cartella e della prova di memoria, timer dell'ingresso, timer della postazione fissa sulla camera) sono ora funzioni lanciate dall'ultimo modulo. Regola nuova: un modulo definisce, non avvia. Prova nuova con caricamento lento e stati salvati. Verificato.
+- **Sicurezza:** `rt.js` ripulisce stato, comandi, risposte, esiti e batteria in arrivo (niente `<`, `>`, `&`, virgolette e caratteri di controllo; testi max 400 caratteri, liste max 40, chiavi semplici, messaggi oltre 40 kB ignorati); la regia scarta id camera non validi; i nomi dei file in arrivo sono resi sicuri. Prova con un intruso che manda testo con codice, comandi non previsti, id strani e un messaggio enorme: senza le difese 6 controlli falliscono, con le difese passano tutti.
+- Prove: 13 gruppi, circa 200 controlli; la suite ora segnala anche richieste fallite e errori di console della pagina.
+
+**Limite noto:** chi ha il link può ancora mandare comandi (REC, STOP, rinomina, "non accettata"). Per impedirlo serve una chiave della regia scambiata all'accettazione: non ancora fatta.
+
+**Da rivedere se:** si volesse limitare ulteriormente (CSP, controllo di integrità della libreria Supabase dal CDN).
+
+**File consegnati/modificati:** docs/camera.html, docs/dashboard.html, docs/camera/*.js, docs/dashboard/*.js, docs/rt.js, docs/xfer.js, docs/ARCHITETTURA.md, docs/PIPELINE.md, tests/ (lib, run, cases 00, 11, 12), documento v45.
+
+---
 
 ### [2026-11-19 03:00] Prove salvate nel repository, controllo di sicurezza del database, documenti tecnici aggiornati
 

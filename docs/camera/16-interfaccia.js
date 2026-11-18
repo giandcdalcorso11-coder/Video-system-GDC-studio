@@ -66,4 +66,5 @@ $("wGo").onclick = async () => {
   dbg("info", `benvenuto completato: nome "${cfg.name}"`); $("welcome").hidden = true; $("main").hidden = false; $("statPanel").hidden = false; syncForm(); renderStat();
   await goOnline(); // l'avvio della camera parte da goOnline (stesso tocco)
 };
+postazioneAvvio();
 start();

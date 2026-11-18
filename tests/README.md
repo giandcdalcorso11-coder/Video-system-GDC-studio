@@ -10,7 +10,7 @@ cd tests
 npm install              # una sola volta (Playwright e jsQR)
 npx playwright install chromium   # una sola volta, se manca il browser
 npm test                 # tutte le prove (circa 5 minuti)
-node run.mjs cartella    # solo le prove il cui nome file contiene "cartella"
+node run.mjs cartella    # solo le prove il cui nome file corrisponde all'espressione (es. '^0[12]')
 ```
 
 Se Playwright è già installato altrove: `PLAYWRIGHT_DIR=/percorso/node_modules npm test`.

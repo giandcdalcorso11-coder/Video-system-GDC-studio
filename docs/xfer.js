@@ -100,9 +100,11 @@
   }
 
   /* ---------- Destinazioni (dashboard) ---------- */
+  // il nome del file arriva dalla camera: si tolgono i caratteri che nessun sistema accetta e i punti iniziali
+  const safeName = (n) => String(n || "file").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").replace(/^\.+/, "_").slice(0, 150) || "file";
   function memorySink() {
-    return async ({ name, mime }) => {
-      const parts = []; let cur = [], cl = 0;
+    return async ({ name: n0, mime }) => {
+      const name = safeName(n0), parts = []; let cur = [], cl = 0;
       return { name,
         async write(ab) { cur.push(ab); cl += ab.byteLength; if (cl >= 8 * 1048576) { parts.push(new Blob(cur)); cur = []; cl = 0; } },
         async finish() { if (cur.length) parts.push(new Blob(cur)); return { where: "memoria", name, blob: new Blob(parts, { type: mime || "video/mp4" }) }; },
@@ -111,8 +113,8 @@
   }
   function nullSink() { return async ({ name }) => ({ name, async write() {}, async finish() { return { where: "nessuna", name }; }, async abort() {} }); }
   function folderSink(dir) {
-    return async ({ name }) => {
-      let fname = name, n = 1;
+    return async ({ name: n0 }) => {
+      const name = safeName(n0); let fname = name, n = 1;
       for (;;) { try { await dir.getFileHandle(fname); n++; fname = name.replace(/(\.[^.]*)?$/, `_${n}$1`); } catch (e) { if (e.name === "NotFoundError") break; throw e; } }
       const fh = await dir.getFileHandle(fname, { create: true }), w = await fh.createWritable(); let buf = [], bl = 0;
       const flush = async () => { if (!bl) return; const b = new Blob(buf); buf = []; bl = 0; await w.write(b); };

@@ -61,7 +61,7 @@ class RealtimeTransport {
     setInterval(() => this.sweep(), 2000);
   }
   onCamState(m) {
-    if (!m || !m.id) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
+    if (!m || !/^[A-Za-z0-9_-]{3,40}$/.test(String(m.id))) return; const now = Date.now(); this.seen[m.id] = now; let isNew = false;
     let cam = camById(m.id);
     if (REAL && !cam && !Join.ok.has(m.id)) { if (Join.rejected.has(m.id)) { Join.deny(m.id); return; } if (Join.approve) { Join.hold(m); return; } }
     if (REAL && cam) { Join.greet(m.id); Clock.maybe(m.id); if (now - (cam.seen || 0) > 60000) { cam.seen = now; saveCams(); } }

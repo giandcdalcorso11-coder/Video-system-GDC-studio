@@ -1,6 +1,6 @@
 # Architettura
 
-Stato aggiornato al 2026-11-18 (camera r27, dashboard r28). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
+Stato aggiornato al 2026-11-19 (camera r28, dashboard r29). Lo storico delle decisioni è in `documento-sessione-video-system-gdc-studio.md`.
 
 ## Idea
 
@@ -12,8 +12,8 @@ Non c'è un server proprio: per comandi e stato si usa un canale in tempo reale 
 
 | File | Ruolo |
 |---|---|
-| `docs/camera.html` | pagina del telefono: fotocamera, registrazione a pezzi su disco (IndexedDB), comandi, invio dei file, spazio, recupero dopo blocchi |
-| `docs/dashboard.html` | pagina della regia: camere, comandi, anteprime, destinazione e trasferimento file, segnali, ingresso dei telefoni |
+| `docs/camera.html` + `docs/camera/` | pagina del telefono: la pagina contiene la struttura e carica 16 moduli in ordine (registro, identità, archivio IndexedDB, postazione fissa, spazio, fotocamera, registrazione, time-lapse, prova zoom, schermo nero, stato/zoom/controlli, anteprima, trasferimento, comandi, interfaccia) |
+| `docs/dashboard.html` + `docs/dashboard/` | pagina della regia: 16 moduli (utilità, registro, pannello registri, camere, trasporto e anteprima, destinazione, trasferimento, binding dello stato, viste, ingresso, orologio, segnali, viste principali, router e REC, anteprima simulata, avvio) |
 | `docs/rt.js` | canale in tempo reale: abbinamento (link `#gdc1.…`), eventi, presenza; modalità simulata per le prove |
 | `docs/xfer.js` | trasferimento dei file (protocollo, controllo di integrità CRC32, ripresa, destinazioni cartella/memoria) |
 | `docs/dev.js` | modalità Base/Avanzata e invio dei log tecnici (tabella `gdc_dev_logs`) |
@@ -21,11 +21,16 @@ Non c'è un server proprio: per comandi e stato si usa un canale in tempo reale 
 | `docs/camera-test.html` | pagina di prova delle capacità del telefono (test del 15/10) |
 | `tests/` | prove automatiche (vedi sotto) |
 
+## Come sono caricate le pagine
+
+Ogni pagina ha un piccolo script con il numero di versione (`PAGE_VERSION`) e poi i moduli come script classici con `defer` e `?v=<versione>` (stesso valore per tutti, per evitare che Safari mescoli file vecchi e nuovi). I moduli condividono lo stesso ambito globale e vanno in ordine numerico: **un modulo definisce, non avvia**. Tutto ciò che parte all'apertura (timer, ripristino di stati salvati) si lancia dall'ultimo modulo (`16-avvio.js` per la regia, `start()` per la camera), quando tutti i moduli sono già caricati. Quando si modifica un modulo si aumenta la versione nella pagina (e il `?v=` in tutti i tag): la prova `00-sintassi` lo controlla.
+
 ## Collegamento e canale
 
 - **Abbinamento:** un link `pagina#gdc1.<codice>[~<id camera>]` contiene indirizzo del servizio, chiave pubblica e canale segreto. Chi ha il link entra nel canale. Parametri facoltativi: `?dev=1` (log sempre inviati), `?name=` e `?device=`.
 - **Eventi sul canale** (broadcast + presenza): `state` (stato della camera, circa ogni 2 s), `cmd` (comandi dalla regia), `ack` (risposta ai comandi), `rtc` (anteprima), `xrtc` (file), `xdone` (fine trasferimento), `hello`, `dbg` (log), `battery`.
 - **Comandi** principali: `rec_start`, `rec_stop`, `standby`, `config`, `rename`, `zoom`, `pro` (controlli avanzati), `tl_start`/`tl_stop` (time-lapse), `preview_start`/`preview_stop`, `xfer_start`/`xfer_test`, `space_cfg`, `station_cfg`, `join_result`, `ping`/`clock`.
+- **Sicurezza dei messaggi:** chi conosce il link può scrivere sul canale. Per questo `rt.js` ripulisce ogni messaggio di stato, comando, risposta e batteria prima che arrivi alle pagine (niente caratteri di markup, testi e liste limitati, chiavi semplici, messaggi oltre 40 kB ignorati), la regia scarta camere con id non validi e i nomi dei file in arrivo vengono resi sicuri. Un intruso che ha il link può comunque mandare comandi (REC, STOP…): per bloccarlo servirebbe una chiave della regia, non ancora implementata.
 - **Servizio:** progetto Supabase "GDC-project 2" (provvisorio; per l'uso pubblico è previsto un account dedicato). Il collegamento diretto usa STUN pubblico (nessun TURN: dietro alcune reti aziendali può non collegarsi).
 
 ## Ingresso dei telefoni
@@ -63,7 +68,7 @@ Due modalità della stessa pagina. In **Base** solo ciò che serve a riprendere.
 
 ## Prove automatiche
 
-Cartella `tests/`: `npm install` e poi `npm test` (o `node run.mjs <filtro>`). Ogni prova apre un browser con camera finta e una regia e controlla il comportamento (trasferimento con caduta, spazio, automatico, cartella scollegata o piena, memoria, ingresso dei telefoni e QR, nomi e orologio, segnali, recupero e postazione fissa, controlli avanzati). Non sostituiscono le prove su telefoni veri.
+Cartella `tests/`: `npm install` e poi `npm test` (o `node run.mjs <filtro>`). Ogni prova apre un browser con camera finta e una regia e controlla il comportamento (struttura e versioni, trasferimento con caduta, spazio, automatico, cartella scollegata o piena, memoria, ingresso dei telefoni e QR, nomi e orologio, segnali, recupero e postazione fissa, controlli avanzati, messaggi ostili, caricamento lento). Non sostituiscono le prove su telefoni veri.
 
 ## Limiti noti della piattaforma web
 

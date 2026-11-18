@@ -32,7 +32,21 @@
     const size = (p) => { try { return JSON.stringify(p).length; } catch { return -1; } };
     const noisy = (ev) => ev === "dbg", cnt = { tx: 0, rx: 0 }; // i messaggi "state" si registrano 1 volta su 15
     const skipState = (ev, k) => ev === "state" && cnt[k]++ % 15 !== 0;
-    const onRx = (ev, payload) => { if (!noisy(ev) && !skipState(ev, "rx")) L("trace", `rx ${ev} ${size(payload)}B`); emit(ev, payload); };
+    // Chi conosce il link può scrivere sul canale: i messaggi che finiscono nelle pagine (stato, comandi, risposte) vengono ripuliti
+    // (niente caratteri di markup, testi e liste limitati, chiavi semplici); i messaggi di collegamento diretto (rtc, xrtc) e i log non si toccano.
+    const SAFE_EV = new Set(["state", "ack", "cmd", "xdone", "battery", "hello"]);
+    const clean = (v, d = 0) => {
+      if (v == null || typeof v === "boolean") return v; if (typeof v === "string") return v.replace(/[<>&"\u0000-\u001f]/g, "").slice(0, 400);
+      if (typeof v === "number") return Number.isFinite(v) ? v : null; if (d > 5) return null;
+      if (Array.isArray(v)) return v.slice(0, 40).map((x) => clean(x, d + 1));
+      if (typeof v === "object") { const o = {}; let n = 0; for (const k of Object.keys(v)) { if (n++ >= 60) break; if (/^[A-Za-z0-9_]{1,40}$/.test(k)) o[k] = clean(v[k], d + 1); } return o; }
+      return null;
+    };
+    const onRx = (ev, payload) => {
+      if (!noisy(ev) && !skipState(ev, "rx")) L("trace", `rx ${ev} ${size(payload)}B`);
+      if (SAFE_EV.has(ev)) { if (size(payload) > 40000) { L("warn", `messaggio ${ev} troppo grande (${size(payload)}B): ignorato`); return; } payload = clean(payload); }
+      emit(ev, payload);
+    };
     const setStatus = (s) => { if (s !== status) L("info", `stato collegamento: ${s}`); status = s; statusCbs.forEach((f) => f(s)); };
     const setPeers = (list) => {
       const sig = JSON.stringify(list); if (sig === lastSig) return; lastSig = sig; peers = list;

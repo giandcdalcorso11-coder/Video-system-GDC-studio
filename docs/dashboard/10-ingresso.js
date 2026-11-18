@@ -27,7 +27,6 @@ const Join = {
   },
   draw() { const b = $("#qrImg"); if (!b || !this.qrOpen) return; try { const q = qrcode(0, "L"); q.addData(this.link()); q.make(); b.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); const sv = b.querySelector("svg"); if (sv) { sv.style.width = "100%"; sv.style.height = "100%"; } } catch (e) { b.textContent = "QR non generabile: " + e.message; dbg("error", "ui", `QR: ${e.message}`); } },
 };
-setInterval(() => Join.sweep(), 2000);
 document.addEventListener("click", async (e) => {
   const j = e.target.closest("[data-jn]"); if (j) { if (j.dataset.jn === "all") { Object.keys(Join.pending).forEach((id) => Join.accept(id)); return; } j.dataset.jn === "acc" ? Join.accept(j.dataset.id) : Join.reject(j.dataset.id); return; }
   if (e.target.closest("#qrBtn")) { Join.qrOpen = !Join.qrOpen; store.set("gdc.qrOpen", Join.qrOpen); const bx = $("#qrBox"); if (bx) bx.hidden = !Join.qrOpen; e.target.closest("#qrBtn").textContent = Join.qrOpen ? "Nascondi QR" : "Mostra QR"; Join.draw(); return; }
