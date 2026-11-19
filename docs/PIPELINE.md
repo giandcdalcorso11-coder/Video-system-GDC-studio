@@ -48,7 +48,7 @@ Aggiornata al 2026-11-19 (camera r32, dashboard r32). Il dettaglio è nel docume
 - 🔄 Protezioni della regia: cartella scollegata o piena, tetto di memoria dell'iPad, misura della memoria
 - ⏳ Prova con una cartella vera su rete buona
 - 💤 Invio durante la ripresa e trasferimento dei soli momenti segnati
-- 💤 Cloud (versione Pro)
+- 💤 Cloud (versione Pro): modello di costi e pricing in `docs/COSTI-E-PRICING.md`
 
 ## 7. Uso pubblico
 - 🔄 Mockup approvati; QR e conferma realizzati

@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 55
-**Ultimo aggiornamento:** 2026-11-18 22:14
+**Versione:** 56
+**Ultimo aggiornamento:** 2026-11-19 23:21
 
 ## Vision
 
@@ -194,6 +194,30 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-19 23:21] Cloud, costi e pricing: modello di calcolo
+
+**Riepilogo:** Spiegato il cloud (cosa comporta, costi, sicurezza, gestione), costruito un modello di costi e pricing a consumo con ipotesi e script di calcolo nel repo (`docs/COSTI-E-PRICING.md`), e fissata la direzione: cloud solo nei piani a pagamento, spazio a consumo, budget cloud al 10% dell'incasso.
+
+**Cosa è stato fatto:**
+- Spiegazione per principianti del cloud: caricamento in sottofondo, vantaggi (backup, montatore a distanza, niente limite di memoria dell'iPad, condivisione) e costi (salita di rete, server e account).
+- Prezzi letti il 2026-11-19: Cloudflare R2 circa 0,015 $/GB-mese, scaricamento gratis, scritture 4,50 $ per milione; Backblaze B2 6,95 $/TB-mese, scaricamento gratis fino a 3 volte lo spazio, scritture gratis; Supabase Pro 25 $/mese con quote incluse e 0,09 $/GB oltre. I prezzi sono **a consumo** per B2 e R2 (non abbonamenti); Supabase ha un abbonamento fisso più eccedenze.
+- Modello (con ipotesi: 18 GB a evento da 3 camere per 1 ora, Pro con 4 eventi al mese, conservazione 7 giorni): costo dello spazio circa 0,15–0,37 centesimi per GB caricato; cloud circa 2–6% dell'incasso netto; circa 60 iscritti Pro per arrivare a 1 TB tenuto; costi fissi circa 61 €/mese; 7–15 abbonati (a seconda di 12 € o 6 €) o 12–22 pass al mese per coprire i fissi.
+- Creati `docs/COSTI-E-PRICING.md` (documento vivo), `docs/costi/ipotesi.json` (ipotesi con stato "stima"/"verificato"), `docs/costi/calcola.mjs` (genera `docs/costi/RISULTATI.md`).
+
+**Decisioni prese:**
+- Contesto: l'utente vuole capire se il cloud è sostenibile per una startup e come scala.
+- Decisione: nessuno spazio comprato in anticipo, conto a consumo (B2 o R2); cloud solo nei piani a pagamento con conservazione di 4 o 7 giorni e tetto di utilizzo equo per cliente (circa 120–250 GB caricati al mese, da calibrare); budget cloud non oltre il 10% dell'incasso netto; caricamento a blocchi grandi (8–10 MB) per non pagare le scritture; mai chiavi del cloud nella pagina (servizio che dà permessi temporanei, legato agli account). Il flusso di base resta gratis.
+- Alternative scartate: spazio incluso senza tetto; scritture a pezzi da 60 kB (costerebbero più dello spazio); per ora Supabase Storage (più caro per GB oltre la quota).
+- Da rivedere se: la prova C dà un peso diverso dei video; i clienti caricano molto più del previsto; cambiano i prezzi dei provider.
+- Aperti: primo pagante, prezzi, limite di connessioni in tempo reale per piano (da verificare, probabile collo di bottiglia prima dello spazio), commissioni e IVA con un commercialista, upload reale dei posti di ripresa, prezzi dei concorrenti.
+- Rimandato (molto più avanti): una dashboard per l'utente con costi, GB, utenti, incassi e avvisi.
+
+**File consegnati/modificati:** `docs/COSTI-E-PRICING.md`, `docs/costi/ipotesi.json`, `docs/costi/calcola.mjs`, `docs/costi/RISULTATI.md`.
+
+**Impatto su Vision/Pipeline:** nessuno sul codice. Il cloud resta 💤 "più avanti" nella Pipeline.
+
+---
 
 ### [2026-11-18 22:14] Piano di test aggiornato e chiarimento sui link di collegamento
 
