@@ -1,0 +1,25 @@
+{
+  "_nota": "Tutte le ipotesi del modello costi e pricing. Cambia un numero qui e rilancia: node docs/costi/calcola.mjs. Ogni voce ha 'stato': stima (inventata da noi, da misurare) oppure verificato (con data e fonte).",
+  "cambio": { "eurPerUsd": 0.92, "stato": "stima: da aggiornare" },
+  "uso": {
+    "mbPerMinPerCamera": 100, "statoMb": "stima (1080p circa 15 Mbps): la prova C dei test dà il dato vero",
+    "cameraPerEvento": 3, "minutiPerEvento": 60, "statoEvento": "stima: un evento tipico, da rivedere con i primi clienti",
+    "eventiPerProAlMese": 4, "statoEventiPro": "stima: da rivedere con i primi clienti"
+  },
+  "cloud": {
+    "giorniConservazione": 7, "statoGiorni": "decisione provvisoria (4 o 7 giorni dopo la fine della sessione)",
+    "b2": { "usdPerTbMese": 6.95, "stato": "verificato 2026-11-19, backblaze.com/cloud-storage/pricing; scaricamento gratis fino a 3 volte lo spazio medio, operazioni di scrittura gratis" },
+    "r2": { "usdPerTbMese": 15, "usdPerMilioneScritture": 4.5, "stato": "verificato 2026-11-19, developers.cloudflare.com/r2/pricing; scaricamento sempre gratis, 10 GB gratis" },
+    "mbPerBloccoCaricamento": 8, "statoBlocco": "scelta di progetto: blocchi grandi, altrimenti le scritture costano più dello spazio"
+  },
+  "fissi": {
+    "supabaseProUsd": 25, "statoSupabase": "verificato 2026-11-19, supabase.com/pricing; limiti di connessioni in tempo reale da verificare",
+    "dominioEPostaEur": 8, "strumentiEImprevistiEur": 15, "contabilitaEur": 15, "statoAltri": "stime: da preventivare"
+  },
+  "ricavi": {
+    "iva": 0.22, "statoIva": "aliquota ordinaria italiana: da confermare con un commercialista",
+    "commissionePct": 0.015, "commissioneFissaEur": 0.25, "statoCommissione": "stima per carte europee: da verificare sul servizio di pagamento scelto",
+    "prezziProMese": [6, 9, 12], "prezziPass12h": [3.99, 4.99, 6.99], "statoPrezzi": "ipotesi da testare sul mercato: nessun confronto con i concorrenti fatto"
+  },
+  "scenari": { "utentiPro": [5, 20, 60, 100, 500, 1000], "obiettivoGuadagnoMensileEur": 1000, "quotaCloudSulNettoMax": 0.1 }
+}
