@@ -34,7 +34,7 @@ Ipotesi chiave: 3 camere per 1 ora = 18 GB a evento; un Pro fa 4 eventi al mese 
 
 1. **Le scritture** (R2 fa pagare le operazioni): caricare in pezzi da 60 kB costerebbe più dello spazio. Si carica a blocchi grandi (8–10 MB). Con B2 le scritture sono gratis.
 2. **Più qualità, più peso:** il 4K a 40 Mbps pesa circa 3 volte la stima.
-3. **Limite di connessioni in tempo reale del servizio dei comandi** (Supabase): ogni camera e ogni regia occupano una connessione. È probabile che questo limite arrivi **prima** dei costi di spazio. **Da verificare** nelle condizioni attuali.
+3. **Limiti del tempo reale di Supabase** (verificati il 2026-11-19): gratis 200 collegamenti contemporanei e 100 messaggi al secondo, 2 milioni di messaggi al mese; Pro 500 collegamenti, 500 messaggi al secondo, 5 milioni al mese; oltre, 10 $ ogni 1.000 collegamenti e 2,50 $ ogni milione di messaggi. Ogni camera e ogni regia occupano un collegamento. Stima (da misurare): con 3 camere che mandano lo stato ogni 2 s siamo a circa 20.000 messaggi all'ora se si contano anche i messaggi ricevuti; non è confermato che Supabase li conti. Si può ridurre mandando lo stato solo quando cambia.
 4. **Salita (upload) di rete:** un telefono a 100 MB/min ha bisogno di circa 13 Mbps; con 3 camere circa 40 Mbps. Molti wifi di locali non reggono: potrebbe limitare il cloud più dei costi.
 5. **Privacy:** si riprendono persone. Servono informativa, durata massima di conservazione, dati in area europea, possibilità di cancellare tutto.
 6. **Mai chiavi del cloud nella pagina:** serve un piccolo servizio che dà permessi temporanei di caricamento, legato agli account.
@@ -55,11 +55,16 @@ Ipotesi chiave: 3 camere per 1 ora = 18 GB a evento; un Pro fa 4 eventi al mese 
 - **Da 100 iscritti in su:** controllare i limiti di connessioni in tempo reale, i prezzi del servizio dei comandi e quelli dello spazio.
 - **Da 500 in su:** valutare un contratto a lungo termine con il provider di spazio.
 
+## A cosa serve Supabase Pro (e alternative)
+
+Pro (25 $/mese fissi) non serve per i video: serve per comandi in tempo reale, archivio di account, sessioni e pass, login, e una funzione che dà i permessi temporanei di caricamento e riceve gli avvisi dei pagamenti. Sul piano gratuito un progetto si ferma dopo circa una settimana con poca attività (ripristinabile): non adatto a un servizio pubblico. Alternative a consumo (Cloudflare Durable Objects + R2, Ably, Firebase, un piccolo server proprio) costano meno di fisso ma richiedono di riscrivere il livello dei comandi (oggi sul tempo reale di Supabase) e di costruire login e archivio. **Scelta provvisoria:** primo test esterno su un nuovo account gratuito; apertura al pubblico su Pro; rivalutare vicino a 500 collegamenti contemporanei o se i costi a consumo superano un'alternativa. Il tetto di spesa di Pro (attivo di default) evita sforamenti.
+
 ## Da verificare (aperti)
 
 - Quanti MB/min pesano davvero i video (prova C).
 - Quanta salita reggono i posti dove si riprende.
-- Limiti di connessioni in tempo reale per piano.
+- Se Supabase conta anche i messaggi ricevuti (cambia di molto la stima dei messaggi).
+- Prezzi e limiti di Cloudflare Durable Objects, Ably e Firebase (letti solo da pagine di confronto).
 - Commissioni del servizio di pagamento scelto e aliquote con un commercialista.
 - Prezzi dei concorrenti.
 - Costi fissi reali (contabilità, strumenti).
@@ -73,8 +78,9 @@ Hai detto di volere una dashboard chiara che ti tenga aggiornato su tutto. Quand
 
 - Cloudflare R2: https://developers.cloudflare.com/r2/pricing
 - Backblaze B2: https://www.backblaze.com/cloud-storage/pricing
-- Supabase: https://supabase.com/pricing.md , https://supabase.com/docs/guides/platform/manage-your-usage/egress
+- Supabase: https://supabase.com/docs/guides/realtime/limits , https://supabase.com/docs/guides/platform/free-project-pausing , https://supabase.com/pricing.md , https://supabase.com/docs/guides/platform/manage-your-usage/egress
 
 ## Storico delle revisioni
 
 - **2026-11-19:** prima versione del modello (ipotesi, script, risultati).
+- **2026-11-19:** aggiunti limiti verificati del tempo reale di Supabase, a cosa serve Pro e le alternative.
