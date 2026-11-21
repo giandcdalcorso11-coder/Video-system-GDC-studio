@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r32**, **dashboard r32**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r34**, **dashboard r32**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
@@ -9,7 +9,7 @@ Versioni da usare: **camera r32**, **dashboard r32**. Tutti i link da sviluppato
 - 2 o 3 **telefoni**: iPhone 15 (Safari), un secondo iPhone o Android (Chrome).
 - Una **rete buona** (wifi o dati stabili). Per la prova B non serve la stessa rete.
 - Telefoni carichi (almeno 50%) e con spazio libero. Schermo acceso e pagina camera aperta.
-- Prima di ogni prova: ricarica le pagine e controlla in Avanzata "camera r32" e "dashboard r32".
+- Prima di ogni prova: ricarica le pagine e controlla in Avanzata "camera r34" e "dashboard r32".
 
 ## Ordine consigliato
 

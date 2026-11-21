@@ -4,7 +4,7 @@ export const name = "Pagina camera: anteprima locale a tutto campo con REC, temp
 export async function run() {
   await withEnv({ approve: false }, async (t) => {
     const dash = await t.dash(), cam = await t.cam("camA");
-    const vis = (id) => cam.evaluate((i) => { const e = document.getElementById(i), r = e.getBoundingClientRect(); return !e.hidden && getComputedStyle(e).display !== "none" && r.width > 0; }, id);
+    const vis = (id) => cam.evaluate((i) => { const e = document.getElementById(i), r = e.getBoundingClientRect(); return getComputedStyle(e).display !== "none" && r.width > 0; }, id);
     t.check("camera avviata: compare l'anteprima", await t.until(() => cam.evaluate(() => !!stream && document.getElementById("stage").classList.contains("on") && document.getElementById("stage").getBoundingClientRect().height > 100)));
     t.check("compare 'Anteprima in diretta' con la qualità", await t.until(async () => /Anteprima in diretta/.test(await cam.evaluate(() => document.getElementById("stLive").textContent))), await cam.evaluate(() => document.getElementById("stLive").textContent));
     t.check("fuori dalla registrazione il badge REC è nascosto", !(await vis("stRec")));
