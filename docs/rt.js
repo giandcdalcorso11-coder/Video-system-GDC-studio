@@ -22,7 +22,15 @@
     load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } },
     save(p) { try { localStorage.setItem(KEY, JSON.stringify({ u: p.u, k: p.k, c: p.c, ...(p.p ? { p: p.p } : {}), ...(p.d ? { d: p.d } : {}) })); } catch { /* storage non disponibile */ } },
     clear() { try { localStorage.removeItem(KEY); } catch { /* ok */ } },
-    fromHash() { const p = Pair.decode(location.hash.slice(1)); if (p) { Pair.save(p); history.replaceState(null, "", location.pathname + location.search); } return p; },
+    fromHash() {
+      const p = Pair.decode(location.hash.slice(1));
+      if (p) {
+        // riaprire lo stesso link (stesso canale) non deve far perdere le chiavi di firma già create dalla regia: altrimenti le camere già collegate rifiutano i comandi ("firma non valida")
+        const o = Pair.load(); if (o && o.c === p.c && o.u === p.u && !p.p && o.p) { p.p = o.p; if (o.d) p.d = o.d; } // solo se il link non aveva chiavi (quello da sviluppatore); un link con la sola parte pubblica (della camera) non dà mai la privata
+        Pair.save(p); history.replaceState(null, "", location.pathname + location.search);
+      }
+      return p;
+    },
     link(page, p, id) { return new URL(page, location.href).href.split("#")[0].split("?")[0] + "#" + Pair.encode(p, /^dashboard/.test(page)) + (id ? "~" + id : ""); },
     newChannel() { const a = new Uint8Array(16); crypto.getRandomValues(a); return [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); },
   };
