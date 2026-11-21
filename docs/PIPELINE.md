@@ -8,6 +8,7 @@ Aggiornata al 2026-11-19 (camera r32, dashboard r32). Il dettaglio è nel docume
 - ✅ iPhone XR (iOS 16.3.1): fotocamera 1080p/4K a 30 fps, MP4 H.264 + AAC, WebRTC, time-lapse, limiti di spazio (circa 0,78 GB). Vedi `docs/RISULTATI-TEST.md`
 - ✅ iPhone 15 (Safari 27.2): zoom 0,5–10×, torcia, distanza di fuoco, bianco manuale; quota di archivio 39 GB; scritti 4 GB senza errori
 - ✅ Pixel 8 Pro (Chrome 157): batteria dal browser, controlli completi, anteprima a 31 fps su rete mobile
+- ✅ iPhone 15 con iPad come regia (2026-11-21): REC/STOP, zoom oltre 4×, torcia, nuova sessione, trasferimento con ripresa dopo interruzioni (hotspot, 3–4 Mbps medi)
 - ⏳ Android: REC, trasferimento e zoom dalla regia (mai provati)
 - ⏳ Misura dello spazio dell'iPhone 15 oltre i 4 GB
 
@@ -46,7 +47,7 @@ Aggiornata al 2026-11-19 (camera r32, dashboard r32). Il dettaglio è nel docume
 - 🔄 Destinazione: cartella del computer (anche disco esterno) o memoria con Salva
 - 🔄 Trasferimento automatico, buffer a rotazione, "Tieni i file sui telefoni"
 - 🔄 Protezioni della regia: cartella scollegata o piena, tetto di memoria dell'iPad, misura della memoria
-- ⏳ Prova con una cartella vera su rete buona
+- ⏳ Prova con una cartella vera su rete buona (su wifi vero: l'hotspot non è rappresentativo)
 - 💤 Invio durante la ripresa e trasferimento dei soli momenti segnati
 - 💤 Cloud (versione Pro): modello di costi e pricing in `docs/COSTI-E-PRICING.md`
 

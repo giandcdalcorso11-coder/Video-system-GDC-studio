@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 56
-**Ultimo aggiornamento:** 2026-11-19 23:21
+**Versione:** 57
+**Ultimo aggiornamento:** 2026-11-21 16:10
 
 ## Vision
 
@@ -194,6 +194,35 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-21 16:10] Prime prove con iPad e iPhone 15: esiti, due difetti corretti, peso reale dei video
+
+**Riepilogo:** Prime prove su dispositivi veri (iPad come regia, iPhone 15 come camera e hotspot): collegamento, REC/STOP, zoom, torcia, nome sessione, trasferimento e anteprima funzionano; trovati e corretti due difetti (chiavi di firma perse alla riapertura del link, nome camera non seguito dalla regia); misurato il peso reale dei video (137 MB/min).
+
+**Cosa è stato fatto:**
+- L'utente ha eseguito le prove (da lui dichiarate fatte) con iPad su hotspot del telefono; le ho controllate nei log (`gdc_dev_logs`, progetto GDC-project 2). Link da sviluppatore della dashboard consegnato in chat (canale nuovo).
+- **Bug: chiavi di firma perse riaprendo il link della dashboard**
+  - **Sintomo:** dopo che la pagina della dashboard su iPad veniva scaricata dal sistema (secondo piano) e si riapriva, la camera rifiutava tutti i comandi ("firma non valida") e la regia scriveva "NON RIUSCITO"; l'anteprima locale sul telefono restava visibile.
+  - **Causa:** riaprire il link da sviluppatore (che non contiene le chiavi) sostituiva la coppia di chiavi già creata dalla regia con una nuova; le camere già collegate avevano ancora la vecchia chiave pubblica.
+  - **Fix applicato:** `Pair.fromHash` in `rt.js` tiene le chiavi se il link ha lo stesso canale e nessuna chiave (un link con la sola parte pubblica, quello della camera, non dà mai la privata); un canale diverso crea chiavi nuove. Camera r33 e dashboard r33. Prova nuova `18-link-riaperto`. Verificato in simulazione e confermato dall'utente (nuova sessione e rientro con il QR riusciti).
+- **Bug: nome della camera cambiato sul telefono non aggiornato dalla regia**
+  - **Sintomo:** il nome restava quello vecchio fino a una nuova sessione.
+  - **Causa:** la regia leggeva il nome solo alla prima comparsa della camera.
+  - **Fix applicato:** la regia segue il nome quando cambia sul telefono; se è la regia a rinominare, non lo rimette indietro prima che il telefono lo applichi (campi `renamed`/`rep` nel record della camera). Dashboard r34, prova nuova `19-nome-live` (7 controlli). Serie completa 322/322.
+- **Dai log (esiti reali):** REC di 45 s riuscito (102,7 MB, 0 errori di scrittura); zoom da 1× a oltre 4× senza errori; torcia funzionante (dichiarato dall'utente); permessi REC dal telefono applicati; orologio del telefono avanti di 100–124 ms (nomi dei file corretti). Trasferimento verso l'iPad riuscito e verificato (CRC) dopo due interruzioni con ripresa corretta; velocità medie 3–4 Mbps con picchi 10–13 Mbps, percorso srflx/srflx (con l'hotspot i due dispositivi passano dalla rete dell'operatore: non rappresentativo di un wifi vero).
+- **Peso reale dei video:** 137 MB/min a 1080p e 20 Mbps (era stimato 100). Modello costi aggiornato (`docs/costi/ipotesi.json`, `RISULTATI.md`, `docs/COSTI-E-PRICING.md`): evento da 3 camere per 1 ora = 24,7 GB; costo cloud circa 4–8% dell'incasso netto; 1 TB tenuto con circa 43 iscritti Pro.
+- Segnalazioni non risolte: "traccia audio terminata (camera interrotta?)" alle 15:48 (AirPods presenti nei dispositivi: forse microfono scollegato); la camera risulta offline a tratti (10–28 s) quando le pagine vanno in secondo piano su iOS; dopo "Nuova sessione" il primo tentativo di collegamento era scaduto (TIMED_OUT) e la prima volta la camera non risultava visibile alla regia: causa non accertata (la regia era in secondo piano), poi funzionato.
+
+**Decisioni prese:**
+- Contesto: la regia su iPad perde il collegamento in secondo piano e va riaperta con lo stesso link.
+- Decisione: riaprire il link da sviluppatore non deve mai cancellare le chiavi esistenti; il nome della camera segue quello scelto sul telefono.
+- Da rivedere se: si vuole un recupero automatico delle chiavi (sincronizzare le chiavi del canale tra regia e camera) invece di conservarle nel dispositivo.
+
+**File consegnati/modificati:** `docs/rt.js`, `docs/dashboard/05-trasporto.js`, `14-viste.js`, `dashboard.html` (r34), `camera.html` (r33), `tests/cases/18-link-riaperto.mjs`, `19-nome-live.mjs`, `docs/costi/*`, `docs/COSTI-E-PRICING.md`.
+
+**Impatto su Vision/Pipeline:** Pipeline: verificati su dispositivi veri REC/STOP/zoom/torcia da regia, nuova sessione, trasferimento con ripresa su iPhone 15; da fare ancora con wifi vero, più camere e disco su computer.
+
+---
 
 ### [2026-11-19 23:21] Cloud, costi e pricing: modello di calcolo
 
