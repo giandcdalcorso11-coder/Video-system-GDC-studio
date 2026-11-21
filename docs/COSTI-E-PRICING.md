@@ -22,13 +22,13 @@ Aggiornato al 2026-11-19.
 
 ## Cosa dice il modello (con le ipotesi attuali)
 
-Ipotesi chiave: 3 camere per 1 ora = 18 GB a evento; un Pro fa 4 eventi al mese = 72 GB caricati; 7 giorni di conservazione.
+Ipotesi chiave: 3 camere per 1 ora = **24,7 GB** a evento (peso **misurato il 2026-11-21** su iPhone 15, 1080p a 20 Mbps: circa 137 MB al minuto); un Pro fa 4 eventi al mese = 99 GB caricati; 7 giorni di conservazione.
 
-- **Il costo dello spazio è piccolo:** circa 0,15 centesimi per GB caricato con B2, 0,37 con R2. Un evento da 18 GB conservato 7 giorni costa meno di 7 centesimi.
-- **Il costo cloud pesa circa il 2–6% dell'incasso netto** per un abbonato Pro, a seconda del prezzo.
+- **Il costo dello spazio è piccolo:** circa 0,15 centesimi per GB caricato con B2, 0,37 con R2. Un evento da 24,7 GB conservato 7 giorni costa meno di 10 centesimi.
+- **Il costo cloud pesa circa il 4–8% dell'incasso netto** per un abbonato Pro, a seconda del prezzo.
 - **Quello che pesa davvero:** costi fissi (circa 61 €/mese), IVA, commissioni di pagamento, tempo di lavoro e supporto.
-- **Soglia di 1 TB tenuto alla volta:** circa 60 iscritti Pro con questo uso. Prima non serve avere "1 TB".
-- Abbonati per coprire i fissi: da **7 a 15** a seconda del prezzo (12 € o 6 €). Pass: da **12 a 22 al mese**. I numeri precisi e per più prezzi sono in `RISULTATI.md`.
+- **Soglia di 1 TB tenuto alla volta:** circa 43 iscritti Pro con questo uso. Prima non serve avere "1 TB".
+- Abbonati per coprire i fissi: da **7 a 15** a seconda del prezzo (12 € o 6 €). Pass: da **12 a 22 al mese** (confermato dal ricalcolo con 137 MB/min). I numeri precisi e per più prezzi sono in `RISULTATI.md`.
 
 ## Attenzione a queste insidie
 
@@ -61,7 +61,7 @@ Pro (25 $/mese fissi) non serve per i video: serve per comandi in tempo reale, a
 
 ## Da verificare (aperti)
 
-- Quanti MB/min pesano davvero i video (prova C).
+- Peso dei video: **misurato** 137 MB/min a 1080p/20 Mbps su iPhone 15; mancano 4K, altre qualità e Android.
 - Quanta salita reggono i posti dove si riprende.
 - Se Supabase conta anche i messaggi ricevuti (cambia di molto la stima dei messaggi).
 - Prezzi e limiti di Cloudflare Durable Objects, Ably e Firebase (letti solo da pagine di confronto).
@@ -84,3 +84,4 @@ Hai detto di volere una dashboard chiara che ti tenga aggiornato su tutto. Quand
 
 - **2026-11-19:** prima versione del modello (ipotesi, script, risultati).
 - **2026-11-19:** aggiunti limiti verificati del tempo reale di Supabase, a cosa serve Pro e le alternative.
+- **2026-11-21:** primo dato reale dalle prove: 137 MB/min (era 100 stimati), quindi costi di spazio circa +37%; velocità del trasferimento via hotspot 4–10 Mbps (non rappresentativa di un wifi).

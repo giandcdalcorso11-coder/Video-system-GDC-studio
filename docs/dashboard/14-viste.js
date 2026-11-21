@@ -171,7 +171,7 @@ function showDetail(id) {
   };
   const rename = () => {
     c.device = $("#fDev").value.trim() || c.device; c.name = $("#fName").value.trim() || c.name;
-    saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
+    c.renamed = true; saveCams(); refresh(); if (REAL) transport.send(id, { cmd: "rename", name: c.name, device: c.device });
   };
   if (REAL) { const t0 = Mode.tl(c); $("#tlMode").value = t0.mode; $("#tlInt").value = String(t0.int); $("#tlFps").value = String(t0.fps); $("#tlQ").value = String(t0.q); [["tlMode", "mode", String], ["tlInt", "int", Number], ["tlFps", "fps", Number], ["tlQ", "q", Number]].forEach(([i, k, f]) => { $("#" + i).addEventListener("change", (e) => Mode.saveTl(id, { [k]: f(e.target.value) })); }); }
   if (REAL) { const tlSync = () => { const auto = $("#tlMode").value === "auto"; $("#tlIntW").hidden = auto; $("#tlHelp").textContent = auto ? "Come l'iPhone: 2 immagini al secondo, poi l'intervallo raddoppia a 10, 20, 40 minuti scartando un'immagine su due. Il video dura circa 20-40 s a 30 fps." : "Intervallo fisso scelto da te."; }; $("#tlMode").onchange = tlSync; tlSync(); }

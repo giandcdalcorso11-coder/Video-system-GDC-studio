@@ -2,7 +2,7 @@
 
 Generato da `node docs/costi/calcola.mjs` con le ipotesi di `ipotesi.json`. Non modificare a mano: cambia le ipotesi e rilancia.
 
-Evento tipico: 3 camere × 60 min × 100 MB/min = **18,0 GB**. Utente Pro: 4 eventi al mese = **72 GB caricati al mese**. Conservazione: 7 giorni. Costi fissi: **61 €/mese**.
+Evento tipico: 3 camere × 60 min × 137 MB/min = **24,7 GB**. Utente Pro: 4 eventi al mese = **99 GB caricati al mese**. Conservazione: 7 giorni. Costi fissi: **61 €/mese**.
 
 Costo cloud per ogni GB caricato: B2 0,15 centesimi, R2 0,37 centesimi (scritture in blocchi da 8 MB incluse).
 
@@ -11,45 +11,45 @@ Costo cloud per ogni GB caricato: B2 0,15 centesimi, R2 0,37 centesimi (scrittur
 
 | Iscritti Pro | GB caricati/mese | Spazio tenuto in media (TB) | Cloud B2 (€) | Cloud R2 (€) | Incasso netto (€) | Cloud R2 sul netto | Resta dopo fissi e cloud R2 (€) |
 |---|---|---|---|---|---|---|---|
-| 5 | 360 | 0,08 | 0,54 | 1,35 | 23 | 5,9% | -39 |
-| 20 | 1440 | 0,34 | 2,15 | 5,38 | 92 | 5,9% | 25 |
-| 60 | 4320 | 1,01 | 6,45 | 16,15 | 275 | 5,9% | 198 |
-| 100 | 7200 | 1,68 | 10,74 | 26,91 | 458 | 5,9% | 370 |
-| 500 | 36.000 | 8,40 | 53,71 | 134,55 | 2289 | 5,9% | 2093 |
-| 1000 | 72.000 | 16,80 | 107,42 | 269,10 | 4578 | 5,9% | 4248 |
+| 5 | 493 | 0,12 | 0,74 | 1,84 | 23 | 8,1% | -40 |
+| 20 | 1973 | 0,46 | 2,94 | 7,37 | 92 | 8,1% | 23 |
+| 60 | 5918 | 1,38 | 8,83 | 22,12 | 275 | 8,1% | 192 |
+| 100 | 9864 | 2,30 | 14,72 | 36,87 | 458 | 8,1% | 360 |
+| 500 | 49.320 | 11,51 | 73,58 | 184,33 | 2289 | 8,1% | 2044 |
+| 1000 | 98.640 | 23,02 | 147,16 | 368,67 | 4578 | 8,1% | 4148 |
 
-Per coprire i costi fissi servono **15 iscritti**; per guadagnare 1000 €/mese **247 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **122 GB caricati al mese** per iscritto.
+Per coprire i costi fissi servono **15 iscritti**; per guadagnare 1000 €/mese **253 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **122 GB caricati al mese** per iscritto.
 
 ### Abbonamento Pro a 9,00 €/mese (netto 6,99 € a utente)
 
 | Iscritti Pro | GB caricati/mese | Spazio tenuto in media (TB) | Cloud B2 (€) | Cloud R2 (€) | Incasso netto (€) | Cloud R2 sul netto | Resta dopo fissi e cloud R2 (€) |
 |---|---|---|---|---|---|---|---|
-| 5 | 360 | 0,08 | 0,54 | 1,35 | 35 | 3,8% | -27 |
-| 20 | 1440 | 0,34 | 2,15 | 5,38 | 140 | 3,8% | 73 |
-| 60 | 4320 | 1,01 | 6,45 | 16,15 | 420 | 3,8% | 342 |
-| 100 | 7200 | 1,68 | 10,74 | 26,91 | 699 | 3,8% | 611 |
-| 500 | 36.000 | 8,40 | 53,71 | 134,55 | 3496 | 3,8% | 3300 |
-| 1000 | 72.000 | 16,80 | 107,42 | 269,10 | 6992 | 3,8% | 6662 |
+| 5 | 493 | 0,12 | 0,74 | 1,84 | 35 | 5,3% | -28 |
+| 20 | 1973 | 0,46 | 2,94 | 7,37 | 140 | 5,3% | 71 |
+| 60 | 5918 | 1,38 | 8,83 | 22,12 | 420 | 5,3% | 336 |
+| 100 | 9864 | 2,30 | 14,72 | 36,87 | 699 | 5,3% | 601 |
+| 500 | 49.320 | 11,51 | 73,58 | 184,33 | 3496 | 5,3% | 3251 |
+| 1000 | 98.640 | 23,02 | 147,16 | 368,67 | 6992 | 5,3% | 6562 |
 
-Per coprire i costi fissi servono **10 iscritti**; per guadagnare 1000 €/mese **158 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **187 GB caricati al mese** per iscritto.
+Per coprire i costi fissi servono **10 iscritti**; per guadagnare 1000 €/mese **161 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **187 GB caricati al mese** per iscritto.
 
 ### Abbonamento Pro a 12,00 €/mese (netto 9,41 € a utente)
 
 | Iscritti Pro | GB caricati/mese | Spazio tenuto in media (TB) | Cloud B2 (€) | Cloud R2 (€) | Incasso netto (€) | Cloud R2 sul netto | Resta dopo fissi e cloud R2 (€) |
 |---|---|---|---|---|---|---|---|
-| 5 | 360 | 0,08 | 0,54 | 1,35 | 47 | 2,9% | -15 |
-| 20 | 1440 | 0,34 | 2,15 | 5,38 | 188 | 2,9% | 122 |
-| 60 | 4320 | 1,01 | 6,45 | 16,15 | 564 | 2,9% | 487 |
-| 100 | 7200 | 1,68 | 10,74 | 26,91 | 941 | 2,9% | 853 |
-| 500 | 36.000 | 8,40 | 53,71 | 134,55 | 4703 | 2,9% | 4507 |
-| 1000 | 72.000 | 16,80 | 107,42 | 269,10 | 9406 | 2,9% | 9076 |
+| 5 | 493 | 0,12 | 0,74 | 1,84 | 47 | 3,9% | -16 |
+| 20 | 1973 | 0,46 | 2,94 | 7,37 | 188 | 3,9% | 120 |
+| 60 | 5918 | 1,38 | 8,83 | 22,12 | 564 | 3,9% | 481 |
+| 100 | 9864 | 2,30 | 14,72 | 36,87 | 941 | 3,9% | 843 |
+| 500 | 49.320 | 11,51 | 73,58 | 184,33 | 4703 | 3,9% | 4458 |
+| 1000 | 98.640 | 23,02 | 147,16 | 368,67 | 9406 | 3,9% | 8976 |
 
-Per coprire i costi fissi servono **7 iscritti**; per guadagnare 1000 €/mese **117 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **251 GB caricati al mese** per iscritto.
+Per coprire i costi fissi servono **7 iscritti**; per guadagnare 1000 €/mese **118 iscritti**. Tetto di utilizzo equo per stare nel 10% del netto (R2): **251 GB caricati al mese** per iscritto.
 
-### Pass a ore (costo cloud di un evento da 18,0 GB: B2 0,027 €, R2 0,067 €)
+### Pass a ore (costo cloud di un evento da 24,7 GB: B2 0,037 €, R2 0,092 €)
 
 | Prezzo pass | Netto a pass | Pass al mese per coprire i fissi | Pass al mese per guadagnare 1000 € |
 |---|---|---|---|
-| 3,99 € | 2,96 € | 22 | 367 |
-| 4,99 € | 3,77 € | 17 | 287 |
-| 6,99 € | 5,37 € | 12 | 200 |
+| 3,99 € | 2,96 € | 22 | 370 |
+| 4,99 € | 3,77 € | 17 | 289 |
+| 6,99 € | 5,37 € | 12 | 201 |

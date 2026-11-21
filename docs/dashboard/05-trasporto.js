@@ -71,6 +71,10 @@ class RealtimeTransport {
       const twin = m.fp && cameras.find((c) => c.id !== m.id && c.fp && c.fp === m.fp && !(this.s[c.id] && this.s[c.id].online));
       if (twin) { suggestMerge = { oldId: twin.id, newId: m.id }; dbg("warn", "camere", `possibile stesso telefono: ${m.id} come ${twin.id} (stessa impronta ${m.fp}, l'altra è offline)`); }
     } else if (m.fp && cam.fp !== m.fp) { cam.fp = m.fp; saveCams(); }
+    // nome cambiato sul telefono: la regia lo segue subito (se è stata la regia a rinominare, non lo rimette indietro prima che il telefono lo applichi)
+    if (REAL && cam && m.name) { const nm = String(m.name).slice(0, 60); let ch2 = false;
+      if (nm !== cam.name && (!cam.renamed || (cam.rep !== undefined && cam.rep !== nm))) { dbg("info", "camere", `${m.id}: nome cambiato sul telefono: “${cam.name}” → “${nm}”`); log(m.id, `${camTitle(cam)}: ora si chiama “${nm}”`); cam.name = nm; ch2 = true; }
+      if (cam.rep !== nm) { cam.rep = nm; ch2 = true; } if (ch2) { saveCams(); if (typeof refresh === "function") refresh(); } }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
     Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, localRec: !!m.localRec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, pro: m.pro || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
       res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
