@@ -24,6 +24,16 @@ async function copyText(text, btn) {
 }
 addEventListener("error", (e) => dbg("error", "pagina", `${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`));
 addEventListener("unhandledrejection", (e) => dbg("error", "pagina", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`));
-document.addEventListener("visibilitychange", () => dbg("info", "pagina", `visibilità: ${document.visibilityState}`));
+/* Controllo della pagina: visibilità, durata in secondo piano, focus, congelamenti e timer rallentati dal browser */
+const PageWatch = { hiddenAt: document.hidden ? Date.now() : 0, last: Date.now(), lagN: 0, lagMax: 0,
+  state() { return `${document.visibilityState}${document.hasFocus && document.hasFocus() ? ", con focus" : ", senza focus"}`; },
+  hiddenFor() { return this.hiddenAt ? Math.round((Date.now() - this.hiddenAt) / 1000) : 0; } };
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { PageWatch.hiddenAt = Date.now(); dbg("info", "pagina", `visibilità: nascosta (finestra o scheda in secondo piano) [${PageWatch.state()}]`); }
+  else { const s = PageWatch.hiddenFor(); PageWatch.hiddenAt = 0; dbg("info", "pagina", `visibilità: di nuovo visibile dopo ${s} s${PageWatch.lagN ? `; timer in ritardo ${PageWatch.lagN} volte (massimo ${PageWatch.lagMax} s)` : ""}`); PageWatch.lagN = 0; PageWatch.lagMax = 0; }
+});
+addEventListener("focus", () => dbg("trace", "pagina", "focus: la finestra è attiva")); addEventListener("blur", () => dbg("trace", "pagina", `focus perso (${document.visibilityState})`));
+document.addEventListener("freeze", () => dbg("warn", "pagina", "pagina congelata dal browser")); document.addEventListener("resume", () => dbg("info", "pagina", "pagina ripresa dal congelamento"));
+setInterval(() => { const n = Date.now(), gap = n - PageWatch.last; PageWatch.last = n; if (gap > 2500) { PageWatch.lagN++; PageWatch.lagMax = Math.max(PageWatch.lagMax, Math.round(gap / 1000)); dbg("warn", "pagina", `timer in ritardo: ${(gap / 1000).toFixed(1)} s invece di 1 s [${PageWatch.state()}${PageWatch.hiddenAt ? `, nascosta da ${PageWatch.hiddenFor()} s` : ""}]`); } }, 1000);
 addEventListener("online", () => dbg("info", "pagina", "rete: online")); addEventListener("offline", () => dbg("warn", "pagina", "rete: offline"));
 addEventListener("pageshow", (e) => dbg("info", "pagina", `pageshow persisted=${e.persisted}`)); addEventListener("pagehide", (e) => dbg("info", "pagina", `pagehide persisted=${e.persisted}`));

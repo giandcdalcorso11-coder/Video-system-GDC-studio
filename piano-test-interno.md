@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r34**, **dashboard r32**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r35**, **dashboard r35**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
@@ -13,7 +13,7 @@ Versioni da usare: **camera r34**, **dashboard r32**. Tutti i link da sviluppato
 
 ## Ordine consigliato
 
-**Se hai poco tempo:** A, P, O, B, C. Poi N, Q, D, E. Le altre quando puoi.
+**Se hai poco tempo:** A, P, O, B, C (e R se la regia gira sul PC). Poi N, Q, D, E. Le altre quando puoi.
 
 ## A. Collegamento e controllo iniziale (10 minuti)
 
@@ -124,6 +124,16 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 3. Apri la dashboard su un secondo dispositivo con **"Copia link dashboard"** (pannello Collegamento, Avanzata): deve poter comandare la camera.
 4. Apri la dashboard su un secondo dispositivo con il link della **camera**: la camera non deve obbedire e la regia deve scrivere "non autorizzato".
 5. Un telefono aperto con un link vecchio (senza chiave) resta comandabile, e "Protezione" dice "nessuna".
+
+## R. Regia in secondo piano su Edge (15 minuti)
+
+**Scopo:** vedere se il PC può restare con la regia aperta mentre lo usi per altro.
+1. Apri la dashboard in **Edge**, in una finestra sua (meglio "Installa come app"), con 1 o 2 camere collegate. Imposta la cartella dei file.
+2. Avvia un trasferimento lungo (clip da almeno 1–2 minuti) e intanto lavora su altro: copri la finestra con altre, **senza ridurla a icona**, per 5 minuti.
+3. Poi **riducila a icona** per 5 minuti, con una camera che registra (REC/STOP dai comandi rapidi o dal telefono con permesso REC).
+4. Riportala in primo piano e guarda se le camere sono ancora online, se il trasferimento è andato avanti e se i contatori sono giusti.
+
+**Atteso:** nessuna camera segnata offline per sbaglio, trasferimento senza interruzioni. Nei log cerco: "visibilità: nascosta / di nuovo visibile dopo N s", "timer in ritardo" e, se una camera viene segnata offline, lo stato della regia in quel momento.
 
 ## Cosa mi mandi
 

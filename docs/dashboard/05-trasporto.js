@@ -87,7 +87,7 @@ class RealtimeTransport {
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id); if (REAL) { Xfer.autoTick(m.id); Marks.learn(); }
   }
-  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
+  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline [regia: ${PageWatch.state()}${PageWatch.hiddenAt ? `, nascosta da ${PageWatch.hiddenFor()} s` : ""}, rete ${navigator.onLine ? "ok" : "assente"}, collegamento ${this.rt ? this.rt.status : "?"}]`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   // ogni comando parte firmato con la chiave privata della regia (in ordine, uno dopo l'altro)
   sendCmd(p) { this.q = (this.q || Promise.resolve()).then(() => GDC_AUTH.signCmd(pairing, p)).then((sp) => this.rt.send("cmd", sp)).catch((e) => dbg("error", "tx", `comando ${p.cmd} non inviato: ${e.message}`)); }
   send(id, m) {

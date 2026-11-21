@@ -18,7 +18,12 @@ async function copyText(text, btn) {
 }
 addEventListener("error", (e) => { dbg("error", `errore pagina: ${e.message} @${(e.filename || "").split("/").pop()}:${e.lineno}`); });
 addEventListener("unhandledrejection", (e) => { dbg("error", `promessa rifiutata: ${e.reason?.name || ""} ${e.reason?.message || e.reason}`); });
-document.addEventListener("visibilitychange", () => { dbg("info", `visibilità: ${document.visibilityState}`); if (document.visibilityState === "visible") { if (stream) wakeOn(); db.reset(); loadSessions(); publish(); setTimeout(() => autoOpen("ritorno in primo piano"), 800); } });
+const PageWatch = { hiddenAt: document.hidden ? Date.now() : 0, last: Date.now(), lagN: 0, lagMax: 0,
+  state() { return `${document.visibilityState}${document.hasFocus && document.hasFocus() ? ", con focus" : ", senza focus"}`; },
+  hiddenFor() { return this.hiddenAt ? Math.round((Date.now() - this.hiddenAt) / 1000) : 0; } };
+addEventListener("focus", () => dbg("trace", "focus: la pagina è attiva")); addEventListener("blur", () => dbg("trace", `focus perso (${document.visibilityState})`));
+setInterval(() => { const n = Date.now(), gap = n - PageWatch.last; PageWatch.last = n; if (gap > 2500) { PageWatch.lagN++; PageWatch.lagMax = Math.max(PageWatch.lagMax, Math.round(gap / 1000)); dbg("warn", `timer in ritardo: ${(gap / 1000).toFixed(1)} s invece di 1 s [${PageWatch.state()}${PageWatch.hiddenAt ? `, nascosta da ${PageWatch.hiddenFor()} s` : ""}${recording ? ", in REC" : ""}]`); } }, 1000);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { PageWatch.hiddenAt = Date.now(); dbg("info", `visibilità: nascosta [${PageWatch.state()}${recording ? ", in REC" : ""}${xferBusy ? ", con trasferimento" : ""}]`); } else { const s = PageWatch.hiddenFor(); PageWatch.hiddenAt = 0; dbg("info", `visibilità: di nuovo visibile dopo ${s} s${PageWatch.lagN ? `; timer in ritardo ${PageWatch.lagN} volte (massimo ${PageWatch.lagMax} s)` : ""}`); PageWatch.lagN = 0; PageWatch.lagMax = 0; } if (document.visibilityState === "visible") { if (stream) wakeOn(); db.reset(); loadSessions(); publish(); setTimeout(() => autoOpen("ritorno in primo piano"), 800); } });
 addEventListener("pagehide", (e) => dbg("info", `pagehide persisted=${e.persisted}`));
 addEventListener("pageshow", (e) => { dbg("info", `pageshow persisted=${e.persisted}`); if (e.persisted) { db.reset(); loadSessions(); publish(); } });
 addEventListener("online", () => dbg("info", "rete: online")); addEventListener("offline", () => dbg("warn", "rete: offline"));
