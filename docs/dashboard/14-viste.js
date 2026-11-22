@@ -49,9 +49,10 @@ function showHome() {
       </article>`).join("")}
       ${REAL ? `<button class="add" id="addDev">+ Aggiungi dispositivo<small class="muted" style="display:block;font-weight:400">QR o codice · tu confermi</small></button><div class="muted" style="padding:14px">${cameras.length ? "" : "Nessuna camera collegata. Sul telefono apri il link di abbinamento (pagina camera) e tocca “Avvia camera”."}</div>` : `<button class="add" id="addCam">+ Aggiungi camera (simulata)</button>`}
     </section>
+    ${REAL ? `<section class="panel" id="xferGlobal" style="margin-top:16px"></section>` : ""}
     <section class="panel adv-only" style="margin-top:16px"><h2>Collegamento</h2>${connPanel()}</section>
     ${logPanel("")}`;
-  curDetail = null; setConn(connStatus); renderPreflight(); Join.draw();
+  curDetail = null; setConn(connStatus); renderPreflight(); Join.draw(); if (REAL) Xfer.renderGlobal();
   $("#view").onclick = async (e) => {
     if (e.target.id === "homePrev") { store.set("gdc.homePrev", e.target.checked); dbg("info", "ui", `anteprime nella home: ${e.target.checked ? "attive" : "spente"}`); Preview.stopAll(); Preview.ensureAll(); return; }
     if (e.target.closest("#mergeYes")) { mergeCams(); return; }

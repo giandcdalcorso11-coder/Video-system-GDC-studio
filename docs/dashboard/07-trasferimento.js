@@ -126,16 +126,8 @@ const Xfer = {
     this.refresh();
   },
   cancel(id) { const j = this.jobs.get(id); if (!j) return; j.userCancel = true; if (j.opts && j.opts.cancel) j.opts.cancel(); },
-  refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); },
-  render(st, c, el) {
-    const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
-    const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
-    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.memState, Dest.health && Dest.health.msg, this.hold, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
-    if (el.dataset.sig !== sig) {
-      el.dataset.sig = sig;
-      const free = clips.filter((k) => k.status === "pronta").length;
-      el.innerHTML = `<h2>File</h2>
-        <div class="muted" style="margin-bottom:6px">Destinazione dei file</div>
+  settings(id) {
+    return `        <div class="muted" style="margin-bottom:6px">Destinazione dei file</div>
         <div class="row" style="gap:12px;align-items:center">
           ${FS ? `<label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="folder" ${Dest.mode === "folder" ? "checked" : ""}> Cartella di questo computer</label>` : ""}
           <label style="margin:0"><input type="radio" name="dst${esc(id)}" data-xm="device" ${Dest.mode === "device" ? "checked" : ""}> Questo dispositivo (poi Salva / Condividi)</label>
@@ -148,7 +140,29 @@ const Xfer = {
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="auto" style="width:auto;min-height:0" ${this.auto && !this.hold ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle && !this.hold ? "" : "disabled"}> Trasferisci da solo ogni clip appena fermo la registrazione</label>
         <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${Dest.mode !== "folder" || !Dest.handle ? "Serve una cartella di questo computer: sull'iPad i file vanno salvati a mano." : this.auto && this.delAfter ? "Buffer a rotazione attivo: il telefono tiene solo le clip non ancora arrivate." : this.auto ? "Attiva anche “Elimina dal telefono” per liberare spazio man mano." : "Parte quando nessuna ripresa è in corso."}${this.auto ? (this.autoBusy[id] ? " · trasferimento automatico in corso" : "") : ""}</div>
         <label style="display:flex;gap:8px;align-items:center;margin:8px 0 0"><input type="checkbox" data-xf="prev" style="width:auto;min-height:0" ${this.keepPrev ? "checked" : ""}> Tieni l'anteprima accesa durante i trasferimenti</label>
-        <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.keepPrev ? "⚠ Con una rete debole il trasferimento può rallentare o interrompersi, ma nessun file va perso: resta sul telefono finché non è arrivato e verificato, e il trasferimento riprende da dove si era fermato (se si ferma del tutto, tocca Riprendi). Se rallenta troppo, spegni questa spunta." : "Durante un trasferimento l'anteprima si ferma per lasciare tutta la rete al file e riparte alla fine."}</div>
+        <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.keepPrev ? "⚠ Con una rete debole il trasferimento può rallentare o interrompersi, ma nessun file va perso: resta sul telefono finché non è arrivato e verificato, e il trasferimento riprende da dove si era fermato (se si ferma del tutto, tocca Riprendi). Se rallenta troppo, spegni questa spunta." : "Durante un trasferimento l'anteprima si ferma per lasciare tutta la rete al file e riparte alla fine."}</div>`;
+  },
+  /* riquadro nella home: la destinazione dei file vale per tutte le camere */
+  renderGlobal() {
+    const el = document.getElementById("xferGlobal"); if (!el) return;
+    const ids = Object.keys(state).filter((id) => state[id] && state[id].online), ready = ids.reduce((n, id) => n + ((state[id].clips || []).filter((k) => k.id && k.status === "pronta").length), 0);
+    const sig = JSON.stringify([Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, this.hold, this.delAfter, this.auto, this.keepPrev, FS, this.queueRun, ready, ids.length, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, Object.values(this.autoBusy).filter(Boolean).length]);
+    if (el.dataset.sig === sig) return; el.dataset.sig = sig;
+    el.innerHTML = `<h2>File dei video · tutte le camere</h2><div class="muted" style="margin-bottom:8px;font-size:13px">Dove vanno i file e quando partono i trasferimenti, per tutte le camere insieme. Nella pagina di ogni camera trovi le stesse impostazioni.</div>${this.settings("g")}
+      <div class="row" style="margin-top:10px"><button class="primary" data-xf="allcams" ${ready && !this.queueRun ? "" : "disabled"}>Trasferisci tutte le clip pronte di tutte le camere${ready ? " (" + ready + ")" : ""}</button></div>`;
+  },
+  async allCams() { if (this.queueRun) return; for (const id of Object.keys(state).filter((i) => state[i] && state[i].online)) { if (!((state[id].clips || []).some((k) => k.id && k.status === "pronta"))) continue; await this.all(id); } },
+  refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); this.renderGlobal(); },
+  render(st, c, el) {
+    const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
+    const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);
+    const sig = JSON.stringify([clips.map((k) => [k.id, k.status, k.mb, k.kind]), jobs.map((j) => [j.id, j.state, j.saved, j.error, j.path, j.where, j.note, j.attempt]), Dest.mode, Dest.handle && Dest.handle.name, this.memState, Dest.health && Dest.health.msg, this.hold, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, this.delAfter, this.auto, this.keepPrev, !!this.autoBusy[id], online, FS, act, this.queueRun]);
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig;
+      const free = clips.filter((k) => k.status === "pronta").length;
+      el.innerHTML = `<h2>File</h2>
+        <div class="muted" style="margin-bottom:8px;font-size:13px">Queste impostazioni valgono per <b>tutte le camere</b>: sono le stesse della home.</div>
+        ${this.settings(id)}
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
         <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button><button class="ghost adv-only" data-xf="mem" ${this.memBusy ? "disabled" : ""}>${this.memBusy ? "Misuro… " + this.memState : "Misura memoria di questo dispositivo"}</button></div>
@@ -175,8 +189,8 @@ const Xfer = {
 };
 addEventListener("beforeunload", (e) => { if (Xfer.unsafe()) { e.preventDefault(); e.returnValue = ""; } });
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-xf]"); if (!b || b.tagName === "INPUT") return; const pn = b.closest("[data-cam]"), id = pn && pn.dataset.cam; if (!id) return;
-  const a = b.dataset.xf;
+  const b = e.target.closest("[data-xf]"); if (!b || b.tagName === "INPUT") return; const pn = b.closest("[data-cam]"), id = pn && pn.dataset.cam, a = b.dataset.xf; if (!id && !["pick", "chk", "allcams"].includes(a)) return;
+  if (a === "allcams") { Xfer.allCams(); return; }
   if (a === "mem") Xfer.memMeasure(); else if (a === "chk") { Dest.health = null; Xfer.ensureDest().then(() => Dest.check()).then(() => Xfer.refresh()); } else if (a === "pick") Xfer.pick().then(() => Dest.check()); else if (a === "all") Xfer.all(id); else if (a === "test") Xfer.start(id, null, { test: true, mb: 30 });
   else if (a === "go") { const k = ((state[id] && state[id].clips) || []).find((x) => x.id === b.dataset.sid); if (k) Xfer.start(id, k); }
   else if (a === "save") Xfer.save(b.dataset.xid); else if (a === "cancel") Xfer.cancel(b.dataset.xid); else if (a === "resume") Xfer.resume(b.dataset.xid);

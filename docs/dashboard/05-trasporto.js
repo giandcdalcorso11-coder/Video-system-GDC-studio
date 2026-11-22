@@ -87,7 +87,10 @@ class RealtimeTransport {
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id); if (REAL) { Xfer.autoTick(m.id); Marks.learn(); }
   }
-  sweep() { const now = Date.now(); for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline [regia: ${PageWatch.state()}${PageWatch.hiddenAt ? `, nascosta da ${PageWatch.hiddenFor()} s` : ""}, rete ${navigator.onLine ? "ok" : "assente"}, collegamento ${this.rt ? this.rt.status : "?"}]`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
+  sweep() { const now = Date.now(), gap = now - (this.lastSweep || now); this.lastSweep = now;
+    // se la pagina della regia è rimasta ferma (browser sotto carico o rallentato), il tempo del blocco non conta contro le camere: i loro messaggi arrivano subito dopo
+    if (gap > 3500) { for (const id in this.seen) this.seen[id] += gap - 2000; dbg("warn", "camere", `la regia è rimasta ferma ${(gap / 1000).toFixed(1)} s: non segno offline le camere per questo`); }
+    for (const id in this.s) { const st = this.s[id]; if (st.online && now - (this.seen[id] || 0) > 8000) { st.online = false; st.rec = false; st.camReady = false; this.push(id); Preview.reset(id); dbg("warn", "camera " + id, `nessuno stato da ${now - (this.seen[id] || 0)} ms: la segno offline [regia: ${PageWatch.state()}${PageWatch.hiddenAt ? `, nascosta da ${PageWatch.hiddenFor()} s` : ""}, rete ${navigator.onLine ? "ok" : "assente"}, collegamento ${this.rt ? this.rt.status : "?"}]`); log(id, `${camTitle(camById(id))}: camera non raggiungibile`); } } }
   // ogni comando parte firmato con la chiave privata della regia (in ordine, uno dopo l'altro)
   sendCmd(p) { this.q = (this.q || Promise.resolve()).then(() => GDC_AUTH.signCmd(pairing, p)).then((sp) => this.rt.send("cmd", sp)).catch((e) => dbg("error", "tx", `comando ${p.cmd} non inviato: ${e.message}`)); }
   send(id, m) {

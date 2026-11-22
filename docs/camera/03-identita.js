@@ -10,14 +10,15 @@ const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
 const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
 const FIRST = !store.get("gdc.camCfg", null) && !store.get("gdc.welcomed", false) && !new URLSearchParams(location.search).get("name");
 let welcomePending = false;
-const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
+const IS_IPAD = /iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // da iPadOS 13 l'iPad si presenta come un Mac
+const cfg = Object.assign({ device: /iPhone/.test(navigator.userAgent) ? "iPhone" : IS_IPAD ? "iPad" : /Android/.test(navigator.userAgent) ? "Android" : "Telefono", name: "cam1", res: "1080p", bps: 20000000, facing: "environment", autoCam: true }, store.get("gdc.camCfg", {}));
 { const qp = new URLSearchParams(location.search); // ?name=...&device=... dal link: nome della camera e del dispositivo
   if (qp.get("name") || qp.get("device")) { if (qp.get("name")) cfg.name = qp.get("name").slice(0, 30); if (qp.get("device")) cfg.device = qp.get("device").slice(0, 40); store.set("gdc.camCfg", cfg); } }
 const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
 const MAX_BUF = 700 * 1048576; // limite prudente misurato su iPhone XR con Safari 16 (circa 0,78 GB), usato finché non si misura lo spazio reale
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const MOCK = new URLSearchParams(location.search).has("mock");
-const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : navigator.platform; })();
+const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : IS_IPAD ? "iPadOS" : navigator.platform; })();
 let joinState = "attesa", joinAt = Date.now();
 // nome dei file: <Camera N assegnata dalla regia>_<nome scelto su questo telefono>_<data>_<ora di inizio, corretta con l'orologio della regia>
 let label = store.get("gdc.label", ""), clockOff = Number(store.get("gdc.clockOff", 0)) || 0;
