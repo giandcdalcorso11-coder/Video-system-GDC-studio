@@ -6,7 +6,7 @@ const Session = {
   label() { return this.cur.name ? this.cur.name : "Sessione senza nome"; },
   save() { store.set("gdc.session", this.cur); },
   rename(n) { this.cur.name = String(n || "").replace(/[<>&"]/g, "").trim().slice(0, 60); this.save(); this.paint(); dbg("info", "sessione", `nome: “${this.cur.name}”`); },
-  paint() { const el = $("#sessTxt"); if (el) el.textContent = REAL ? this.label() + " · " : ""; },
+  paint() { const el = $("#sessTxt"); if (el) el.textContent = REAL ? this.label() + " · " : ""; const r = $("#sessRowName"); if (r) r.textContent = this.label(); },
   async begin(name) {
     const old = { nome: this.cur.name, camere: cameras.length };
     // prima avviso le camere sul canale vecchio: così non restano accese senza nessuno che le comandi, e chiedono un QR valido
@@ -19,6 +19,7 @@ const Session = {
     GDC_RT.Pair.save({ u: pairing.u, k: pairing.k, c: GDC_RT.Pair.newChannel() }); // senza chiavi: la regia ne crea di nuove al riavvio
     store.set(CAM_KEY, []); store.set("gdc.rejected", []);
     dbg("info", "sessione", `nuova sessione “${this.cur.name}”: nuovo canale, chiavi rifatte, elenco camere azzerato`, old);
+    store.set("gdc.addOpenNext", true); // dopo il ricaricamento si apre da sola la finestra con il QR nuovo: serve subito per rimettere le camere in sessione
     location.reload();
   },
 };
@@ -44,7 +45,7 @@ const Join = {
   panel() {
     if (!REAL) return "";
     return `<section class="panel" id="addPhone"><div class="row"><h2 style="margin:0">Aggiungi un telefono</h2><button id="qrBtn">${this.qrOpen ? "Nascondi QR" : "Mostra QR"}</button></div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px"><div style="flex:1;min-width:200px"><label for="sessName" class="muted" style="font-size:13px">Nome della sessione</label><input id="sessName" type="text" maxlength="60" placeholder="Per esempio: Set di domenica" value="${esc(Session.cur.name)}" style="width:100%"></div><button id="sessNew" title="Nuovo QR e nuovo elenco di camere">Nuova sessione</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px"><div style="flex:1;min-width:200px"><label for="sessName" class="muted" style="font-size:13px">Nome della sessione</label><input id="sessName" type="text" maxlength="60" placeholder="Per esempio: Set di domenica" value="${esc(Session.cur.name)}" style="width:100%"></div></div>
       <div class="muted" style="margin:4px 0 0;font-size:13px">Con “Nuova sessione” il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR. Le clip restano sui telefoni.</div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="apprChk" style="width:auto;min-height:0" ${this.approve ? "checked" : ""}> Chiedi conferma prima di far entrare un telefono nuovo</label>
       <div class="muted" style="margin:2px 0 0 26px;font-size:13px">${this.approve ? "Un telefono nuovo compare qui con Accetta e Rifiuta. Quelli già collegati rientrano da soli." : "Chi apre il link entra subito, senza chiedere."}</div>
@@ -55,7 +56,7 @@ const Join = {
 document.addEventListener("click", async (e) => {
   const j = e.target.closest("[data-jn]"); if (j) { if (j.dataset.jn === "all") { Object.keys(Join.pending).forEach((id) => Join.accept(id)); return; } j.dataset.jn === "acc" ? Join.accept(j.dataset.id) : Join.reject(j.dataset.id); return; }
   if (e.target.closest("#qrBtn")) { Join.qrOpen = !Join.qrOpen; store.set("gdc.qrOpen", Join.qrOpen); const bx = $("#qrBox"); if (bx) bx.hidden = !Join.qrOpen; e.target.closest("#qrBtn").textContent = Join.qrOpen ? "Nascondi QR" : "Mostra QR"; Join.draw(); return; }
-  if (e.target.closest("#sessNew")) { const n = prompt("Nuova sessione. Il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR (le clip restano sui telefoni).\n\nScrivi il nome della nuova sessione, oppure lascia vuoto:", ""); if (n !== null) Session.begin(n); return; }
+  if (e.target.closest("#sessNewHome")) { const n = prompt("Nuova sessione. Il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR (le clip restano sui telefoni).\n\nScrivi il nome della nuova sessione, oppure lascia vuoto:", ""); if (n !== null) Session.begin(n); return; }
   if (e.target.closest("#qrCopy")) { try { await navigator.clipboard.writeText(Join.link()); e.target.textContent = "Copiato ✓"; } catch { e.target.textContent = "Copia non riuscita"; } return; }
   if (e.target.closest("#rejClr")) { Join.rejected.clear(); store.set("gdc.rejected", []); dbg("info", "camere", "rifiuti dimenticati"); route(); }
 });

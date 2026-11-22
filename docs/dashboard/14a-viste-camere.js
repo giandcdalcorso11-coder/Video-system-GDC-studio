@@ -3,7 +3,7 @@
    Le tre viste usano le stesse schede delle camere (#homeGrid): cambia solo come sono disposte,
    così anteprime, pulsanti e stato continuano a funzionare. */
 const Views = {
-  cur: store.get("gdc.view", null), dir: store.get("gdc.scrollDir", "h") === "v" ? "v" : "h", layout: store.get("gdc.layout", {}) || {}, drag: null, quiet: 0, addOpen: false, z: 10,
+  cur: store.get("gdc.view", null), dir: store.get("gdc.scrollDir", "h") === "v" ? "v" : "h", layout: store.get("gdc.layout", {}) || {}, drag: null, quiet: 0, addOpen: (() => { const o = store.get("gdc.addOpenNext", false); if (o) store.set("gdc.addOpenNext", false); return !!o; })(), z: 10,
   // Pro in prova: in Avanzata c'è tutto; in Base serve l'interruttore. Nessun pagamento, nessun profilo.
   pro() { return (window.GDC_DEV && GDC_DEV.mode === "adv") || store.get("gdc.pro", false) === true; },
   def() { return window.matchMedia && matchMedia("(max-width:600px) and (orientation:portrait)").matches ? "scroll" : "auto"; },

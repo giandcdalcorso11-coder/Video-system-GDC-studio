@@ -3,15 +3,17 @@
 const batClass = (b) => (b < 20 ? "low" : b < 40 ? "mid" : "");
 /* ===== Trasferimento file dalla camera (diretto, con controllo di integrità) ===== */
 const FS = typeof window.showDirectoryPicker === "function";
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error(what), { name: "Timeout" })), ms))]);
 const Dest = { mode: FS ? store.get("gdc.dest", "folder") : "device", handle: null, health: null, checking: false,
   // prova reale: scrive e cancella un piccolo file nella cartella (disco scollegato, pieno o permesso scaduto si vedono subito)
   async check() {
     if (this.mode !== "folder" || !this.handle) return null; if (this.checking) return this.health; this.checking = true; let h;
+    this.checkAt = Date.now();
     try {
-      let p = "denied"; try { p = await this.handle.queryPermission({ mode: "readwrite" }); } catch { /* ok */ }
+      let p = "denied"; try { p = await withTimeout(this.handle.queryPermission({ mode: "readwrite" }), 6000, "permesso"); } catch (x) { if (x.name === "Timeout") throw x; }
       if (p !== "granted") h = { ok: false, why: "permesso", msg: "la cartella chiede di nuovo il permesso: tocca “Verifica cartella”" };
-      else { const fh = await this.handle.getFileHandle(".gdc-prova", { create: true }), w = await fh.createWritable(); await w.write(new Uint8Array(4096)); await w.close(); await this.handle.removeEntry(".gdc-prova"); h = { ok: true, msg: "raggiungibile e scrivibile" }; }
-    } catch (e) { h = { ok: false, why: e.name, msg: e.name === "QuotaExceededError" ? "il disco è pieno" : e.name === "NotFoundError" ? "cartella non trovata: disco scollegato o spento?" : `la cartella non risponde (${e.name})` }; }
+      else await withTimeout((async () => { const fh = await this.handle.getFileHandle(".gdc-prova", { create: true }), w = await fh.createWritable(); await w.write(new Uint8Array(4096)); await w.close(); await this.handle.removeEntry(".gdc-prova"); h = { ok: true, msg: "raggiungibile e scrivibile" }; })(), 15000, "scrittura");
+    } catch (e) { h = { ok: false, why: e.name, msg: e.name === "Timeout" ? `la cartella non risponde da oltre ${e.message === "permesso" ? 6 : 15} s (${e.message}): disco scollegato, in sospensione o in attesa di un permesso del browser?` : e.name === "QuotaExceededError" ? "il disco è pieno" : e.name === "NotFoundError" ? "cartella non trovata: disco scollegato o spento?" : `la cartella non risponde (${e.name})` }; }
     finally { this.checking = false; }
     const was = this.health; this.health = h;
     if (!was || was.ok !== h.ok || was.msg !== h.msg) { dbg(h.ok ? "info" : "warn", "file", `cartella ${this.handle.name}: ${h.msg}`); if (was) log("", h.ok ? `Cartella “${this.handle.name}” di nuovo raggiungibile` : `Cartella “${this.handle.name}”: ${h.msg}`); Xfer.refresh(); renderPreflight(); if (h.ok) Xfer.autoAll(); }

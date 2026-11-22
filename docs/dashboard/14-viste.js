@@ -16,6 +16,7 @@ function showHome() {
     ${mergeBanner()}
     ${staleBanner()}
     ${Views.modal()}
+    ${REAL ? `<div class="row" id="sessRow" style="gap:10px;align-items:center;margin:0 0 10px"><span class="muted">Sessione: <b id="sessRowName">${esc(Session.label())}</b></span><button class="ghost" id="sessNewHome" title="Nuovo QR e nuovo elenco di camere">Nuova sessione</button></div>` : ""}
     ${Perm.panel()}
     ${Marks.panel()}
     <section class="panel" id="preflight" hidden></section>

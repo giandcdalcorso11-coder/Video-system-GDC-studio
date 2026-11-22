@@ -19,14 +19,15 @@ export async function run() {
     await dash.fill("#sessName", "<b>X</b>&\"y\""); await dash.dispatchEvent("#sessName", "change");
     t.check("caratteri di markup tolti dal nome", !/[<>&"]/.test((await stato()).name), (await stato()).name);
     await dash.fill("#sessName", "Set di domenica"); await dash.dispatchEvent("#sessName", "change");
+    await dash.keyboard.press("Escape"); await sleep(300); // la finestra si chiude: il pulsante 'Nuova sessione' è in home
     // annullo la nuova sessione: non cambia niente
     dash.once("dialog", (d) => d.dismiss());
-    await dash.click("#sessNew"); await sleep(800);
+    await dash.click("#sessNewHome"); await sleep(800);
     const s2 = await stato();
     t.check("annullando, canale, chiavi e camere restano", s2.c === s0.c && s2.p === s0.p && s2.cams === "camA", JSON.stringify(s2));
     // nuova sessione con nome
     dash.once("dialog", (d) => d.accept("Partita di padel"));
-    await Promise.all([dash.waitForEvent("load", { timeout: 20000 }).catch(() => {}), dash.click("#sessNew")]);
+    await Promise.all([dash.waitForEvent("load", { timeout: 20000 }).catch(() => {}), dash.click("#sessNewHome")]);
     await t.until(async () => { try { return !!(await dash.evaluate(() => window.Session && Session.cur && document.querySelector("#sessTxt"))); } catch { return false; } });
     await sleep(1500);
     const s3 = await stato();
@@ -35,5 +36,7 @@ export async function run() {
     t.check("le chiavi della regia sono nuove", !!s3.p && s3.p !== s0.p, `${s0.p} → ${s3.p}`);
     t.check("l'elenco delle camere è vuoto", s3.cams === "", s3.cams);
     t.check("il QR nuovo contiene il canale nuovo", s3.qr.length > 40 && s3.qr !== s0.qr);
+    t.check("il pulsante 'Nuova sessione' è nella home e non più nella finestra 'Aggiungi dispositivo'", await ev(() => !!document.getElementById("sessNewHome") && !document.getElementById("sessNew") && !document.getElementById("addModal").contains(document.getElementById("sessNewHome"))));
+    t.check("dopo la nuova sessione si apre da sola la finestra con il QR nuovo", await t.until(() => ev(() => !document.getElementById("addModal").hidden && !!document.querySelector("#addModal #qrImg")), 8000));
   });
 }
