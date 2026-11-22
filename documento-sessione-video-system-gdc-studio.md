@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 58
-**Ultimo aggiornamento:** 2026-11-22 16:20
+**Versione:** 59
+**Ultimo aggiornamento:** 2026-11-22 18:50
 
 ## Vision
 
@@ -83,6 +83,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Seconda prova con i dispositivi veri: anteprima WebRTC ok (collegamento diretto host→host, RTT circa 8 ms, 1080p a circa 20 fps), REC, schermo nero e avvio automatico ok. Camera r4: time-lapse (automatico come iPhone e manuale) con immagini su disco e video creato sul telefono; anteprima "mini" (home) e "full" (dettaglio); parametri di invio applicati dopo la negoziazione.
 - [2026-10-15] Camera r3: avvio automatico della camera all'apertura della pagina (opzione attiva di default; si disattiva con "Ferma camera" a mano, si riattiva con "Avvia camera"; riprova al ritorno in primo piano). Permesso fotocamera/microfono: va impostato su "Consenti" per il sito nelle impostazioni di Safari. Da provare sull'XR.
 - [2026-10-15] Provata sull'XR: REC/STOP dalla dashboard e salvataggio in galleria ok. Problemi segnalati: camera duplicata alla riapertura del link, "Archivio non disponibile: InvalidStateError", tasto schermo nero non funzionante. Corretti/instrumentati in camera r2 (riapertura automatica di IndexedDB, identità da link/cookie, registro attività inviato alla dashboard).
+- [2026-11-22] Camera r34–r41: badge REC che sparisce dopo lo STOP; ripresa fermata e salvata se il microfono termina, se lo stop non è confermato in 4 s o se per 10 s non arrivano dati, e **ripresa automatica in un nuovo file** appena la camera torna disponibile (se la regia non ha fermato); avviso "Nessuna regia collegata" dopo 90 s e uscita dalla sessione alla chiusura da parte della regia; diagnosi completa quando l'audio termina da solo (+ log di audioSession e dei dispositivi audio, opzione `?as=1`); riquadro dell'anteprima con la proporzione vera dell'immagine. Provato sul campo: blocco schermo e riapertura (ripresa ripartita in 2 s), AirPods che passano da un dispositivo all'altro, spazio dell'iPad misurato (3686 MB, tetto della prova 4096 MB).
 
 ### Step 5 — Canale di comunicazione
 
@@ -195,6 +196,36 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-22 18:50] Cartella, audio interrotto, blocco schermo e riprese automatiche: cause trovate e correzioni (camera r41, dashboard r41)
+
+**Riepilogo:** Le prove su wifi con PC come regia hanno chiarito perché i trasferimenti si fermavano (permesso della cartella dopo la riapertura della pagina) e perché la cattura si interrompe su iOS (schermo bloccato, AirPods che passano da un dispositivo all'altro); la camera ora salva la clip e riprende da sola in un nuovo file; spostato "Nuova sessione" in home; serie automatica 411/411.
+
+**Cosa è stato fatto:**
+- **Bug: trasferimenti che non partivano e barre di avanzamento assenti**
+  - **Sintomo:** dopo la riapertura della regia (Edge sul PC) nessun trasferimento partiva, né automatico né manuale, e nessun messaggio spiegava perché; in home non comparivano barre (comparivano solo durante un trasferimento, quindi mancavano).
+  - **Causa:** accertata dai log dopo la diagnostica: la richiesta di permesso sulla cartella ricordata restava appesa (nessun errore, nessun log) finché la cartella non veniva riselezionata con "Cambia cartella".
+  - **Fix applicato:** controllo cartella con scadenza (6 s per il permesso, 15 s per la scrittura) e messaggio che spiega il rimedio ("Cambia cartella" e scegliere di nuovo la stessa, una volta dopo ogni riapertura); stato "Controllo della cartella in corso" nel riquadro; registrazione di ogni clic sui pulsanti di trasferimento con lo stato della cartella. Verificato sul campo: con la cartella riselezionata i trasferimenti sono ripartiti.
+- **Home (dashboard r38–r41):** riquadro "Trasferimenti" con barre per tutte le camere; riquadro "File dei video · tutte le camere" con destinazione e opzioni; pulsante "Nuova sessione" in home (non più nella finestra "Aggiungi dispositivo") e finestra con il QR nuovo che si apre da sola dopo la creazione; "Misura memoria" della dashboard resta solo su iPad/iPhone (su PC rallentava Edge fino a bloccarlo).
+- **Camera r38–r39:** fino a 40 clip per camera in regia, nome della sessione su ogni clip, avvisi sulle clip non trasferite; diagnosi completa quando l'audio termina da solo (visibilità, anteprime, età della camera, dispositivi audio, `audioSession`) e opzione `?as=1` per la sessione audio "play-and-record".
+- **Bug: cattura interrotta durante il REC su iOS**
+  - **Sintomo:** "traccia audio terminata" (3 volte) e, il 22/11 alle 18:02, video e audio silenziati su iPhone e iPad nello stesso istante, con ripresa senza più dati.
+  - **Causa:** accertata per due casi: (a) **schermo bloccato** sull'iPhone (video silenziato, pagina nascosta, 18:31); (b) **AirPods che passano da un dispositivo Apple all'altro** (compaiono sull'iPad 7 s dopo l'interruzione): iOS interrompe la cattura di entrambi. Collegare le cuffie durante un REC da solo non interrompe nulla. Le tre interruzioni "senza cuffie" restano non confermate, probabilmente blocco schermo.
+  - **Fix applicato (camera r40):** la clip viene salvata e, se la regia aveva chiesto il REC, la ripresa continua da sola in un nuovo file appena la camera torna disponibile (fino a 90 s); con STOP dalla regia non riparte. Verificato sul campo: dopo lo sblocco la ripresa è ripartita in 2 s. Il tempo di blocco resta senza immagini (limite di iOS). Consiglio operativo: schermo sempre acceso e Bluetooth spento sui telefoni-camera.
+- **Camera r41:** il riquadro dell'anteprima locale segue la proporzione vera del video (la cornice nera comparsa dopo lo sblocco dell'iPhone era dovuta a bande laterali del riquadro con altezza massima); non riprodotta in simulazione con iOS, da riconfermare dall'utente; il log scrive dimensioni e motivo di ogni adattamento.
+- **Esiti delle prove (da log e dalla cartella):** REC avviato durante i trasferimenti più volte, due camere in parallelo, tutti i trasferimenti riusciti e verificati (8–59 Mbps), senza interruzioni; la cartella contiene 13 file dall'iPhone e 12 dall'iPad, nessun doppione `_2`; regia in secondo piano per due periodi di 9 s senza problemi (prova R lunga non ancora fatta); spazio dell'iPad come camera misurato a 3686 MB (90% del tetto di prova di 4096 MB: il limite vero è almeno 4 GB).
+- **Sessioni:** avviso di chiusura sessione ricevuto sul campo alle 11:57 e 17:28; le camere rientrano con il QR nuovo e il registro avvisa delle clip non trasferite.
+- Test nuovi 28–30 (clic su Trasferisci tutte, cartella che non risponde e memoria solo iPad, diagnosi audio) e test 17, 15, 23 aggiornati; piano di test con prova S (audio) e R (regia in secondo piano).
+
+**Decisioni prese:**
+- Contesto: cosa fare quando iOS interrompe la cattura durante una ripresa. Decisione: salvare la clip e riprendere da soli in un nuovo file; non è possibile evitare il buco. Alternative scartate: lasciare la camera in attesa (si perde il resto della ripresa) o scollegarla. Da rivedere se: servono clip senza buchi (soluzione solo operativa: schermo acceso, Bluetooth spento).
+- Contesto: misura della memoria. Decisione: la misura della dashboard serve solo su iPad/iPhone. Da rivedere se: si vuole misurare un computer con `&mem=1`.
+
+**File consegnati/modificati:** `docs/camera.html` (camera r41), `docs/dashboard.html` (dashboard r41), `docs/camera/03-identita.js`, `07-fotocamera.js`, `08-registrazione.js`, `09-timelapse.js`, `12-stato.js`, `13-anteprima.js`, `15-comandi.js`, `16-interfaccia.js`, `02-registro.js`; `docs/dashboard/05-trasporto.js`, `06-destinazione.js`, `07-trasferimento.js`, `08-binding-stato.js`, `10-ingresso.js`, `14-viste.js`, `14a-viste-camere.js`, `15-router-rec.js`; test 15, 17, 23, 26–30; `piano-test-interno.md`; `documento-sessione-…md`. Commit sul ramo `claude/friendly-feynman-0cmnp3`.
+
+**Impatto su Vision/Pipeline:** Step 4 (note aggiornate). Step 6 già aggiornato nella versione 58. Nessun cambio di Vision.
+
+---
 
 ### [2026-11-22 16:20] Prove con PC come regia e wifi vero: correzioni a REC, sessioni, file e log (camera r38, dashboard r39)
 
