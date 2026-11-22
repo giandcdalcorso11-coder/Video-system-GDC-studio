@@ -24,7 +24,7 @@ async function onCmd(m) {
   let ok = true, detail = null;
   try {
     switch (m.cmd) {
-      case "join_result": if (m.label && m.label !== label) { label = String(m.label).slice(0, 30); store.set("gdc.label", label); dbg("info", `la regia ha assegnato il nome: ${label}`); renderClips(); } joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
+      case "join_result": if (typeof m.session === "string" && m.session !== sessName) { sessName = m.session.slice(0, 60); store.set("gdc.sessName", sessName); dbg("info", `sessione della regia: “${sessName}”`); } if (m.label && m.label !== label) { label = String(m.label).slice(0, 30); store.set("gdc.label", label); dbg("info", `la regia ha assegnato il nome: ${label}`); renderClips(); } joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
       case "session_end": { // la regia ha creato una nuova sessione: questa camera non è più comandata da nessuno. Chiudo in sicurezza e chiedo un QR valido
         detail = "sessione chiusa";
         const nm = String(m.name || "").replace(/[<>&"]/g, "").slice(0, 40), msg = `La regia ha chiuso la sessione${nm ? " “" + nm + "”" : ""}. Questa camera non è più collegata a nessuna regia: inquadra il QR valido della nuova sessione. Le clip già registrate restano su questo telefono.`;

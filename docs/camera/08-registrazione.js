@@ -11,7 +11,7 @@ async function startRec() {
   const sid = "s" + Date.now().toString(36), start = Date.now();
   let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; dbg("error", `MediaRecorder non creato: ${e.name}: ${e.message}`); publish(); return; }
   const rec = { mr, sid, start, seq: 0, bytes: 0, pending: 0, errs: 0, wr: [], mime: mr.mimeType || mime || "video/mp4", stopping: false };
-  recording = rec; lastErr = ""; setWant(true);
+  recording = rec; lastErr = ""; setWant(true); tagClip(sid);
   db.putSession({ id: sid, start, end: start, dur: 0, bytes: 0, chunks: 0, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: "in corso" }).catch(() => {});
   rec.hb = setInterval(() => db.putSession({ id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: "in corso" }).catch(() => {}), 10000);
   dbg("info", `REC avviato sessione ${sid}`, { mime: rec.mime, bps: Number(cfg.bps), res: cfg.res, archivio: storageMode });

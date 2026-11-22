@@ -69,7 +69,7 @@ const BIND = {
   tlStopBtn: (st, c, el) => { el.disabled = !(st.tl && st.tl.stage === "shooting"); },
   standbyBtn: (st, c, el) => { el.disabled = !st.online; el.textContent = st.standby ? "Riattiva schermo" : "Schermo nero"; },
   screen: (st, c, el) => { el.textContent = !st.online ? "—" : st.standby ? "Nero (standby)" : "Normale"; },
-  clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status || "")}</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
+  clips: (st, c, el) => { el.innerHTML = st.clips.length ? st.clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status || "")}${Xfer.sessTxt(k)}</span></li>`).join("") : '<li class="muted">Nessun clip in questa sessione</li>'; },
 };
 const spaceSeen = {};
 function spaceWatch() {

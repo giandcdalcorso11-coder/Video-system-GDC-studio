@@ -1,5 +1,8 @@
 "use strict";
 const Xfer = {
+  // la clip è stata registrata prima dell'inizio della sessione attuale della regia
+  isOld(k) { return !!(k && k.at && Session.cur && Session.cur.start && k.at < Session.cur.start - 5000); },
+  sessTxt(k) { return this.isOld(k) ? (k.sn ? ` · da “${esc(k.sn)}”` : " · da una sessione precedente") : ""; },
   jobs: new Map(), delAfter: store.get("gdc.xdel", false), queueRun: false,
   keepPrev: store.get("gdc.xprev", true), hold: store.get("gdc.xhold", false), auto: store.get("gdc.xauto", false), autoTry: {}, autoNext: {}, autoBusy: {}, autoWarned: false,
   // trasferimento automatico: ogni clip pronta parte da sola (la più vecchia per prima) quando la camera non sta registrando.
@@ -146,9 +149,11 @@ const Xfer = {
   renderGlobal() {
     const el = document.getElementById("xferGlobal"); if (!el) return;
     const ids = Object.keys(state).filter((id) => state[id] && state[id].online), ready = ids.reduce((n, id) => n + ((state[id].clips || []).filter((k) => k.id && k.status === "pronta").length), 0);
-    const sig = JSON.stringify([Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, this.hold, this.delAfter, this.auto, this.keepPrev, FS, this.queueRun, ready, ids.length, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, Object.values(this.autoBusy).filter(Boolean).length]);
+    const oldK = ids.flatMap((id) => (state[id].clips || []).filter((k) => k.id && k.status === "pronta" && this.isOld(k))), oldN = oldK.length, oldMB = oldK.reduce((a, k) => a + (k.mb || 0), 0), extra = ids.reduce((n, id) => n + Math.max(0, (state[id].clipsTot || 0) - (state[id].clips || []).length), 0);
+    const sig = JSON.stringify([oldN, oldMB, extra, Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.msg, this.hold, this.delAfter, this.auto, this.keepPrev, FS, this.queueRun, ready, ids.length, Dest.mode === "device" ? Math.round(this.pendingMem() / 1048576) : 0, Object.values(this.autoBusy).filter(Boolean).length]);
     if (el.dataset.sig === sig) return; el.dataset.sig = sig;
     el.innerHTML = `<h2>File dei video · tutte le camere</h2><div class="muted" style="margin-bottom:8px;font-size:13px">Dove vanno i file e quando partono i trasferimenti, per tutte le camere insieme. Nella pagina di ogni camera trovi le stesse impostazioni.</div>${this.settings("g")}
+      ${oldN ? `<div style="margin-top:10px;color:var(--warn,#c77d00)">⚠ ${oldN} clip di sessioni precedenti sono ancora sui telefoni (~${oldMB} MB): trasferiscile prima che il telefono le perda.</div>` : ""}${extra ? `<div class="muted" style="margin-top:6px;font-size:13px">Sui telefoni ci sono altre ${extra} clip oltre alle più recenti elencate qui: le trovi nella pagina di ogni camera.</div>` : ""}
       <div class="row" style="margin-top:10px"><button class="primary" data-xf="allcams" ${ready && !this.queueRun ? "" : "disabled"}>Trasferisci tutte le clip pronte di tutte le camere${ready ? " (" + ready + ")" : ""}</button></div>`;
   },
   /* barre dei trasferimenti nella home: tutte le camere, chi sta scaricando cosa e a che punto è */
@@ -187,7 +192,7 @@ const Xfer = {
         <div class="muted" style="margin-bottom:8px;font-size:13px">Queste impostazioni valgono per <b>tutte le camere</b>: sono le stesse della home.</div>
         ${this.settings(id)}
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
-        <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
+        <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}${this.sessTxt(k)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
         <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button><button class="ghost adv-only" data-xf="mem" ${this.memBusy ? "disabled" : ""}>${this.memBusy ? "Misuro… " + this.memState : "Misura memoria di questo dispositivo"}</button></div>
         ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.id}"></span></div>
           <div data-xp="${j.id}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>

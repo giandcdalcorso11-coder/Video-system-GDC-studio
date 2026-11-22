@@ -77,12 +77,15 @@ class RealtimeTransport {
       if (cam.rep !== nm) { cam.rep = nm; ch2 = true; } if (ch2) { saveCams(); if (typeof refresh === "function") refresh(); } }
     const st = this.s[m.id] || this.blank(), before = { online: st.online, rec: st.rec, camReady: st.camReady, standby: st.standby, err: st.err, res: st.res, storage: st.storage, tlStage: st.tlStage };
     Object.assign(st, { online: true, rec: !!m.rec, recSid: m.recSid || null, station: !!m.station, localRec: !!m.localRec, recStart: now - (m.recMs || 0), battery: m.battery ?? null, charging: m.charging ?? null, batAt: m.batAt || 0, zoom: m.zoom || null, pro: m.pro || null, space: m.space || null, bufMB: m.bufMB, maxBufMB: m.maxBufMB, bps: m.bps,
-      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
+      res: `${m.res} · ${Math.round(m.bps / 1e6)} Mbps`, orient: m.vh ? `${m.vh >= m.vw ? "Verticale" : "Orizzontale"} ${m.vw}×${m.vh}` : "—", clips: m.clips || [], clipsTot: m.clipsTot || (m.clips || []).length, camReady: !!m.camReady, standby: !!m.standby, err: m.err || "", storage: m.storage || "", tl: m.tl || null, tlStage: m.tl ? m.tl.stage : "" });
     const ch = Object.keys(before).filter((k) => before[k] !== st[k]).map((k) => `${k}: ${before[k]} → ${st[k]}`);
     if (ch.length) dbg("info", "camera " + m.id, `cambiamenti: ${ch.join("; ")}`);
     this.rxN = this.rxN || {}; this.rxN[m.id] = (this.rxN[m.id] || 0) + 1;
     if (ch.length || this.rxN[m.id] % 15 === 1) dbg("trace", "rx", `stato ${m.id} cam=${m.camReady ? "on" : "off"} rec=${m.rec} ${m.recMs || 0}ms buf=${m.bufMB}MB archivio=${m.storage} standby=${m.standby} batt=${m.battery} dim=${m.vw}x${m.vh} err="${m.err || ""}" età=${now - (m.ts || now)}ms`);
     this.s[m.id] = st; this.push(m.id); if (REAL && isNew) { Join.greet(m.id); Clock.maybe(m.id); }
+    // quando una camera (ri)entra, dico se ha clip non ancora trasferite, e quante vengono da sessioni precedenti
+    if (REAL && !before.online && Date.now() - ((this.noteAt = this.noteAt || {})[m.id] || 0) > 60000) { this.noteAt[m.id] = Date.now(); const rd = (st.clips || []).filter((k) => k.id && k.status === "pronta"), old = rd.filter((k) => typeof Xfer !== "undefined" && Xfer.isOld(k)), mb = rd.reduce((a, k) => a + (k.mb || 0), 0);
+      if (rd.length) { log(m.id, `${camTitle(camById(m.id))}: ha ${rd.length} clip non ancora trasferite (~${mb} MB)${old.length ? `, ${old.length} di sessioni precedenti` : ""}${st.clipsTot > (st.clips || []).length ? `; in tutto ${st.clipsTot} sul telefono` : ""}`); dbg("info", "file", `${m.id}: al rientro ${rd.length} clip da trasferire (${old.length} vecchie, ${mb} MB)`); } }
     if (st.err && st.err !== before.err) log(m.id, `${camTitle(camById(m.id))}: ${st.err}`);
     if ((isNew || suggestMerge) && curDetail == null && isNew) route();
     Preview.ensure(m.id); if (REAL) { Xfer.autoTick(m.id); Marks.learn(); }

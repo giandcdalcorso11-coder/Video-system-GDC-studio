@@ -10,7 +10,7 @@ async function tlStart(o) {
   if (tl) { dbg("warn", "time-lapse già in corso"); return false; }
   if (recording) { lastErr = "Registrazione in corso: fermala prima del time-lapse"; dbg("warn", "tl_start rifiutato: REC in corso"); publish(); return false; }
   if (!stream) { try { await openCam(); } catch { return false; } }
-  const sid = "t" + Date.now().toString(36);
+  const sid = "t" + Date.now().toString(36); tagClip(sid);
   tl = { sid, mode: o.mode === "man" ? "man" : "auto", int: Number(o.int) || 5, fps: Number(o.fps) || 30, q: Number(o.q) || 0.92, start: Date.now(), seq: 0, keys: [], bytes: 0, k: 0, busy: false, skipped: 0, errs: 0, stage: "shooting", progress: 0, timer: 0, next: Date.now() };
   lastErr = ""; dbg("info", `time-lapse avviato ${sid}`, { modalita: tl.mode, intervallo_s: tl.int, fps: tl.fps, qualitaJpeg: tl.q, camera: `${$("vid").videoWidth}x${$("vid").videoHeight}`, archivio: storageMode });
   const loop = async () => {

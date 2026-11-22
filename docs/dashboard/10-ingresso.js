@@ -30,7 +30,7 @@ const Join = {
   },
   accept(id) { const p = this.pending[id]; if (!p) return; delete this.pending[id]; this.ok.add(id); dbg("info", "camere", `accettata ${id}`); transport.onCamState(p.m); /* crea la camera (con il suo numero) e le comunica l'ingresso */ if (camById(id)) { this.greeted[id] = 0; this.greet(id); } this.render(); },
   reject(id) { delete this.pending[id]; this.rejected.add(id); store.set("gdc.rejected", [...this.rejected]); this.denied[id] = Date.now(); transport.send(id, { cmd: "join_result", ok: false }); dbg("info", "camere", `rifiutata ${id}`); log("", "Telefono rifiutato"); this.render(); if (curDetail == null) route(); },
-  greet(id) { const now = Date.now(); if (now - (this.greeted[id] || 0) > 60000) { this.greeted[id] = now; transport.send(id, { cmd: "join_result", ok: true, label: labelOf(id) }); } },
+  greet(id) { const now = Date.now(); if (now - (this.greeted[id] || 0) > 60000) { this.greeted[id] = now; transport.send(id, { cmd: "join_result", ok: true, label: labelOf(id), session: Session.cur.name || "" }); } },
   deny(id) { const now = Date.now(); if (now - (this.denied[id] || 0) > 20000) { this.denied[id] = now; transport.send(id, { cmd: "join_result", ok: false }); } },
   sweep() { const now = Date.now(); let ch = false; for (const id in this.pending) if (now - this.pending[id].seen > 8000) { delete this.pending[id]; ch = true; } if (ch) this.render(); },
   render() {

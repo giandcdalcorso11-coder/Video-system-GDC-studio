@@ -20,6 +20,9 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platfo
 const MOCK = new URLSearchParams(location.search).has("mock");
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : IS_IPAD ? "iPadOS" : navigator.platform; })();
 let joinState = "attesa", joinAt = Date.now();
+/* a quale sessione della regia appartiene ogni clip: il nome arriva dalla regia, la clip se lo porta dietro anche dopo un cambio di sessione */
+let sessName = store.get("gdc.sessName", ""); const clipSess = store.get("gdc.clipSess", {});
+const tagClip = (sid) => { if (!sid) return; clipSess[sid] = sessName; const ks = Object.keys(clipSess); if (ks.length > 300) ks.slice(0, ks.length - 300).forEach((k) => delete clipSess[k]); store.set("gdc.clipSess", clipSess); };
 // nome dei file: <Camera N assegnata dalla regia>_<nome scelto su questo telefono>_<data>_<ora di inizio, corretta con l'orologio della regia>
 let label = store.get("gdc.label", ""), clockOff = Number(store.get("gdc.clockOff", 0)) || 0;
 const safeN = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "").slice(0, 24);
