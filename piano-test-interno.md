@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r38**, **dashboard r41**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r39**, **dashboard r41**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
@@ -138,6 +138,18 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 4. Riportala in primo piano e guarda se le camere sono ancora online, se il trasferimento è andato avanti e se i contatori sono giusti.
 
 **Atteso:** nessuna camera segnata offline per sbaglio, trasferimento senza interruzioni. Nei log cerco: "visibilità: nascosta / di nuovo visibile dopo N s", "timer in ritardo" e, se una camera viene segnata offline, lo stato della regia in quel momento.
+
+## S. Audio che si interrompe su iPhone (20 minuti)
+
+**Scopo:** capire perché "traccia audio terminata" succede (3 volte finora, senza cuffie). Camera r39: ogni interruzione scrive nel log una DIAGNOSI AUDIO completa.
+Tieni lo schermo del telefono sempre acceso (tocca ogni 20 s o impostalo su "Mai" in Impostazioni › Schermo e luminosità › Blocco automatico). Per ogni prova dimmi cosa hai fatto e a che ora.
+1. **Controllo:** pagina camera aperta, regia con anteprima accesa, 3 REC da 20 s con pause di 20 s. Nessuna cuffia.
+2. **Senza anteprima:** come sopra ma con "Anteprime nella home" spenta e senza aprire la pagina della camera in regia.
+3. **Schermo che si blocca:** lascia che lo schermo si spenga da solo con la camera accesa (circa 30 s) e riaccendilo.
+4. **AirPods:** collegale a metà di un REC e poi scollegale.
+5. **Con la correzione provata:** riapri il link della camera aggiungendo `?as=1` prima del `#` (esempio: `.../camera.html?dev=1&as=1#gdc1…`) e ripeti la prova 1. Fa chiedere a iOS la sessione audio "play-and-record"; per toglierla usa `as=0`.
+
+**Cosa cerco nei log:** "DIAGNOSI AUDIO", "audioSession cambiata", quanto tempo dopo l'ultima anteprima o la pagina nascosta, e la lista dei dispositivi audio.
 
 ## Cosa mi mandi
 

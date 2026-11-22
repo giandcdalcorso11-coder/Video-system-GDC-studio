@@ -74,7 +74,8 @@ async function goOnline() {
   addEventListener("online", () => { if (rt && !/^connesso/.test(rt.status)) { dbg("info", "rete tornata: ricreo il collegamento"); try { rt.close(); } catch { /* ok */ } attachRt(); } });
   setInterval(publish, 2000); setInterval(flushDbg, 1500); setInterval(orphanCheck, 5000); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
-  navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
+  navigator.mediaDevices?.addEventListener?.("devicechange", () => { AudioDiag.devChange = Date.now(); AudioDiag.devs().then((d) => dbg("info", "dispositivi multimediali cambiati", d)); });
+  try { const a = navigator.audioSession; dbg("info", `audioSession: ${AudioDiag.as()}`); if (a && a.addEventListener) a.addEventListener("statechange", () => dbg("warn", `audioSession cambiata: ${AudioDiag.as()}`)); } catch { /* ok */ }
   autoOpen("apertura pagina");
 }
 $("wGo").onclick = async () => {

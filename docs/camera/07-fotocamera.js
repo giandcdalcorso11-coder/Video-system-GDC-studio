@@ -1,7 +1,19 @@
 "use strict";
 /* ===== Fotocamera ===== */
+/* diagnosi dell'audio: quando la traccia audio termina da sola scrivo tutto ciò che può spiegarlo (pagina in secondo piano, anteprime, cambi di dispositivo, sessione audio di iOS) */
+const AudioDiag = {
+  streamAt: 0, previewAt: 0, devChange: 0,
+  as() { try { const a = navigator.audioSession; return a ? `tipo ${a.type}, stato ${a.state}` : "API audioSession assente"; } catch (e) { return "audioSession: " + e.message; } },
+  async devs() { try { const d = await navigator.mediaDevices.enumerateDevices(); return d.filter((x) => x.kind === "audioinput" || x.kind === "audiooutput").map((x) => `${x.kind === "audioinput" ? "in" : "out"}:${x.label || "(senza nome)"}`); } catch (e) { return ["errore " + e.message]; } },
+  sec(t) { return t ? Math.round((Date.now() - t) / 1000) : null; },
+  async ended(t) {
+    const info = { visibilita: document.visibilityState, nascostaDa_s: typeof PageWatch === "object" ? PageWatch.hiddenFor() : null, focus: document.hasFocus ? document.hasFocus() : null, inREC: !!recording, REC_s: recording ? Math.round((Date.now() - recording.start) / 1000) : 0, timelapse: !!(tl && tl.stage === "shooting"), anteprime: Object.keys(pcs).length, ultimaAnteprima_s: this.sec(this.previewAt), cameraAperta_s: this.sec(this.streamAt), traccia: { stato: t.readyState, muta: t.muted, attiva: t.enabled, etichetta: t.label }, audioSession: this.as(), ultimoCambioDispositivi_s: this.sec(this.devChange), batteria: bat && bat.level, ricarica: bat && bat.charging, schermoSpento: document.visibilityState === "hidden" };
+    info.dispositivi = await this.devs();
+    dbg("error", "DIAGNOSI AUDIO: la traccia audio è terminata da sola", info);
+  } };
 async function openCam() {
   if (stream) stream.getTracks().forEach((t) => t.stop());
+  { const want = store.get("gdc.audioSess", ""); if (want && navigator.audioSession) { try { navigator.audioSession.type = want; dbg("info", `sessione audio impostata: ${AudioDiag.as()}`); } catch (e) { dbg("warn", `sessione audio non impostabile: ${e.message}`); } } }
   const [w, h] = RES[cfg.res] || RES["1080p"], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } }, t0 = performance.now();
   dbg("info", `apro la camera: ${cfg.res} ${cfg.facing}`);
   try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: true }); }
@@ -10,7 +22,8 @@ async function openCam() {
     try { stream = await navigator.mediaDevices.getUserMedia({ ...base, audio: false }); lastErr = "Microfono non disponibile: registro senza audio"; }
     catch (e2) { lastErr = "Camera non disponibile: " + e2.name; dbg("error", `camera non disponibile: ${e2.name}: ${e2.message}`); stream = null; publish(); throw e2; }
   }
-  stream.getTracks().forEach((t) => { t.onended = () => { dbg("error", `traccia ${t.kind} terminata (camera interrotta?)`); if (t.kind === "video") { lastErr = "Camera interrotta dal sistema"; if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream = null; $("camStop").disabled = true; publish(); }
+  AudioDiag.streamAt = Date.now();
+  stream.getTracks().forEach((t) => { t.onended = () => { dbg("error", `traccia ${t.kind} terminata (camera interrotta?)`); if (t.kind === "audio") AudioDiag.ended(t).catch(() => {}); if (t.kind === "video") { lastErr = "Camera interrotta dal sistema"; if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream = null; $("camStop").disabled = true; publish(); }
     else if (t.kind === "audio") { dbg("warn", `microfono interrotto dal sistema${recording ? " durante la registrazione: la fermo e salvo ciò che c'è" : ""} (cuffie, chiamata o altra app che usa l'audio?)`); if (recording) { lastErr = "Il microfono si è interrotto: registrazione fermata. Riavvia la ripresa (riapro la camera da solo)"; stopRec(); } publish(); } }; t.onmute = () => dbg("warn", `traccia ${t.kind} silenziata dal sistema`); t.onunmute = () => dbg("info", `traccia ${t.kind} riattivata`); });
   const v = $("vid"); v.srcObject = stream; await v.play().catch((e) => dbg("warn", `play anteprima locale: ${e.name}`));
   const vt = stream.getVideoTracks()[0], at = stream.getAudioTracks()[0];

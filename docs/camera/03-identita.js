@@ -18,6 +18,7 @@ const RES = { "720p": [1280, 720], "1080p": [1920, 1080], "4K": [3840, 2160] };
 const MAX_BUF = 700 * 1048576; // limite prudente misurato su iPhone XR con Safari 16 (circa 0,78 GB), usato finché non si misura lo spazio reale
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const MOCK = new URLSearchParams(location.search).has("mock");
+{ const v = new URLSearchParams(location.search).get("as"); if (v !== null) store.set("gdc.audioSess", v === "0" ? "" : "play-and-record"); } // prova: ?as=1 chiede a iOS la sessione audio "play-and-record", ?as=0 la toglie
 const OS = (() => { const m = navigator.userAgent.match(/OS (\d+)[_.](\d+)(?:[_.](\d+))?/); return m ? `iOS ${m[1]}.${m[2]}${m[3] ? "." + m[3] : ""}` : IS_IPAD ? "iPadOS" : navigator.platform; })();
 let joinState = "attesa", joinAt = Date.now();
 /* a quale sessione della regia appartiene ogni clip: il nome arriva dalla regia, la clip se lo porta dietro anche dopo un cambio di sessione */
