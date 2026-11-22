@@ -2,7 +2,7 @@ import { withEnv, sleep } from "../lib.mjs";
 export const name = "Memoria dell'iPad: tetto sui file in attesa di Salva e misura della memoria";
 export async function run() {
   await withEnv({}, async (t) => {
-    const cam = await t.cam("camA", { init: () => { window.__memMax = 700000; window.__memCapMB = 48; window.__memStepMB = 16; } }), dash = await t.dash();
+    const cam = await t.cam("camA", { init: () => { window.__memMax = 700000; window.__memCapMB = 48; window.__memStepMB = 16; } }), dash = await t.dash("&mem=1");
     t.check("camera collegata", await t.ready(dash, "camA"));
     await dash.evaluate(() => { Xfer.MEMMAX = 700000; location.hash = "#/cam/camA"; });
     await t.rec(cam, 3); await t.rec(cam, 3);

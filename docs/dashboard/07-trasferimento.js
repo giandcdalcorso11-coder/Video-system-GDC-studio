@@ -46,7 +46,10 @@ const Xfer = {
   },
   memState: "", memBusy: false,
   // misura quanti dati questo dispositivo regge in memoria (come i file ricevuti senza cartella): prova a tenere blocchi sempre più grandi e riporta fin dove arriva
+  // la prova riempie la memoria di blocchi da 256 MB fino a 4 GB: ha senso sull'iPad (dove i file restano in memoria), sul computer lo pianta (visto su Edge)
+  memOk() { return /iPad|iPhone/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) || /[?&]mem=1/.test(location.search); },
   async memMeasure() {
+    if (!this.memOk()) { log("", "La misura della memoria serve solo su iPad/iPhone: sul computer i file vanno in una cartella."); return; }
     if (this.memBusy) return; this.memBusy = true; const cap = (window.__memCapMB || 4096) * 1048576, step = (window.__memStepMB || 256) * 1048576, blk = new Uint8Array(1048576), t0 = performance.now();
     for (let o = 0; o < blk.length; o += 65536) crypto.getRandomValues(blk.subarray(o, o + 65536));
     const L = (lv, m, d) => { dbg(lv, "memoria", m, d); try { window.GDC_DEV && GDC_DEV.flush(); } catch { /* ok */ } };
@@ -197,7 +200,7 @@ const Xfer = {
         ${this.settings(id)}
         <div style="margin-top:10px"><b>Clip sul telefono</b></div>
         <ol class="list" style="max-height:none">${clips.length ? clips.map((k) => `<li>${esc(k.file)} <span class="muted">· ${k.kind === "timelapse" ? "time-lapse · " : ""}${fmtTime(k.dur)} · ~${k.mb} MB · ${esc(k.status)}${this.sessTxt(k)}</span> ${k.status === "pronta" || k.status === "inviata" ? `<button class="ghost" data-xf="go" data-sid="${esc(k.id)}" ${online && !act ? "" : "disabled"}>${k.status === "inviata" ? "Trasferisci di nuovo" : "Trasferisci"}</button>` : ""}</li>`).join("") : `<li class="muted">Nessuna clip sul telefono.</li>`}</ol>
-        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button><button class="ghost adv-only" data-xf="mem" ${this.memBusy ? "disabled" : ""}>${this.memBusy ? "Misuro… " + this.memState : "Misura memoria di questo dispositivo"}</button></div>
+        <div class="row" style="margin-top:8px"><button class="primary" data-xf="all" ${online && !act && !this.queueRun && free ? "" : "disabled"}>Trasferisci tutte le clip pronte${free ? " (" + free + ")" : ""}</button><button class="ghost adv-only" data-xf="test" ${online && !act ? "" : "disabled"}>Prova velocità rete (circa 8 s)</button>${this.memOk() ? `<button class="ghost adv-only" data-xf="mem" ${this.memBusy ? "disabled" : ""}>${this.memBusy ? "Misuro… " + this.memState : "Misura memoria di questo dispositivo"}</button>` : `<span class="muted adv-only" style="font-size:13px">La misura della memoria serve solo su iPad/iPhone: sul computer i file vanno in una cartella e il test rallenterebbe il computer.</span>`}</div>
         ${jobs.length ? `<div style="margin-top:12px"><b>Trasferimenti</b></div>` + jobs.map((j) => `<div class="xj" style="margin-top:8px"><div>${esc(j.test ? "Prova di rete" : (j.fname || j.name))} <span class="muted" data-xt="${j.id}"></span></div>
           <div data-xp="${j.id}" style="height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
           <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : j.where === "cartella" ? "Salvato nella cartella" : "Prova completata") : (j.state === "interrotto" ? esc(j.note) : "Trasferimento…")} ${j.path ? "· " + esc(j.path) : ""}</div>

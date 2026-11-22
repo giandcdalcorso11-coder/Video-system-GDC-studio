@@ -8,7 +8,10 @@ export async function run() {
     await dash.evaluate(() => { window.__chk = Dest.check(); });
     t.check("dopo pochi secondi dice che la cartella non risponde", await t.until(() => dash.evaluate(() => Dest.health && /non risponde da oltre 6 s/.test(Dest.health.msg)), 12000), await dash.evaluate(() => JSON.stringify(Dest.health)));
     t.check("il riquadro mostra il problema", await t.until(() => dash.evaluate(() => /non risponde/.test(document.getElementById("xferGlobal").textContent)), 5000));
+    { const hs = await dash.evaluate(() => JSON.stringify(Dest.health)); t.check("il messaggio dice come ridare il permesso (Cambia cartella)", /Cambia cartella/.test(hs), hs); };
     const ok = await dash.evaluate(async () => { Dest.health = null; return await Xfer.ensureDest(); });
+    await dash.evaluate(() => { location.hash = "#/cam/camA"; });
+    t.check("sul computer il pulsante 'Misura memoria' non c'è (rallenta il computer)", await dash.evaluate(() => !document.querySelector('[data-xf="mem"]')));
     t.check("il trasferimento non parte e c'è un messaggio chiaro nel registro", ok === false && await dash.evaluate(() => adv.some((x) => /non risponde \(permesso\)|chiedendo il permesso/.test(x.m))), String(ok));
   });
 }
