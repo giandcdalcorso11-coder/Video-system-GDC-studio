@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r39**, **dashboard r41**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r40**, **dashboard r41**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
@@ -141,7 +141,7 @@ Con il collegamento Comandi, per vedere la batteria da Safari. Per ora la dashbo
 
 ## S. Audio che si interrompe su iPhone (20 minuti)
 
-**Scopo:** capire perché "traccia audio terminata" succede (3 volte finora, senza cuffie). Camera r39: ogni interruzione scrive nel log una DIAGNOSI AUDIO completa.
+**Scopo:** capire perché "traccia audio terminata" succede (3 volte finora, senza cuffie). Camera r40: ogni interruzione scrive nel log una DIAGNOSI AUDIO completa e, se la regia aveva chiesto il REC, la ripresa continua da sola in un nuovo file appena la camera torna disponibile. **Dalla prova con le AirPods:** le cuffie che passano da un dispositivo Apple all'altro interrompono la cattura di entrambi: spegni il Bluetooth sui telefoni-camera durante le riprese.
 Tieni lo schermo del telefono sempre acceso (tocca ogni 20 s o impostalo su "Mai" in Impostazioni › Schermo e luminosità › Blocco automatico). Per ogni prova dimmi cosa hai fatto e a che ora.
 1. **Controllo:** pagina camera aperta, regia con anteprima accesa, 3 REC da 20 s con pause di 20 s. Nessuna cuffia.
 2. **Senza anteprima:** come sopra ma con "Anteprime nella home" spenta e senza aprire la pagina della camera in regia.

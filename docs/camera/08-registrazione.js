@@ -28,17 +28,32 @@ async function startRec() {
     clearInterval(rec.statTimer); clearInterval(rec.hb); clearInterval(rec.stall); while (rec.pending > 0) await sleep(50);
     if (!rec.bytes && !rec.errs) { // registrazione troppo breve: il formato consegna i dati solo dopo un po' (niente clip vuote)
       try { await db.delSession(sid); } catch { /* ok */ } lastErr = "Registrazione troppo breve: nessun dato salvato"; dbg("warn", `REC ${sid} fermato senza dati: scartato`);
-      if (recording === rec) recording = null; await loadSessions(); publish(); return;
+      if (recording === rec) recording = null; await loadSessions(); publish(); if (rec.stalled) resumeAfterStall(); return;
     }
     const s = { id: sid, start, end: Date.now(), dur: Date.now() - start, bytes: rec.bytes, chunks: rec.seq, mime: rec.mime, res: cfg.res, bps: Number(cfg.bps), status: rec.errs ? "errore" : "pronta" };
     try { await db.putSession(s); } catch (e) { lastErr = "Registro non salvato: " + e.name; dbg("error", `registro sessione non salvato: ${e.name}: ${e.message}`); }
     dbg("info", `REC fermato sessione ${sid}`, { durata_s: Math.round(s.dur / 1000), pezzi: s.chunks, MB: +(s.bytes / 1048576).toFixed(1), errori: rec.errs, scrittura_media_ms: rec.wr.length ? Math.round(rec.wr.reduce((a, b) => a + b, 0) / rec.wr.length) : null });
-    if (recording === rec) recording = null; await loadSessions(); publish();
+    if (recording === rec) recording = null; await loadSessions(); publish(); if (rec.stalled) resumeAfterStall();
   };
   rec.finalize = finalize; mr.onstop = finalize; rec.lastData = start;
   // se il registratore smette di consegnare dati (microfono interrotto, sistema che lo blocca) non resto in REC per sempre: fermo e salvo ciò che c'è
-  rec.stall = setInterval(() => { if (rec.stopping || rec.done) return; const quiet = Date.now() - rec.lastData; if (quiet > 10000) { lastErr = "La registrazione si è bloccata (nessun dato da 10 s): fermata. Se c'erano cuffie o altro audio, ricollega e riprova"; dbg("error", `REC ${sid}: nessun dato da ${Math.round(quiet / 1000)} s: fermo la registrazione`, { pezzi: rec.seq, MB: +(rec.bytes / 1048576).toFixed(1), stato: mr.state }); stopRec(); } }, 2000);
+  rec.stall = setInterval(() => { if (rec.stopping || rec.done) return; const quiet = Date.now() - rec.lastData; if (quiet > 10000) { lastErr = "La registrazione si è bloccata (nessun dato da 10 s): fermata. Se c'erano cuffie o altro audio, ricollega e riprova"; dbg("error", `REC ${sid}: nessun dato da ${Math.round(quiet / 1000)} s: fermo la registrazione`, { pezzi: rec.seq, MB: +(rec.bytes / 1048576).toFixed(1), stato: mr.state }); rec.stalled = true; stopRec(); } }, 2000);
   mr.start(1000); publish();
+}
+/* il sistema (iOS) ha interrotto la cattura durante un REC chiesto dalla regia (cambio di audio, AirPods che passano da un dispositivo all'altro, ecc.):
+   la clip finora registrata è salvata; appena la camera torna disponibile la ripresa continua in un nuovo file, a meno che la regia non fermi */
+let resuming = false;
+async function resumeAfterStall() {
+  if (resuming || !wantRec) return; resuming = true;
+  try {
+    dbg("warn", "interruzione di sistema durante il REC: riprendo in un nuovo file appena la camera torna disponibile");
+    for (let i = 1; i <= 90; i++) {
+      await sleep(1000); if (!wantRec || recording || tl) { dbg("info", `ripresa automatica annullata (${!wantRec ? "stop dalla regia" : "già in corso"})`); return; }
+      const ts = stream ? stream.getTracks() : [], dead = !stream || ts.some((t) => t.readyState === "ended"), ok = ts.length && ts.every((t) => t.readyState === "live" && !t.muted);
+      if (ok || dead) { dbg("info", `camera di nuovo disponibile dopo ${i} s: riprendo la registrazione in un nuovo file`); lastErr = ""; await startRec(); if (recording) { publish(); return; } }
+    }
+    dbg("error", "la camera non è tornata disponibile entro 90 s: non riprendo da sola"); publish();
+  } finally { resuming = false; }
 }
 function stopRec(byUser) { if (byUser) setWant(false); if (!recording || recording.stopping) return; const rec = recording; rec.stopping = true; dbg("info", "richiesto stop registrazione"); try { rec.mr.stop(); } catch (e) { dbg("warn", `stop: ${e.message}`); }
   // se il registratore non conferma lo stop entro 4 s (succede se il sistema l'ha bloccato), chiudo io la registrazione
