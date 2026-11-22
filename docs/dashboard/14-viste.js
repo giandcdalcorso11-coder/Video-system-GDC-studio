@@ -25,6 +25,7 @@ function showHome() {
       <div class="tile"><small>Batteria minima</small><b id="sBat">—</b></div>
       <div class="tile"><small>Spazio minimo</small><b id="sFree">—</b></div>
     </section>
+    ${REAL ? `<section class="panel" id="xferLive" hidden></section>` : ""}
     ${Views.bar()}
     <section class="grid" id="homeGrid">
       ${cameras.map((c) => `

@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r37**, **dashboard r37**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r37**, **dashboard r38**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 

@@ -151,8 +151,31 @@ const Xfer = {
     el.innerHTML = `<h2>File dei video · tutte le camere</h2><div class="muted" style="margin-bottom:8px;font-size:13px">Dove vanno i file e quando partono i trasferimenti, per tutte le camere insieme. Nella pagina di ogni camera trovi le stesse impostazioni.</div>${this.settings("g")}
       <div class="row" style="margin-top:10px"><button class="primary" data-xf="allcams" ${ready && !this.queueRun ? "" : "disabled"}>Trasferisci tutte le clip pronte di tutte le camere${ready ? " (" + ready + ")" : ""}</button></div>`;
   },
+  /* barre dei trasferimenti nella home: tutte le camere, chi sta scaricando cosa e a che punto è */
+  renderLive() {
+    const el = document.getElementById("xferLive"); if (!el) return;
+    const jobs = [...this.jobs.values()].filter((j) => !j.test).sort((a, b) => b.at - a.at).slice(0, 8);
+    const term = (j) => j.state === "ok" || j.state === "errore";
+    jobs.forEach((j) => { if (term(j) && !j.endSeen) j.endSeen = Date.now(); });
+    const recent = jobs.filter((j) => !term(j) || Date.now() - j.endSeen < 90000); // quelli finiti restano visibili per 90 s
+    el.hidden = !recent.length;
+    if (!recent.length) { el.dataset.sig = ""; return; }
+    const sig = JSON.stringify(recent.map((j) => [j.id, j.state, j.error, j.where, j.saved, j.note, j.path, j.attempt]));
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig;
+      el.innerHTML = `<h2>Trasferimenti</h2>` + recent.map((j) => { const c = camById(j.camId); return `<div class="xj" style="margin-top:8px"><div>${esc(c ? camTitle(c) : j.camId)} · ${esc(j.fname || j.name)} <span class="muted" data-gt="${j.id}"></span></div>
+        <div data-gp="${j.id}" style="height:10px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin:4px 0"><i style="display:block;height:100%;width:0;background:var(--ok,#2a9d5c)"></i></div>
+        <div class="muted">${j.state === "errore" ? `<span class="err">${esc(j.error)}</span>` : j.state === "ok" ? (j.where === "memoria" && !j.saved ? "Arrivato in memoria: tocca Salva (nella pagina della camera)" : j.where === "memoria" ? "Salvato" : "Salvato nella cartella ✓ verificato") : (j.state === "interrotto" ? esc(j.note) : "Trasferimento in corso…")}${j.path ? " · " + esc(j.path) : ""}</div></div>`; }).join("");
+    }
+    recent.forEach((j) => {
+      const pb = el.querySelector(`[data-gp="${j.id}"] i`), tx = el.querySelector(`[data-gt="${j.id}"]`); if (!pb) return;
+      const pct = j.state === "ok" ? 100 : j.size ? Math.min(100, Math.round(j.got / j.size * 100)) : 0; pb.style.width = pct + "%";
+      const left = j.speed > 0 && j.size > j.got ? Math.round((j.size - j.got) / j.speed) : 0;
+      tx.textContent = j.state === "in corso" || j.state === "attesa" ? `· ${pct}% · ${fmtMB(j.got)} · ${j.speed ? (j.speed * 8 / 1e6).toFixed(1) + " Mbps" : ""}${left ? " · circa " + (left >= 60 ? Math.round(left / 60) + " min" : left + " s") : ""}` : j.state === "ok" ? `· ${fmtMB(j.got)} · ${j.mbps ? j.mbps.toFixed(1) + " Mbps" : ""}` : "";
+    });
+  },
   async allCams() { if (this.queueRun) return; for (const id of Object.keys(state).filter((i) => state[i] && state[i].online)) { if (!((state[id].clips || []).some((k) => k.id && k.status === "pronta"))) continue; await this.all(id); } },
-  refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); this.renderGlobal(); },
+  refresh() { $$('[data-bind="xferUi"]').forEach((el) => { const id = el.dataset.cam; const c = camById(id); if (c) this.render(state[id], c, el); }); this.renderGlobal(); this.renderLive(); },
   render(st, c, el) {
     const id = c.id, clips = ((st && st.clips) || []).filter((k) => k.id), jobs = [...this.jobs.values()].filter((j) => j.camId === id).sort((a, b) => a.at - b.at).slice(-6);
     const act = jobs.some((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"), online = !!(st && st.online);

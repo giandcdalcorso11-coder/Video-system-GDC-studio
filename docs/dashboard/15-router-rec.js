@@ -21,5 +21,5 @@ setInterval(() => {
   const recs = cameras.map((c) => state[c.id]).filter((s) => s && s.rec);
   $("#globalTimer").textContent = recs.length ? fmtTime(Date.now() - Math.min(...recs.map((s) => s.recStart))) : "00:00";
   $$('[data-bind="timer"],[data-bind="badge"]').forEach((el) => BIND[el.dataset.bind](state[el.dataset.cam] || {}, null, el));
-  if (typeof Xfer !== "undefined" && REAL) Xfer.renderGlobal();
+  if (typeof Xfer !== "undefined" && REAL) { Xfer.renderGlobal(); Xfer.renderLive(); }
 }, 250);
