@@ -95,7 +95,7 @@ class RealtimeTransport {
   sendCmd(p) { this.q = (this.q || Promise.resolve()).then(() => GDC_AUTH.signCmd(pairing, p)).then((sp) => this.rt.send("cmd", sp)).catch((e) => dbg("error", "tx", `comando ${p.cmd} non inviato: ${e.message}`)); }
   send(id, m) {
     if (!this.rt) { dbg("warn", "tx", `comando ${m.cmd} scartato: collegamento non pronto`); return; }
-    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro", "perm_cfg"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
+    if (!["rec_start", "rec_stop", "standby", "config", "rename", "preview_start", "preview_stop", "battery", "tl_start", "tl_stop", "zoom", "xfer_start", "xfer_test", "space_cfg", "join_result", "ping", "clock", "station_cfg", "pro", "perm_cfg", "session_end"].includes(m.cmd)) { log(id, `Comando "${m.cmd}" non disponibile su una camera reale`); dbg("warn", "tx", `comando ${m.cmd} non supportato su camera reale`); return; }
     this.sendCmd({ ...m, to: id, from: this.id });
   }
 }

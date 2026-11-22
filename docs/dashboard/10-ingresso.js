@@ -7,8 +7,14 @@ const Session = {
   save() { store.set("gdc.session", this.cur); },
   rename(n) { this.cur.name = String(n || "").replace(/[<>&"]/g, "").trim().slice(0, 60); this.save(); this.paint(); dbg("info", "sessione", `nome: “${this.cur.name}”`); },
   paint() { const el = $("#sessTxt"); if (el) el.textContent = REAL ? this.label() + " · " : ""; },
-  begin(name) {
+  async begin(name) {
     const old = { nome: this.cur.name, camere: cameras.length };
+    // prima avviso le camere sul canale vecchio: così non restano accese senza nessuno che le comandi, e chiedono un QR valido
+    if (REAL && cameras.length && typeof transport !== "undefined" && transport.rt) {
+      for (const c of cameras) { try { transport.send(c.id, { cmd: "session_end", name: this.cur.name }); } catch { /* ok */ } }
+      try { await Promise.race([transport.q || Promise.resolve(), new Promise((r) => setTimeout(r, 2500))]); } catch { /* ok */ }
+      await new Promise((r) => setTimeout(r, 1200)); dbg("info", "sessione", `avviso di chiusura inviato a ${cameras.length} camere sul canale vecchio`);
+    }
     this.cur = { name: String(name || "").replace(/[<>&"]/g, "").trim().slice(0, 60), start: Date.now() }; this.save();
     GDC_RT.Pair.save({ u: pairing.u, k: pairing.k, c: GDC_RT.Pair.newChannel() }); // senza chiavi: la regia ne crea di nuove al riavvio
     store.set(CAM_KEY, []); store.set("gdc.rejected", []);

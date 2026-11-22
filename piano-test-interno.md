@@ -1,6 +1,6 @@
 # Piano di test interno — Video System GDC Studio
 
-Versioni da usare: **camera r36**, **dashboard r36**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
+Versioni da usare: **camera r37**, **dashboard r37**. Tutti i link da sviluppatore (con `?dev=1`): i log partono sempre e li leggo io. Dopo ogni prova scrivimi **"fatto"**, il numero della prova e, solo se serve, una riga su cosa hai visto.
 
 ## Cosa serve
 
@@ -31,6 +31,10 @@ Versioni da usare: **camera r36**, **dashboard r36**. Tutti i link da sviluppato
 1. In "Aggiungi camera" scrivi un nome (per esempio "Prova uno"): deve comparire in intestazione.
 2. Premi **"Nuova sessione"**, scrivi un nome, conferma. La pagina si ricarica.
 3. **Atteso:** il QR è cambiato, l'elenco camere è vuoto, il nome è quello nuovo. I telefoni di prima non rispondono più. Riinquadra il QR nuovo e rientrano. Le clip già registrate restano sul telefono.
+
+Aggiunta alla prova P (nuova sessione), con una camera collegata:
+4. Con la camera **in registrazione**, premi "Nuova sessione" e conferma. **Atteso:** dopo pochi secondi la camera ferma la ripresa e salva la clip, si scollega e mostra "La regia ha chiuso la sessione… inquadra il QR valido della nuova sessione". Inquadra il QR nuovo: rientra.
+5. Spegni (o chiudi la pagina di) una camera, fai "Nuova sessione", poi riaccendila: ha ancora il vecchio collegamento. **Atteso:** dopo circa 90 secondi compare "Nessuna regia collegata" con il pulsante "Scollega questa camera e inquadra un nuovo QR".
 
 ## O. Viste delle camere (10 minuti)
 

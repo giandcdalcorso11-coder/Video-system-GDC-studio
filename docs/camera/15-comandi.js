@@ -25,6 +25,11 @@ async function onCmd(m) {
   try {
     switch (m.cmd) {
       case "join_result": if (m.label && m.label !== label) { label = String(m.label).slice(0, 30); store.set("gdc.label", label); dbg("info", `la regia ha assegnato il nome: ${label}`); renderClips(); } joinState = m.ok ? "ok" : "no"; dbg(m.ok ? "info" : "warn", m.ok ? "la regia ha accettato questa camera" : "la regia NON ha accettato questa camera: invio dello stato sospeso"); if (m.ok) publish(); else renderStat(); detail = { join: joinState }; break;
+      case "session_end": { // la regia ha creato una nuova sessione: questa camera non è più comandata da nessuno. Chiudo in sicurezza e chiedo un QR valido
+        detail = "sessione chiusa";
+        const nm = String(m.name || "").replace(/[<>&"]/g, "").slice(0, 40), msg = `La regia ha chiuso la sessione${nm ? " “" + nm + "”" : ""}. Questa camera non è più collegata a nessuna regia: inquadra il QR valido della nuova sessione. Le clip già registrate restano su questo telefono.`;
+        (async () => { if (recording) { dbg("warn", "sessione chiusa durante la ripresa: fermo e salvo la clip"); stopRec(); for (let i = 0; i < 24 && recording; i++) await sleep(250); } if (tl && tl.stage === "shooting") tlStop(); closePreviews(); try { stream && stream.getTracks().forEach((t) => { t.onended = null; t.stop(); }); } catch { /* ok */ } stream = null; leaveSession(msg); })();
+        break; }
       case "ping": detail = { t0: m.t0 }; break;
       case "clock": clockOff = Number(m.off) || 0; store.set("gdc.clockOff", clockOff); dbg("info", `orologio: questo telefono è ${clockOff > 0 ? "avanti" : "indietro"} di ${Math.abs(clockOff)} ms rispetto alla regia (precisione ±${Math.round((Number(m.rtt) || 0) / 2)} ms): i nomi dei file lo correggono`); renderClips(); publish(); detail = { off: clockOff }; break;
       case "rec_start": await startRec(); ok = !!recording; detail = ok ? "registrazione avviata" : lastErr || "non avviata"; break;

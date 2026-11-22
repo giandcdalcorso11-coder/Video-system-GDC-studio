@@ -44,9 +44,16 @@
   <div class="row"><h1>Camera</h1><span class="pill" id="connPill"><span class="dot"></span><span id="connTxt">non collegata</span></span></div>
   <div id="modeHost"></div>
 
+  <section class="panel" id="orphanBar" hidden style="border-color:var(--bad)">
+    <h2 style="margin-top:0">Nessuna regia collegata</h2>
+    <p id="orphanTxt" class="muted" style="margin:0 0 8px"></p>
+    <button class="ghost" id="orphanBtn">Scollega questa camera e inquadra un nuovo QR</button>
+  </section>
+
   <section class="panel" id="pairBox" hidden>
     <h2>Abbinamento</h2>
-    <p class="muted" style="margin-top:0">Apri il link di abbinamento ricevuto, oppure incolla qui il codice che inizia con <b>gdc1.</b></p>
+    <p id="pairEnded" class="err" style="margin-top:0" hidden></p>
+    <p class="muted" style="margin-top:0">Inquadra con la fotocamera del telefono il <b>QR valido</b> mostrato dalla regia (“Aggiungi camera”), oppure incolla qui il codice che inizia con <b>gdc1.</b></p>
     <textarea id="pairTxt" rows="3" placeholder="gdc1.…"></textarea>
     <button class="primary" id="pairBtn" style="margin-top:8px">Abbina</button>
   </section>
@@ -97,26 +104,26 @@
 <div id="blackout"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r36"></script>
-<script src="auth.js?v=r36"></script>
-<script src="dev.js?v=r36"></script>
-<script src="xfer.js?v=r36"></script>
-<script>"use strict"; const PAGE_VERSION = "camera r36";</script>
-<script defer src="camera/01-base.js?v=r36"></script>
-<script defer src="camera/02-registro.js?v=r36"></script>
-<script defer src="camera/03-identita.js?v=r36"></script>
-<script defer src="camera/04-archivio.js?v=r36"></script>
-<script defer src="camera/05-postazione.js?v=r36"></script>
-<script defer src="camera/06-spazio.js?v=r36"></script>
-<script defer src="camera/07-fotocamera.js?v=r36"></script>
-<script defer src="camera/08-registrazione.js?v=r36"></script>
-<script defer src="camera/09-timelapse.js?v=r36"></script>
-<script defer src="camera/10-zoom-test.js?v=r36"></script>
-<script defer src="camera/11-schermo-nero.js?v=r36"></script>
-<script defer src="camera/12-stato.js?v=r36"></script>
-<script defer src="camera/13-anteprima.js?v=r36"></script>
-<script defer src="camera/14-trasferimento.js?v=r36"></script>
-<script defer src="camera/15-comandi.js?v=r36"></script>
-<script defer src="camera/16-interfaccia.js?v=r36"></script>
+<script src="rt.js?v=r37"></script>
+<script src="auth.js?v=r37"></script>
+<script src="dev.js?v=r37"></script>
+<script src="xfer.js?v=r37"></script>
+<script>"use strict"; const PAGE_VERSION = "camera r37";</script>
+<script defer src="camera/01-base.js?v=r37"></script>
+<script defer src="camera/02-registro.js?v=r37"></script>
+<script defer src="camera/03-identita.js?v=r37"></script>
+<script defer src="camera/04-archivio.js?v=r37"></script>
+<script defer src="camera/05-postazione.js?v=r37"></script>
+<script defer src="camera/06-spazio.js?v=r37"></script>
+<script defer src="camera/07-fotocamera.js?v=r37"></script>
+<script defer src="camera/08-registrazione.js?v=r37"></script>
+<script defer src="camera/09-timelapse.js?v=r37"></script>
+<script defer src="camera/10-zoom-test.js?v=r37"></script>
+<script defer src="camera/11-schermo-nero.js?v=r37"></script>
+<script defer src="camera/12-stato.js?v=r37"></script>
+<script defer src="camera/13-anteprima.js?v=r37"></script>
+<script defer src="camera/14-trasferimento.js?v=r37"></script>
+<script defer src="camera/15-comandi.js?v=r37"></script>
+<script defer src="camera/16-interfaccia.js?v=r37"></script>
 </body>
 </html>

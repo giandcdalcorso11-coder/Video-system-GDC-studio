@@ -39,7 +39,8 @@ async function start() {
   if (window.GDC_DEV) GDC_DEV.init({ role: "camera", dev: () => ID, ver: PAGE_VERSION, pairing, log: (l, m) => dbg(l, m), backlog: () => dbgBuf.slice(-300), host: $("modeHost") });
   batProbe(); deviceProbe().catch((e) => dbg("warn", `sonda dispositivo: ${e.name}: ${e.message}`));
   welcomePending = !!(pairing && FIRST);
-  $("pairBox").hidden = !!pairing; $("welcome").hidden = !welcomePending; $("main").hidden = !pairing || welcomePending; $("statPanel").hidden = !pairing || welcomePending; $("dbgPanel").hidden = false;
+  $("pairBox").hidden = !!pairing; { const end = store.get("gdc.ended", null); if (!pairing && end) { $("pairEnded").hidden = false; $("pairEnded").textContent = end.msg; } else { $("pairEnded").hidden = true; if (pairing && end) store.set("gdc.ended", null); } }
+  $("welcome").hidden = !welcomePending; $("main").hidden = !pairing || welcomePending; $("statPanel").hidden = !pairing || welcomePending; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
   await db.selfTest(); await loadSessions(); recoverOrphans();
   spaceTick(); setInterval(spaceTick, 8000);
@@ -47,17 +48,31 @@ async function start() {
   if (welcomePending) { dbg("info", "prima apertura: mostro la schermata di benvenuto (nome e permessi)"); return; }
   await goOnline();
 }
-let netBad = 0;
+let netBad = 0, regiaPresente = false, regiaVista = Date.now(), orphanShown = false;
+/* nessuna regia sul canale: succede se la sessione è cambiata mentre questo telefono era spento, o se la regia è chiusa.
+   Dopo 90 s (con il collegamento attivo) lo dico chiaramente; la camera non si scollega da sola: lo decide chi la usa */
+function orphanCheck() {
+  const connected = rt && /^connesso/.test(rt.status), quiet = Date.now() - regiaVista, bad = connected && !regiaPresente && quiet > 90000;
+  if (bad !== orphanShown) { orphanShown = bad; $("orphanBar").hidden = !bad; dbg(bad ? "warn" : "info", bad ? `nessuna regia sul canale da ${Math.round(quiet / 1000)} s: avviso la persona` : "la regia è tornata"); }
+  if (bad) $("orphanTxt").textContent = `Da ${quiet >= 120000 ? Math.round(quiet / 60000) + " minuti" : Math.round(quiet / 1000) + " secondi"} nessuna regia comanda questa camera. Se la regia è accesa ma ha creato una nuova sessione, tocca qui sotto e inquadra il QR nuovo. Le clip già registrate restano sul telefono.${recording ? " La registrazione in corso continua." : ""}`;
+}
+function leaveSession(msg) {
+  dbg("warn", `esco dalla sessione: ${msg}`); store.set("gdc.ended", { at: Date.now(), msg });
+  try { GDC_RT.Pair.clear(); } catch { /* ok */ } try { rt && rt.close(); } catch { /* ok */ }
+  setTimeout(() => location.replace(location.pathname + location.search), 400);
+}
+$("orphanBtn").onclick = () => { if (recording && !confirm("C'è una registrazione in corso: se scolleghi, si ferma e la clip resta sul telefono. Continuo?")) return; (async () => { if (recording) { stopRec(); for (let i = 0; i < 20 && recording; i++) await sleep(250); } leaveSession("camera scollegata da te: inquadra il QR valido della regia."); })(); };
 function attachRt() {
   rt = GDC_RT.connect({ pairing, role: "camera", id: ID, meta: { name: cfg.name, device: cfg.device, fp: FP }, mock: MOCK, log: (l, m) => dbg(l, "rt: " + m) });
   rt.onStatus((s) => { $("connTxt").textContent = s; renderStat(); });
+  rt.onPeers((list) => { const n = list.filter((p) => p.role === "dashboard").length; if (n && !regiaPresente) dbg("info", "regia presente sul canale"); if (n) { regiaVista = Date.now(); regiaPresente = true; } else regiaPresente = false; });
   rt.on("battery", (m) => { if (m && m.test) { dbg("info", "prova di invio ricevuta dal canale: valore di prova, non salvato"); return; } if (m && (!m.id || m.id === ID)) setBat(m.level, m.charging, "Comandi"); else dbg("trace", `batteria ignorata (id ${m && m.id})`); }); rt.on("xrtc", (m) => { if (m && m.to === ID) GDC_XFER.signal(m); }); rt.on("cmd", cmdGate); rt.on("rtc", onRtc); rt.on("hello", () => { dbg("info", "hello dalla dashboard"); publish(); });
 }
 async function goOnline() {
   attachRt();
   setInterval(() => { if (!rt) return; if (/^connesso/.test(rt.status)) { netBad = 0; return; } netBad += 10; if (netBad >= 60) { netBad = 0; dbg("warn", `collegamento giù da oltre 60 s (${rt.status}): lo ricreo`); try { rt.close(); } catch { /* ok */ } attachRt(); publish(); } }, 10000);
   addEventListener("online", () => { if (rt && !/^connesso/.test(rt.status)) { dbg("info", "rete tornata: ricreo il collegamento"); try { rt.close(); } catch { /* ok */ } attachRt(); } });
-  setInterval(publish, 2000); setInterval(flushDbg, 1500); publish();
+  setInterval(publish, 2000); setInterval(flushDbg, 1500); setInterval(orphanCheck, 5000); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => dbg("info", "dispositivi multimediali cambiati"));
   autoOpen("apertura pagina");
