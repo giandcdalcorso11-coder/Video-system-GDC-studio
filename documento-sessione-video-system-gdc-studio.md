@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 57
-**Ultimo aggiornamento:** 2026-11-21 16:10
+**Versione:** 58
+**Ultimo aggiornamento:** 2026-11-22 16:20
 
 ## Vision
 
@@ -100,7 +100,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 6 — Trasferimento file e destinazioni
 
-**Stato:** in corso (provato con successo su iPhone 15 → iPad su rete molto debole; mancano prove su PC con cartella, su rete locale veloce e su file grandi)
+**Stato:** in corso (provato con successo su wifi vero con PC come regia, cartella, iPad e iPhone: 24–35 Mbps, trasferimento automatico con eliminazione dal telefono, recupero di clip di sessioni precedenti; da chiarire il caso REC durante un trasferimento; mancano disco scollegato, Android, file lunghi)
 
 **Obiettivo:** arrivo dei file nella cartella del PC (Edge, File System Access) con barra di avanzamento e "sicuro da chiudere"; poi destinazioni alternative.
 
@@ -113,6 +113,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-17] Prova reale iPhone 15 → iPad (rete del telefono molto debole, 0,2-0,9 Mbps): clip da 6,3 MB arrivata e verificata dopo 3 riprese automatiche (byte 1 140 000, 2 640 000, 4 440 000, CRC ok) e una manuale; video visto dalla galleria dell'iPad, qualità ottima.
 - [2026-11-17] Ripresa automatica dopo un'interruzione: il ricevente conserva quanto ricevuto (destinazione aperta e CRC32 progressivo), a ogni tentativo ricevente e mittente si accordano sul byte di ripartenza e la camera controlla il CRC32 dei byte già consegnati prima di continuare; fino a 6 tentativi automatici a distanza di 6 s, poi pulsante "Riprendi". Coda di invio ridotta (1 MB) perché i byte "inviati" siano quasi quelli arrivati.
 - [2026-11-18] Trasferimento automatico dopo ogni clip e buffer a rotazione (dashboard r16), provati in simulazione; da provare su dispositivi reali con una cartella del PC.
+- [2026-11-22] Prove su wifi con PC come regia, cartella scelta, iPad e iPhone come camere: 24–35 Mbps (clip da 26 MB in circa 7 s), trasferimento automatico con eliminazione dal telefono riuscito, clip di una sessione precedente scaricate al rientro. Con un REC avviato durante un trasferimento, una clip da 16 MB ha impiegato 71 s con una dozzina di interruzioni e riprese (nessun dato perso, CRC ok); possibile file doppio con suffisso `_2` da verificare. Dashboard r38–r39: barre di avanzamento in home per tutte le camere, impostazioni dei file valide per tutte le camere dalla home, fino a 40 clip per camera, sessione di appartenenza di ogni clip, avvisi sulle clip non trasferite.
 - [2026-11-15] Prima versione: invio diretto camera → dashboard con WebRTC data channel (segnalazione su Supabase, evento `xrtc`), a blocchi da 60 KB con controllo della coda, controllo finale di dimensione e CRC32; destinazioni: cartella del computer (File System Access, solo Edge/Chrome desktop; la cartella è ricordata) oppure memoria del dispositivo + Salva/Condividi; opzione "elimina dal telefono dopo il trasferimento verificato" (spenta di default); barra di avanzamento con velocità e tempo residuo; indicatore "Sicuro da chiudere"; prova di velocità da 30 MB con tipo di percorso (rete locale/relay). Provato in Chromium con camera e dashboard simulate: SHA-256 identico sia in memoria sia con cartella simulata, eliminazione dopo la verifica ok. Non ancora fatta: ripresa dopo interruzione, coda in background, TURN.
 - [2026-11-15] Chiarito il limite di Safari su iPad: non può scegliere una cartella; i file si salvano da Condividi → File (anche su disco esterno). Su PC con Edge/Chrome la cartella si sceglie. Il trasferimento diretto sulla stessa rete è il percorso principale; tra reti diverse servirebbe un relay (a pagamento).
 
@@ -194,6 +195,49 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
 ## Storico sessioni
+
+### [2026-11-22 16:20] Prove con PC come regia e wifi vero: correzioni a REC, sessioni, file e log (camera r38, dashboard r39)
+
+**Riepilogo:** Con PC (Edge) come regia, iPad e iPhone come camere su wifi vero, le prove hanno mostrato 24–35 Mbps e il trasferimento automatico funzionante; trovati e corretti il contatore REC che non spariva, una registrazione bloccata dopo l'interruzione del microfono, camere segnate offline per errore e la gestione di "Nuova sessione"; aggiunti log di visibilità, impostazioni dei file dalla home, barre di avanzamento in home e informazioni sulle clip per sessione. Serie automatica: 383/383.
+
+**Cosa è stato fatto:**
+- **Bug: badge REC sull'anteprima non spariva dopo lo STOP (camera r34)**
+  - **Sintomo:** sul telefono il contatore rosso restava con il tempo della ripresa precedente e si azzerava solo alla ripresa successiva.
+  - **Causa:** lo stile `.stRec { display: flex }` annullava l'attributo `hidden`; il test 17 controllava l'attributo e non lo stile reale, quindi non lo vedeva.
+  - **Fix applicato:** `.stRec[hidden] { display: none }`; il test 17 ora controlla lo stile calcolato. Verificato in simulazione; da riconfermare sul telefono dall'utente (non ancora detto esplicitamente).
+- **Log nuovi (camera r35 / dashboard r35):** visibilità nascosta/di nuovo visibile con durata, focus, congelamento della pagina, timer in ritardo (con stato e durata in secondo piano), e nel messaggio "camera offline" lo stato della regia (visibile o nascosta, focus, rete, collegamento). Prova R aggiunta al piano (regia in secondo piano su Edge). Dai log reali: la regia sul PC ha avuto blocchi di 7–60 s anche in primo piano; l'iPhone ha avuto "timer in ritardo" di oltre 20 minuti in secondo piano.
+- **Bug: camera registrante bloccata dopo l'interruzione dell'audio (camera r36)**
+  - **Sintomo:** su iPhone, a 4–8 s dall'inizio del REC la traccia audio è terminata; il registratore non ha più consegnato dati (0 pezzi, 0 MB), non ha confermato lo stop e la camera è rimasta "in REC" oltre 5 minuti, mentre la regia la vedeva ferma; clip persa e nessun REC successivo possibile.
+  - **Causa:** il MediaRecorder di Safari si blocca quando una traccia termina (probabili AirPods o cambio audio); mancava ogni controllo su stop non confermato e su assenza di dati. Causa precisa dell'interruzione audio non accertata.
+  - **Fix applicato:** se il microfono termina durante il REC, la ripresa viene fermata e salvata con messaggio chiaro; se lo stop non è confermato in 4 s la registrazione viene chiusa a mano; se per 10 s non arrivano dati la ripresa viene fermata; al REC successivo, se il microfono era finito, la camera si riapre. Verificato in simulazione (test 23); da provare su iPhone con AirPods.
+- **Bug: camere segnate offline per errore quando la regia si ferma (dashboard r36)**
+  - **Sintomo:** la regia sul PC si è fermata per 12,8 s e ha segnato offline iPhone e iPad.
+  - **Causa:** il controllo "nessuno stato da 8 s" contava anche il tempo in cui la pagina della regia era ferma.
+  - **Fix applicato:** il tempo di blocco non conta contro le camere, con riga nel registro. Verificato in simulazione (test 24) e visto in uso reale più volte.
+- **Altro (r36):** l'iPad si presentava come "Telefono · MacIntel"; ora la camera si riconosce come iPad/iPadOS (il tipo già salvato resta "Telefono" finché non si reimposta).
+- **Impostazioni dei file dalla home (dashboard r36):** destinazione dei file (cartella del computer o dispositivo), scegli/verifica cartella, "Tieni i file", "Elimina dal telefono", automatico, anteprima durante i trasferimenti e "Trasferisci tutte le clip pronte di tutte le camere" sono ora anche in home. Erano già un'impostazione unica per tutte le camere, ma visibile solo dentro ogni camera. Una destinazione diversa per ogni telefono non esiste ancora.
+- **Nuova sessione e camere senza regia (camera r37 / dashboard r37):** prima di cambiare canale la regia manda alle camere un avviso firmato (`session_end`); la camera ferma e salva l'eventuale ripresa, si scollega, mostra "inquadra il QR valido della nuova sessione". Una camera spenta in quel momento mostra dopo 90 s "Nessuna regia collegata" con pulsante di scollegamento (non si scollega da sola: una regia chiusa a lungo non deve far perdere il collegamento né fermare una ripresa). Provato su dispositivi reali alle 11:57: avviso ricevuto da entrambe le camere, rientro con QR nuovo riuscito. Il primo cambio (11:52) non aveva raggiunto camere ferme in secondo piano con pagine r36.
+- **Barre di avanzamento in home (dashboard r38):** riquadro "Trasferimenti" con camera, file, barra, percentuale, MB, velocità e tempo residuo; resta 90 s dopo la fine.
+- **Clip e sessioni (camera r38 / dashboard r39):** fino a 40 clip per camera in regia (prima 8) con indicazione "altre N"; ogni clip porta il nome della sessione in cui è stata registrata (le clip già presenti sui telefoni non lo hanno); "da “nome”" o "da una sessione precedente" nelle liste; avviso nel registro quando una camera rientra con clip non trasferite (una volta al minuto per camera) e riga di avviso in home sulle clip di sessioni precedenti.
+- **Dai log delle prove su wifi:** 24–35 Mbps; trasferimento automatico con eliminazione riuscito; clip di sessioni precedenti recuperate automaticamente al rientro.
+- **Problemi aperti dai log:**
+  - **Bug: trasferimento rallentato da una ripresa avviata durante l'invio.** Sintomo: clip da 16 MB in 71 s con circa 12 interruzioni ("canale chiuso prima della fine", "sostituito o interrotto") e riprese. Causa: non accertata; ipotesi di regia e telefono che ritentano insieme, ognuno sostituendo l'invio dell'altro, sotto carico del telefono. Fix applicato: nessuno (nessun dato perso, CRC ok). Serve prova mirata con log dettagliati.
+  - **Possibile file doppio:** sull'iPad un invio completo a 16,8 MB è stato dichiarato interrotto e ripetuto, producendo `..._2.mp4`; da verificare nella cartella se esiste anche il file senza `_2`.
+  - **4K:** 43,4 MB in 10 s (circa 260 MB/min a 40 Mbps); stima spazio sui telefoni con il limite prudente di 700 MB ("circa 4 minuti") finché non si misura.
+  - Caldo del telefono dopo trasferimenti lunghi (riferito dall'utente, non misurabile da Safari); interruzioni nel trasferimento 4K dovute al cambio di pagina fatto dall'utente su Safari (il recupero ha funzionato).
+- **Spiegazioni date (nessun codice):** differenze tra Safari su iPhone e Edge sul PC per le pagine in secondo piano (consigli: finestra dedicata o app installata, non ridotta a icona, escludere il sito dalle schede in sospensione); recupero dei video rimasti sul telefono dopo una nuova sessione (restano sul telefono, si recuperano rientrando con il QR nuovo); storico di sessioni e account da progettare nella webapp con il cloud, non nella dashboard di prova.
+
+**Decisioni prese:**
+- Contesto: cosa fare di camere non più comandate da nessuna regia. Decisione: avviso esplicito di chiusura alla nuova sessione, e per le camere perse solo un avviso dopo 90 s con scollegamento a scelta dell'utente. Alternative scartate: scollegare da sole dopo un tempo fisso (una regia chiusa per qualche minuto farebbe perdere il collegamento). Da rivedere se: gli utenti lasciano camere orfane accese; l'utente preferisce lo scollegamento automatico dopo N minuti.
+- Contesto: storico di sessioni per recuperare i video. Decisione: nel sistema attuale (senza account) non serve; i video sono sul telefono. Si migliorano elenco clip e avvisi; lo storico vero va nella webapp con il cloud. Da rivedere se: si decide il cloud a pagamento.
+- Contesto: interfaccia complessa. Decisione: la dashboard attuale resta un banco di prova (Avanzata con tutto); il flusso della webapp si disegna a parte dopo le prove su wifi e più telefoni. Alternative scartate: rifinire ora la dashboard.
+- Una destinazione dei file diversa per ogni telefono è rimandata alle prove con più telefoni (richiede cartelle separate per camera).
+
+**File consegnati/modificati:** `docs/camera.html` (camera r38), `docs/dashboard.html` (dashboard r39), `docs/camera/03-identita.js`, `07-fotocamera.js`, `08-registrazione.js`, `09-timelapse.js`, `12-stato.js`, `15-comandi.js`, `16-interfaccia.js`, `02-registro.js`; `docs/dashboard/02-registro.js`, `05-trasporto.js`, `07-trasferimento.js`, `08-binding-stato.js`, `10-ingresso.js`, `14-viste.js`, `15-router-rec.js`; test nuovi 20–27 (contatore REC, controllo pagina, destinazione globale, registrazione bloccata, regia ferma, sessione chiusa, barre in home, clip e sessioni) e test 17 corretto; `piano-test-interno.md` (versioni, prova R, aggiunte alla prova P). Commit sul ramo `claude/friendly-feynman-0cmnp3`.
+
+**Impatto su Vision/Pipeline:** Step 6 aggiornato (prove su wifi vero, esiti, caso aperto). Nessun cambio di Vision.
+
+---
 
 ### [2026-11-21 16:10] Prime prove con iPad e iPhone 15: esiti, due difetti corretti, peso reale dei video
 
