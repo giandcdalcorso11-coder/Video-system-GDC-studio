@@ -19,9 +19,10 @@
   button:disabled { opacity: .45; }
   input, select, textarea { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 40px; width: 100%; }
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  #stage { display: none; position: relative; border-radius: 14px; overflow: hidden; background: #000; margin-top: 8px; max-height: 64vh; }
+  /* il riquadro prende la proporzione vera dell'immagine (la imposta stageFit): niente bande nere ai lati */
+  #stage { display: none; position: relative; border-radius: 14px; overflow: hidden; background: #000; margin: 8px auto 0; max-height: 64vh; aspect-ratio: 9 / 16; max-width: calc(64vh * 0.5625); width: 100%; }
   #stage.on { display: block; }
-  #stage video { border-radius: 0; max-height: 64vh; min-height: 200px; }
+  #stage video { border-radius: 0; display: block; width: 100%; height: 100%; max-height: none; min-height: 0; object-fit: cover; }
   .stGrid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, transparent 33.2%, rgba(255,255,255,.18) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,.18) 66.6%, transparent 66.8%), linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.18) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255,255,255,.18) 66.6%, transparent 66.8%); }
   .stRec { position: absolute; left: 10px; top: 10px; display: flex; align-items: center; gap: 7px; background: #ff4d3d; color: #000; font-weight: 700; font-size: 14px; padding: 5px 11px; border-radius: 10px; }
   .stRec[hidden] { display: none; }
@@ -104,26 +105,26 @@
 <div id="blackout"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r40"></script>
-<script src="auth.js?v=r40"></script>
-<script src="dev.js?v=r40"></script>
-<script src="xfer.js?v=r40"></script>
-<script>"use strict"; const PAGE_VERSION = "camera r40";</script>
-<script defer src="camera/01-base.js?v=r40"></script>
-<script defer src="camera/02-registro.js?v=r40"></script>
-<script defer src="camera/03-identita.js?v=r40"></script>
-<script defer src="camera/04-archivio.js?v=r40"></script>
-<script defer src="camera/05-postazione.js?v=r40"></script>
-<script defer src="camera/06-spazio.js?v=r40"></script>
-<script defer src="camera/07-fotocamera.js?v=r40"></script>
-<script defer src="camera/08-registrazione.js?v=r40"></script>
-<script defer src="camera/09-timelapse.js?v=r40"></script>
-<script defer src="camera/10-zoom-test.js?v=r40"></script>
-<script defer src="camera/11-schermo-nero.js?v=r40"></script>
-<script defer src="camera/12-stato.js?v=r40"></script>
-<script defer src="camera/13-anteprima.js?v=r40"></script>
-<script defer src="camera/14-trasferimento.js?v=r40"></script>
-<script defer src="camera/15-comandi.js?v=r40"></script>
-<script defer src="camera/16-interfaccia.js?v=r40"></script>
+<script src="rt.js?v=r41"></script>
+<script src="auth.js?v=r41"></script>
+<script src="dev.js?v=r41"></script>
+<script src="xfer.js?v=r41"></script>
+<script>"use strict"; const PAGE_VERSION = "camera r41";</script>
+<script defer src="camera/01-base.js?v=r41"></script>
+<script defer src="camera/02-registro.js?v=r41"></script>
+<script defer src="camera/03-identita.js?v=r41"></script>
+<script defer src="camera/04-archivio.js?v=r41"></script>
+<script defer src="camera/05-postazione.js?v=r41"></script>
+<script defer src="camera/06-spazio.js?v=r41"></script>
+<script defer src="camera/07-fotocamera.js?v=r41"></script>
+<script defer src="camera/08-registrazione.js?v=r41"></script>
+<script defer src="camera/09-timelapse.js?v=r41"></script>
+<script defer src="camera/10-zoom-test.js?v=r41"></script>
+<script defer src="camera/11-schermo-nero.js?v=r41"></script>
+<script defer src="camera/12-stato.js?v=r41"></script>
+<script defer src="camera/13-anteprima.js?v=r41"></script>
+<script defer src="camera/14-trasferimento.js?v=r41"></script>
+<script defer src="camera/15-comandi.js?v=r41"></script>
+<script defer src="camera/16-interfaccia.js?v=r41"></script>
 </body>
 </html>

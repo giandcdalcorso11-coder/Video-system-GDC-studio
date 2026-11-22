@@ -75,6 +75,7 @@ async function goOnline() {
   setInterval(publish, 2000); setInterval(flushDbg, 1500); setInterval(orphanCheck, 5000); publish();
   setInterval(() => $("stat").children.length && renderStat(), 1000);
   navigator.mediaDevices?.addEventListener?.("devicechange", () => { AudioDiag.devChange = Date.now(); AudioDiag.devs().then((d) => dbg("info", "dispositivi multimediali cambiati", d)); });
+  $("vid").addEventListener("resize", () => stageFit("cambio dimensioni del video")); addEventListener("orientationchange", () => setTimeout(() => stageFit("rotazione"), 400));
   try { const a = navigator.audioSession; dbg("info", `audioSession: ${AudioDiag.as()}`); if (a && a.addEventListener) a.addEventListener("statechange", () => dbg("warn", `audioSession cambiata: ${AudioDiag.as()}`)); } catch { /* ok */ }
   autoOpen("apertura pagina");
 }

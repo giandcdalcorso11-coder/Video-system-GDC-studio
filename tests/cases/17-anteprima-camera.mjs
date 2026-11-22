@@ -6,6 +6,11 @@ export async function run() {
     const dash = await t.dash(), cam = await t.cam("camA");
     const vis = (id) => cam.evaluate((i) => { const e = document.getElementById(i), r = e.getBoundingClientRect(); return getComputedStyle(e).display !== "none" && r.width > 0; }, id);
     t.check("camera avviata: compare l'anteprima", await t.until(() => cam.evaluate(() => !!stream && document.getElementById("stage").classList.contains("on") && document.getElementById("stage").getBoundingClientRect().height > 100)));
+    t.check("il riquadro ha la stessa proporzione dell'immagine (niente bande nere)", await t.until(() => cam.evaluate(() => { const v = document.getElementById("vid"), st = document.getElementById("stage"); if (!v.videoWidth) return false; const rv = v.videoWidth / v.videoHeight, rs = st.clientWidth / st.clientHeight; return Math.abs(rv - rs) < 0.03; }), 8000), await cam.evaluate(() => { const v = document.getElementById("vid"), st = document.getElementById("stage"); return `${v.videoWidth}x${v.videoHeight} vs ${st.clientWidth}x${st.clientHeight}`; }));
+    t.check("la proporzione viene scritta nel registro", await cam.evaluate(() => dbgBuf.some((x) => /anteprima locale: video \d+×\d+ \(proporzione/.test(x.m))));
+    await cam.setViewportSize({ width: 390, height: 844 }); await sleep(1500);
+    t.check("anche su schermo da telefono il riquadro segue la proporzione dell'immagine", await cam.evaluate(() => { const v = document.getElementById("vid"), st = document.getElementById("stage"); const rv = v.videoWidth / v.videoHeight, rs = st.clientWidth / st.clientHeight; return Math.abs(rv - rs) < 0.03; }));
+    await cam.setViewportSize({ width: 1280, height: 720 });
     t.check("compare 'Anteprima in diretta' con la qualità", await t.until(async () => /Anteprima in diretta/.test(await cam.evaluate(() => document.getElementById("stLive").textContent))), await cam.evaluate(() => document.getElementById("stLive").textContent));
     t.check("fuori dalla registrazione il badge REC è nascosto", !(await vis("stRec")));
     await dash.evaluate(() => { location.hash = "#/"; route(); });

@@ -104,8 +104,15 @@ function stateObj() {
 }
 function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5000) { renderStat(); return; } publish.t = Date.now(); try { rt?.send("state", stateObj()); } catch (e) { dbg("warn", `invio stato: ${e.message}`); } renderStat(); }
 /* anteprima locale a tutto campo: REC con tempo, zoom e qualità sopra l'immagine */
+/* adatta il riquadro all'immagine: stessa proporzione del video (verticale, orizzontale o dopo una rotazione o uno sblocco dello schermo) */
+function stageFit(why) {
+  const v = $("vid"), st = $("stage"); if (!v || !st || !v.videoWidth || !v.videoHeight) return;
+  const ratio = v.videoWidth / v.videoHeight; if (Math.abs(ratio - (stageFit.r || 0)) < 0.002 && !why) return;
+  stageFit.r = ratio; st.style.aspectRatio = String(ratio); st.style.maxWidth = `calc(64vh * ${ratio.toFixed(4)})`;
+  dbg("info", `anteprima locale: video ${v.videoWidth}×${v.videoHeight} (proporzione ${ratio.toFixed(3)}), riquadro ${Math.round(st.clientWidth)}×${Math.round(st.clientHeight)}, finestra ${innerWidth}×${innerHeight}${why ? ", motivo: " + why : ""}`);
+}
 function stageUpdate(s) {
-  const r = $("stRec"), z = $("stZoom"), l = $("stLive"); if (!r || !z || !l) return; $("stage").classList.toggle("on", !!stream);
+  const r = $("stRec"), z = $("stZoom"), l = $("stLive"); if (!r || !z || !l) return; $("stage").classList.toggle("on", !!stream); stageFit();
   r.hidden = !(s.rec && recording); if (!r.hidden) $("stTime").textContent = "REC · " + fmtT(Date.now() - recording.start);
   const zi = s.zoom, zv = zi && zi.native ? Number(zi.cur) : 0; z.hidden = !(stream && zv >= 1.05); if (!z.hidden) z.textContent = zv.toFixed(1).replace(".", ",") + "×";
   l.hidden = !stream; if (stream) l.textContent = "Anteprima in diretta" + (s.vh ? ` · ${s.vh >= s.vw ? s.vw : s.vh}p` : "");
