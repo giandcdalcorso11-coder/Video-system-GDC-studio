@@ -107,6 +107,9 @@
   #homeGrid.v-free { display: block; position: relative; border: 1px dashed var(--line); border-radius: 14px; background: var(--panel-2); overflow: auto; }
   #homeGrid.v-free .card { position: absolute; display: flex; flex-direction: column; }
   #homeGrid.v-free .card-h { cursor: grab; touch-action: none; user-select: none; }
+  #homeGrid.v-free.magnet .card:not(.moving) { transition: left .28s cubic-bezier(.2,.8,.2,1), top .28s cubic-bezier(.2,.8,.2,1), width .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1); }
+  @media (prefers-reduced-motion: reduce) { #homeGrid.v-free.magnet .card:not(.moving) { transition: none; } }
+  #vwMagnet[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
   #homeGrid.v-free .card.moving { box-shadow: 0 8px 28px rgba(0,0,0,.4); z-index: 5; }
   #homeGrid.v-free .card-b { flex: 1; min-height: 0; flex-direction: column; align-items: center; }
   #homeGrid.v-free .view.mini { width: auto; height: 100%; max-width: 100%; }
@@ -160,29 +163,29 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r41"></script>
-<script src="auth.js?v=r41"></script>
-<script src="dev.js?v=r41"></script>
-<script src="xfer.js?v=r41"></script>
-<script src="qr.js?v=r41"></script>
-<script>"use strict"; const PAGE_VERSION = "dashboard r41";</script>
-<script defer src="dashboard/01-utilita.js?v=r41"></script>
-<script defer src="dashboard/02-registro.js?v=r41"></script>
-<script defer src="dashboard/03-pannello-registri.js?v=r41"></script>
-<script defer src="dashboard/04-camere.js?v=r41"></script>
-<script defer src="dashboard/05-trasporto.js?v=r41"></script>
-<script defer src="dashboard/06-destinazione.js?v=r41"></script>
-<script defer src="dashboard/07-trasferimento.js?v=r41"></script>
-<script defer src="dashboard/08-binding-stato.js?v=r41"></script>
-<script defer src="dashboard/09-viste-base.js?v=r41"></script>
-<script defer src="dashboard/10-ingresso.js?v=r41"></script>
-<script defer src="dashboard/11-orologio-camere.js?v=r41"></script>
-<script defer src="dashboard/12-segnali.js?v=r41"></script>
-<script defer src="dashboard/13-permessi-modi.js?v=r41"></script>
-<script defer src="dashboard/14-viste.js?v=r41"></script>
-<script defer src="dashboard/14a-viste-camere.js?v=r41"></script>
-<script defer src="dashboard/15-router-rec.js?v=r41"></script>
-<script defer src="dashboard/16-anteprima-simulata.js?v=r41"></script>
-<script defer src="dashboard/17-avvio.js?v=r41"></script>
+<script src="rt.js?v=r42"></script>
+<script src="auth.js?v=r42"></script>
+<script src="dev.js?v=r42"></script>
+<script src="xfer.js?v=r42"></script>
+<script src="qr.js?v=r42"></script>
+<script>"use strict"; const PAGE_VERSION = "dashboard r42";</script>
+<script defer src="dashboard/01-utilita.js?v=r42"></script>
+<script defer src="dashboard/02-registro.js?v=r42"></script>
+<script defer src="dashboard/03-pannello-registri.js?v=r42"></script>
+<script defer src="dashboard/04-camere.js?v=r42"></script>
+<script defer src="dashboard/05-trasporto.js?v=r42"></script>
+<script defer src="dashboard/06-destinazione.js?v=r42"></script>
+<script defer src="dashboard/07-trasferimento.js?v=r42"></script>
+<script defer src="dashboard/08-binding-stato.js?v=r42"></script>
+<script defer src="dashboard/09-viste-base.js?v=r42"></script>
+<script defer src="dashboard/10-ingresso.js?v=r42"></script>
+<script defer src="dashboard/11-orologio-camere.js?v=r42"></script>
+<script defer src="dashboard/12-segnali.js?v=r42"></script>
+<script defer src="dashboard/13-permessi-modi.js?v=r42"></script>
+<script defer src="dashboard/14-viste.js?v=r42"></script>
+<script defer src="dashboard/14a-viste-camere.js?v=r42"></script>
+<script defer src="dashboard/15-router-rec.js?v=r42"></script>
+<script defer src="dashboard/16-anteprima-simulata.js?v=r42"></script>
+<script defer src="dashboard/17-avvio.js?v=r42"></script>
 </body>
 </html>

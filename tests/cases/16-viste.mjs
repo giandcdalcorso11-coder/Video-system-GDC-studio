@@ -49,6 +49,19 @@ export async function run() {
     t.check("posizione e misura restano dopo il ricaricamento", await ev(([a, b, w]) => { const c = document.querySelector("#homeGrid .card"); return Math.abs(c.offsetLeft - a) < 3 && Math.abs(c.offsetTop - b) < 3; }, [l1, t1, w1]));
     await dash.click("#vwReset");
     t.check("Ripristina disposizione rimette la scheda al suo posto", await ev(([a]) => document.querySelector("#homeGrid .card").offsetLeft === a, [0]) || (await ev(() => document.querySelector("#homeGrid .card").offsetLeft)) === l0);
+    // calamita: spostando una scheda sopra un'altra, le altre si scostano e non resta nessuna sovrapposizione
+    t.check("il pulsante Calamita c'è, spento", await ev(() => document.querySelector("#vwMagnet").getAttribute("aria-pressed") === "false" && !document.querySelector("#vwMagnet").hidden));
+    await dash.click("#vwMagnet");
+    t.check("Calamita accesa", await ev(() => Views.magnet === true && /magnet/.test(document.querySelector("#homeGrid").className)));
+    const hb = await (async () => { const h = await dash.$('#homeGrid .card .card-h'); await h.scrollIntoViewIfNeeded(); return h.boundingBox(); })();
+    const c2 = await ev(() => { const c = document.querySelectorAll("#homeGrid .card")[1]; return { x: c.offsetLeft, y: c.offsetTop }; });
+    const c1 = await ev(() => { const c = document.querySelector("#homeGrid .card"); return { x: c.offsetLeft, y: c.offsetTop }; });
+    await dash.mouse.move(hb.x + 40, hb.y + 12); await dash.mouse.down(); await dash.mouse.move(hb.x + 40 + (c2.x - c1.x) + 20, hb.y + 12 + (c2.y - c1.y) + 30, { steps: 8 }); await sleep(450);
+    t.check("durante il trascinamento nessuna scheda ne copre un'altra", await ev(() => { const r = [...document.querySelectorAll("#homeGrid .card")].map((c) => c.getBoundingClientRect()); for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) if (r[i].left < r[j].right - 1 && r[j].left < r[i].right - 1 && r[i].top < r[j].bottom - 1 && r[j].top < r[i].bottom - 1) return false; return true; }));
+    await dash.mouse.up(); await sleep(450);
+    t.check("la scheda toccata si è spostata dal suo posto", await ev(([x, y]) => { const c = document.querySelectorAll("#homeGrid .card")[1]; return c.offsetLeft !== x || c.offsetTop !== y; }, [c2.x, c2.y]));
+    t.check("le nuove posizioni di tutte le schede sono salvate", await ev(() => Object.keys(Views.layout).length >= 3));
+    await dash.click("#vwMagnet"); await ev(() => store.set("gdc.magnet", false));
     // spegnendo Pro la vista Personalizzata torna a una vista normale
     await dash.uncheck("#proChk");
     t.check("spento Pro, si torna a una vista normale", !/v-free/.test(await cls()), await cls());
