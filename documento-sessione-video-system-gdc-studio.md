@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 60
-**Ultimo aggiornamento:** 2026-11-24 20:30
+**Versione:** 61
+**Ultimo aggiornamento:** 2026-11-24 22:10
 
 ## Vision
 
@@ -197,7 +197,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 12 — Documento sui competitor e note distintive della webapp
 
-**Stato:** da fare
+**Stato:** in corso (bozza 1 scritta in `docs/COMPETITOR-E-NOTE-DISTINTIVE.md`; da verificare Shot.video e Camerama, provare i concorrenti a mano, parlare con i creator)
 
 **Obiettivo:** un documento che confronta la mia webapp con i prodotti simili (registrazione multi-camera con telefoni, regie remote, app per riprese sincronizzate) e mette in evidenza le note distintive: cosa fa la mia e gli altri no, cosa fanno meglio gli altri, a chi si rivolge.
 
@@ -207,8 +207,25 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 **Note (cronologia dello step):**
 - [2026-11-24] Step aggiunto su richiesta dell'utente.
+- [2026-11-24] Bozza 1 del documento: concorrente più vicino Shot.video (web + QR, ma i file vanno al servizio); Blackmagic Camera gratis, iOS e Android, fino a 9 camere, dalla 3.0 scarica i clip sul controller; Final Cut Camera + Live Multicam (4 camere, serve Final Cut Pro per iPad a pagamento); Unison (master con abbonamento Plus). Note distintive: zero installazione, qualsiasi dispositivo, file in cartella del PC con verifica, 9:16 per Resolve. Pagine di shot.video e camerama.us non raggiungibili dalla sessione.
 
 ## Storico sessioni
+
+### [2026-11-24 22:10] Ricerca sui competitor: bozza del documento
+
+**Riepilogo:** Ricerca approfondita sui prodotti simili e prima bozza di `docs/COMPETITOR-E-NOTE-DISTINTIVE.md` con tabelle, note distintive, punti deboli e cosa resta da verificare.
+
+**Cosa è stato fatto:**
+- Recuperata la ricerca rapida di una sessione precedente (non era mai stata messa in un file) e rifatta con più fonti: app native (Blackmagic Camera 2.0/3.0, Final Cut Camera + Live Multicam, Unison, MultiCameraSync, SYNCAM, 1Take Pro, Camerama), web app (Shot.video, SplitCam, Use My Phone, Playout.video), dirette e registrazione remota (Switcher Studio, Mevo, Canon Live Switcher, Riverside, Zencastr, StreamYard, Descript).
+- Non verificato: pagine ufficiali di Shot.video e Camerama (host non raggiungibili dalla sessione), prezzi regolari di Shot.video, export verso Resolve, mix iPhone/Android in Blackmagic Camera.
+
+**Decisioni prese:** nessuna; la frase distintiva si sceglie dopo le prove a mano dei concorrenti.
+
+**File consegnati/modificati:** docs/COMPETITOR-E-NOTE-DISTINTIVE.md (nuovo), documento-sessione-video-system-gdc-studio.md
+
+**Impatto su Vision/Pipeline:** Step 12 passato a "in corso".
+
+---
 
 ### [2026-11-24 20:30] Prima prova con 4 dispositivi e PC come regia: barre doppie, iPad vecchio, cornice nera, Calamita (camera r44, dashboard r43)
 
