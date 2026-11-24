@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 59
-**Ultimo aggiornamento:** 2026-11-22 18:50
+**Versione:** 60
+**Ultimo aggiornamento:** 2026-11-24 20:30
 
 ## Vision
 
@@ -195,7 +195,41 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-10-15] Standby/schermo nero già fatto via web. Controllo dell'XR dall'iPad accantonato.
 
+### Step 12 — Documento sui competitor e note distintive della webapp
+
+**Stato:** da fare
+
+**Obiettivo:** un documento che confronta la mia webapp con i prodotti simili (registrazione multi-camera con telefoni, regie remote, app per riprese sincronizzate) e mette in evidenza le note distintive: cosa fa la mia e gli altri no, cosa fanno meglio gli altri, a chi si rivolge.
+
+**Decisioni progettuali:** nessuna ancora. Da fare prima del lancio pubblico e prima di fissare prezzi e piani (Step 11).
+
+**Criterio di completamento:** documento scritto e riletto dall'utente, con elenco dei competitor, tabella di confronto per funzione e un elenco breve delle note distintive.
+
+**Note (cronologia dello step):**
+- [2026-11-24] Step aggiunto su richiesta dell'utente.
+
 ## Storico sessioni
+
+### [2026-11-24 20:30] Prima prova con 4 dispositivi e PC come regia: barre doppie, iPad vecchio, cornice nera, Calamita (camera r44, dashboard r43)
+
+**Riepilogo:** Con PC come regia e tre camere funzionanti (iPhone 15, iPhone XR, iPad) i trasferimenti arrivano a 20–32 Mbps; trovate e corrette le barre duplicate, aggiunti avviso per browser vecchi, ridisegno del riquadro anteprima su iOS e la Calamita nella vista Personalizzata; aggiunto il nuovo Step 12 (competitor).
+
+**Cosa è stato fatto:**
+- **Calamita** (dashboard r42): nella vista Personalizzata, spostando o ridimensionando una scheda le altre si scostano a catena con transizione fluida (CSS, senza libreria); parte spenta, ricordata sul dispositivo.
+- **Bug: barre di trasferimento con più camere del reale.** Sintomo: nella home le barre sembravano più delle camere. Causa: una barra per ogni tentativo e la regia chiedeva due volte la stessa clip (iPhone XR: primo tentativo fallito con "canale chiuso" dopo l'invio, secondo riuscito; iPhone 15: primo riuscito, secondo "registrazione non trovata" perché già cancellata). Il perché della doppia richiesta non è accertato (i log della regia del PC non arrivano). Fix: una barra per clip e richieste doppie ignorate (dashboard r43); da verificare.
+- **Bug: iPad Air vecchio non funziona.** Sintomo: pagina con solo "Camera / non collegata". Causa: non accertata, nessun log arrivato; probabilmente il browser non supporta qualcosa. Fix: controllo all'avvio con avviso "Browser non supportato" e, se la pagina non parte, pannello con l'errore e lo user agent (camera r43); da verificare sul dispositivo.
+- **Bug: cornice nera nell'anteprima dell'iPhone 15 dopo l'uscita da Safari.** Sintomo: immagine piccola centrata in un riquadro nero (dallo screenshot circa il 56% del riquadro). Causa probabile: il livello video iOS resta della misura vecchia dopo il ritorno in primo piano (i log danno il riquadro corretto). Fix: spegnere e riaccendere il video dopo ogni ritorno/cambio dimensioni (camera r44); da verificare.
+- Trasferimento automatico: parte 0,2 s dopo lo STOP sulle riprese normali; il time-lapse resta da provare.
+- Chiusura sessione: tutte le camere avvisate correttamente.
+
+**Decisioni prese:**
+- Contesto: richiesta dell'utente di un documento sui competitor. Decisione: inserito come Step 12 in pipeline, da fare prima di prezzi e lancio pubblico.
+
+**File consegnati/modificati:** docs/dashboard.html, docs/dashboard/14a-viste-camere.js, docs/dashboard/07-trasferimento.js, docs/camera.html, docs/camera/12-stato.js, tests/cases/16-viste.mjs, documento-sessione-video-system-gdc-studio.md
+
+**Impatto su Vision/Pipeline:** aggiunto Step 12.
+
+---
 
 ### [2026-11-22 18:50] Cartella, audio interrotto, blocco schermo e riprese automatiche: cause trovate e correzioni (camera r41, dashboard r41)
 

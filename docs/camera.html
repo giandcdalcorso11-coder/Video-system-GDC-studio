@@ -113,6 +113,14 @@
   if (typeof RTCPeerConnection === "undefined" && typeof webkitRTCPeerConnection === "undefined") miss.push("collegamento diretto (WebRTC)");
   if (typeof Promise === "undefined" || typeof indexedDB === "undefined") miss.push("funzioni di base");
   try { new Function("async () => { const a = {}; return a?.b ?? 1; }"); } catch (e) { miss.push("JavaScript recente"); }
+  var errs = [];
+  function boot(msg) {
+    errs.push(msg); var h = document.getElementById("bootErr");
+    if (!h) { var m = document.querySelector("main"); if (!m) return; h = document.createElement("section"); h.id = "bootErr"; h.className = "panel"; h.style.borderColor = "#d92d20"; m.insertBefore(h, m.children[1] || null); }
+    h.innerHTML = '<h2 style="margin-top:0">La pagina non è partita</h2><p class="muted">Mandami questo testo (o uno screenshot):</p><pre>' + errs.join("\n").replace(/</g, "&lt;") + "\n" + navigator.userAgent.replace(/</g, "&lt;") + "</pre>";
+  }
+  window.addEventListener("error", function (e) { var f = String(e.filename || "").split("/").pop(); if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { boot((e.message || "errore") + " @" + f + ":" + e.lineno); }); else boot((e.message || "errore") + " @" + f + ":" + e.lineno); });
+  window.addEventListener("load", function () { setTimeout(function () { var ids = ["welcome", "main", "pairBox", "orphanBar"], any = false; for (var i = 0; i < ids.length; i++) { var n = document.getElementById(ids[i]); if (n && !n.hidden) any = true; } if (!any && !window.GDC_UNSUPPORTED) boot("nessun pannello è comparso dopo 5 secondi"); }, 5000); });
   if (!miss.length) return;
   window.GDC_UNSUPPORTED = miss;
   document.addEventListener("DOMContentLoaded", function () {
@@ -122,26 +130,26 @@
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r42"></script>
-<script src="auth.js?v=r42"></script>
-<script src="dev.js?v=r42"></script>
-<script src="xfer.js?v=r42"></script>
-<script>"use strict"; const PAGE_VERSION = "camera r42";</script>
-<script defer src="camera/01-base.js?v=r42"></script>
-<script defer src="camera/02-registro.js?v=r42"></script>
-<script defer src="camera/03-identita.js?v=r42"></script>
-<script defer src="camera/04-archivio.js?v=r42"></script>
-<script defer src="camera/05-postazione.js?v=r42"></script>
-<script defer src="camera/06-spazio.js?v=r42"></script>
-<script defer src="camera/07-fotocamera.js?v=r42"></script>
-<script defer src="camera/08-registrazione.js?v=r42"></script>
-<script defer src="camera/09-timelapse.js?v=r42"></script>
-<script defer src="camera/10-zoom-test.js?v=r42"></script>
-<script defer src="camera/11-schermo-nero.js?v=r42"></script>
-<script defer src="camera/12-stato.js?v=r42"></script>
-<script defer src="camera/13-anteprima.js?v=r42"></script>
-<script defer src="camera/14-trasferimento.js?v=r42"></script>
-<script defer src="camera/15-comandi.js?v=r42"></script>
-<script defer src="camera/16-interfaccia.js?v=r42"></script>
+<script src="rt.js?v=r44"></script>
+<script src="auth.js?v=r44"></script>
+<script src="dev.js?v=r44"></script>
+<script src="xfer.js?v=r44"></script>
+<script>"use strict"; const PAGE_VERSION = "camera r44";</script>
+<script defer src="camera/01-base.js?v=r44"></script>
+<script defer src="camera/02-registro.js?v=r44"></script>
+<script defer src="camera/03-identita.js?v=r44"></script>
+<script defer src="camera/04-archivio.js?v=r44"></script>
+<script defer src="camera/05-postazione.js?v=r44"></script>
+<script defer src="camera/06-spazio.js?v=r44"></script>
+<script defer src="camera/07-fotocamera.js?v=r44"></script>
+<script defer src="camera/08-registrazione.js?v=r44"></script>
+<script defer src="camera/09-timelapse.js?v=r44"></script>
+<script defer src="camera/10-zoom-test.js?v=r44"></script>
+<script defer src="camera/11-schermo-nero.js?v=r44"></script>
+<script defer src="camera/12-stato.js?v=r44"></script>
+<script defer src="camera/13-anteprima.js?v=r44"></script>
+<script defer src="camera/14-trasferimento.js?v=r44"></script>
+<script defer src="camera/15-comandi.js?v=r44"></script>
+<script defer src="camera/16-interfaccia.js?v=r44"></script>
 </body>
 </html>
