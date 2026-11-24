@@ -104,27 +104,44 @@
 </main>
 <div id="blackout"></div>
 
+<script>
+/* controllo del browser (sintassi vecchia apposta, funziona anche sui Safari molto datati) */
+(function () {
+  var miss = [];
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) miss.push("accesso alla fotocamera");
+  if (typeof MediaRecorder === "undefined") miss.push("registrazione video (MediaRecorder)");
+  if (typeof RTCPeerConnection === "undefined" && typeof webkitRTCPeerConnection === "undefined") miss.push("collegamento diretto (WebRTC)");
+  if (typeof Promise === "undefined" || typeof indexedDB === "undefined") miss.push("funzioni di base");
+  try { new Function("async () => { const a = {}; return a?.b ?? 1; }"); } catch (e) { miss.push("JavaScript recente"); }
+  if (!miss.length) return;
+  window.GDC_UNSUPPORTED = miss;
+  document.addEventListener("DOMContentLoaded", function () {
+    var m = document.querySelector("main"); if (!m) return;
+    m.innerHTML = '<section class="panel" style="border-color:#d92d20"><h2 style="margin-top:0">Browser non supportato</h2><p>Questo dispositivo è troppo vecchio per fare da camera: manca ' + miss.join(", ") + '.</p><p class="muted">Aggiorna iOS/iPadOS (Safari 14.1 o successivo) oppure usa un altro telefono o tablet. Un dispositivo così può comunque non servire: la regia (dashboard) funziona su browser più semplici.</p></section>';
+  });
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="rt.js?v=r41"></script>
-<script src="auth.js?v=r41"></script>
-<script src="dev.js?v=r41"></script>
-<script src="xfer.js?v=r41"></script>
-<script>"use strict"; const PAGE_VERSION = "camera r41";</script>
-<script defer src="camera/01-base.js?v=r41"></script>
-<script defer src="camera/02-registro.js?v=r41"></script>
-<script defer src="camera/03-identita.js?v=r41"></script>
-<script defer src="camera/04-archivio.js?v=r41"></script>
-<script defer src="camera/05-postazione.js?v=r41"></script>
-<script defer src="camera/06-spazio.js?v=r41"></script>
-<script defer src="camera/07-fotocamera.js?v=r41"></script>
-<script defer src="camera/08-registrazione.js?v=r41"></script>
-<script defer src="camera/09-timelapse.js?v=r41"></script>
-<script defer src="camera/10-zoom-test.js?v=r41"></script>
-<script defer src="camera/11-schermo-nero.js?v=r41"></script>
-<script defer src="camera/12-stato.js?v=r41"></script>
-<script defer src="camera/13-anteprima.js?v=r41"></script>
-<script defer src="camera/14-trasferimento.js?v=r41"></script>
-<script defer src="camera/15-comandi.js?v=r41"></script>
-<script defer src="camera/16-interfaccia.js?v=r41"></script>
+<script src="rt.js?v=r42"></script>
+<script src="auth.js?v=r42"></script>
+<script src="dev.js?v=r42"></script>
+<script src="xfer.js?v=r42"></script>
+<script>"use strict"; const PAGE_VERSION = "camera r42";</script>
+<script defer src="camera/01-base.js?v=r42"></script>
+<script defer src="camera/02-registro.js?v=r42"></script>
+<script defer src="camera/03-identita.js?v=r42"></script>
+<script defer src="camera/04-archivio.js?v=r42"></script>
+<script defer src="camera/05-postazione.js?v=r42"></script>
+<script defer src="camera/06-spazio.js?v=r42"></script>
+<script defer src="camera/07-fotocamera.js?v=r42"></script>
+<script defer src="camera/08-registrazione.js?v=r42"></script>
+<script defer src="camera/09-timelapse.js?v=r42"></script>
+<script defer src="camera/10-zoom-test.js?v=r42"></script>
+<script defer src="camera/11-schermo-nero.js?v=r42"></script>
+<script defer src="camera/12-stato.js?v=r42"></script>
+<script defer src="camera/13-anteprima.js?v=r42"></script>
+<script defer src="camera/14-trasferimento.js?v=r42"></script>
+<script defer src="camera/15-comandi.js?v=r42"></script>
+<script defer src="camera/16-interfaccia.js?v=r42"></script>
 </body>
 </html>

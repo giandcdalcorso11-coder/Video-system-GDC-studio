@@ -77,6 +77,7 @@ const Xfer = {
       if (pend > 0 && pend + need > this.MEMMAX) { log(camId, `Memoria di questo dispositivo quasi piena (${fmtMB(pend)} da salvare): tocca Salva sui file arrivati, poi riprova. I file restano sul telefono.`); dbg("warn", "file", `memoria piena: in attesa ${pend} byte, richiesti ${need}`); return null; }
       if (need > this.MEMMAX) log(camId, `Il file è grande (${fmtMB(need)}): in memoria potrebbe non starci. Meglio una cartella di un computer.`);
     }
+    if (!opt.test && clip) { const dup = [...this.jobs.values()].find((j) => !j.test && j.camId === camId && j.sid === clip.id && (j.state === "attesa" || j.state === "in corso" || j.state === "interrotto")); if (dup) { dbg("info", "file", `richiesta doppia ignorata: ${clip.file} è già in trasferimento`); return dup; } }
     const id = "j" + rid() + rid(); if (!opt.auto && clip) delete this.autoTry[clip.id];
     const job = { id, xid: "", camId, sid: clip ? clip.id : null, name: clip ? clip.file : "prova-rete.bin", size: opt.test ? opt.mb * 1048576 : (clip ? clip.mb * 1048576 : 0), got: 0, speed: 0, state: "attesa", at: Date.now(), saved: false, test: !!opt.test, path: "", error: "", note: "", attempt: 0, userCancel: false, st: { sink: null, got: 0, crc: 0 }, dest: Dest.mode, handle: Dest.handle, clip, opt };
     this.jobs.set(id, job); Preview.ensureAll(); job.promise = this.runJob(job); this.refresh(); return job;
@@ -166,7 +167,7 @@ const Xfer = {
   /* barre dei trasferimenti nella home: tutte le camere, chi sta scaricando cosa e a che punto è */
   renderLive() {
     const el = document.getElementById("xferLive"); if (!el) return;
-    const jobs = [...this.jobs.values()].filter((j) => !j.test).sort((a, b) => b.at - a.at).slice(0, 8);
+    const seen = new Set(), jobs = [...this.jobs.values()].filter((j) => !j.test).sort((a, b) => b.at - a.at).filter((j) => { const k = j.camId + "|" + (j.sid || j.id); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8); // una barra per clip: i tentativi ripetuti non fanno sembrare più camere
     const term = (j) => j.state === "ok" || j.state === "errore";
     jobs.forEach((j) => { if (term(j) && !j.endSeen) j.endSeen = Date.now(); });
     const recent = jobs.filter((j) => !term(j) || Date.now() - j.endSeen < 90000); // quelli finiti restano visibili per 90 s
