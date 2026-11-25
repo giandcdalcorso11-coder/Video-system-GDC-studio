@@ -177,7 +177,8 @@
       };
     };
     watch = setInterval(() => { if (Date.now() - lastAct > 30000) fail(new Error("nessun dato per 30 secondi (rete?)")); }, 2000);
-    return done.finally(cleanup);
+    // dopo l'"ok" il canale resta aperto ancora qualche secondo: se la dashboard lo chiudesse subito, alcuni telefoni (iPhone XR) perdevano il messaggio e consideravano il trasferimento fallito, conservando la clip (doppione _2)
+    return done.then((r) => { setTimeout(cleanup, 4000); return r; }, (e) => { cleanup(); throw e; });
   }
 
   window.GDC_XFER = { signal, sendFile, receiveFile, memorySink, folderSink, nullSink, crc32 };

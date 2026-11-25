@@ -13,7 +13,7 @@ const Xfer = {
     if (Dest.mode !== "folder" || !Dest.handle || (Dest.health && !Dest.health.ok)) return;
     if (this.active().some((j) => j.camId === camId)) return;
     if (Object.values(this.autoBusy).filter(Boolean).length >= 2) return;
-    const now = Date.now(), clip = [...((st.clips) || [])].reverse().find((k) => k.id && k.status === "pronta" && (this.autoTry[k.id] || 0) < 3 && (this.autoNext[k.id] || 0) <= now);
+    const now = Date.now(), clip = [...((st.clips) || [])].reverse().find((k) => k.id && k.status === "pronta" && (this.autoTry[k.id] || 0) < 3 && (this.autoNext[k.id] || 0) <= now && !this.gotOk(camId, k.id));
     if (!clip) return;
     this.autoBusy[camId] = true;
     try {
@@ -26,6 +26,8 @@ const Xfer = {
       if (j.state !== "ok") { if (j.userCancel) this.autoTry[clip.id] = 99; else { const n = this.autoTry[clip.id] = (this.autoTry[clip.id] || 0) + 1; this.autoNext[clip.id] = Date.now() + 60000 * n; log(camId, `${c ? camTitle(c) : camId}: automatico non riuscito per ${clip.file}${n < 3 ? ", riprovo tra " + n + " min" : ": mi fermo, usa Trasferisci"}`); } }
     } finally { this.autoBusy[camId] = false; this.refresh(); setTimeout(() => this.autoTick(camId), 1500); }
   },
+  // clip già arrivata e verificata in questa sessione della regia: non va richiesta di nuovo (il telefono può non aver confermato la cancellazione)
+  gotOk(camId, sid) { return [...this.jobs.values()].some((j) => !j.test && j.state === "ok" && j.camId === camId && j.sid === sid); },
   autoAll() { Object.keys(state).forEach((id) => this.autoTick(id)); },
   active() { return [...this.jobs.values()].filter((j) => j.state === "attesa" || j.state === "in corso" || j.state === "interrotto"); },
   unsafe() { return this.active().length > 0 || [...this.jobs.values()].some((j) => j.state === "ok" && j.where === "memoria" && !j.saved && !j.test); },

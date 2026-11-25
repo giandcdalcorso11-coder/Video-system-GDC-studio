@@ -58,6 +58,10 @@ export async function run() {
     const c1 = await ev(() => { const c = document.querySelector("#homeGrid .card"); return { x: c.offsetLeft, y: c.offsetTop }; });
     await dash.mouse.move(hb.x + 40, hb.y + 12); await dash.mouse.down(); await dash.mouse.move(hb.x + 40 + (c2.x - c1.x) + 20, hb.y + 12 + (c2.y - c1.y) + 30, { steps: 8 }); await sleep(450);
     t.check("durante il trascinamento nessuna scheda ne copre un'altra", await ev(() => { const r = [...document.querySelectorAll("#homeGrid .card")].map((c) => c.getBoundingClientRect()); for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) if (r[i].left < r[j].right - 1 && r[j].left < r[i].right - 1 && r[i].top < r[j].bottom - 1 && r[j].top < r[i].bottom - 1) return false; return true; }));
+    t.check("la scheda spinta si è scostata", await ev(([x, y]) => { const c = document.querySelectorAll("#homeGrid .card")[1]; return c.offsetLeft !== x || c.offsetTop !== y; }, [c2.x, c2.y]));
+    await dash.mouse.move(hb.x + 40, hb.y + 12, { steps: 8 }); await sleep(500);
+    t.check("riportando via la scheda, quella spinta torna al suo posto", await ev(([x, y]) => { const c = document.querySelectorAll("#homeGrid .card")[1]; return Math.abs(c.offsetLeft - x) < 3 && Math.abs(c.offsetTop - y) < 3; }, [c2.x, c2.y]));
+    await dash.mouse.move(hb.x + 40 + (c2.x - c1.x) + 20, hb.y + 12 + (c2.y - c1.y) + 30, { steps: 8 }); await sleep(450);
     await dash.mouse.up(); await sleep(450);
     t.check("la scheda toccata si è spostata dal suo posto", await ev(([x, y]) => { const c = document.querySelectorAll("#homeGrid .card")[1]; return c.offsetLeft !== x || c.offsetTop !== y; }, [c2.x, c2.y]));
     t.check("le nuove posizioni di tutte le schede sono salvate", await ev(() => Object.keys(Views.layout).length >= 3));

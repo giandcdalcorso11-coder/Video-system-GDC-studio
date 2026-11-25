@@ -58,6 +58,7 @@ const Views = {
   },
   dots() { document.querySelectorAll("#vwChips [data-vcs]").forEach((i) => { const s = state[i.dataset.vcs]; i.className = s && s.rec ? "r" : s && s.online ? "g" : ""; }); },
   // Calamita: le schede toccate dal movimento si scostano (verso il lato più vicino, o in basso), a catena
+  hit(a, b, gap = 8) { return !(a.x + a.w + gap <= b.x || b.x + b.w + gap <= a.x || a.y + a.h + gap <= b.y || b.y + b.h + gap <= a.y); },
   push(rects, id) {
     const gap = 8, W = $("#homeGrid").clientWidth || 900, q = [id]; let guard = 400;
     while (q.length && guard-- > 0) {
@@ -96,7 +97,7 @@ document.addEventListener("pointerdown", (e) => {
   const card = e.target.closest("#homeGrid .card"), rz = e.target.closest(".rz"), hd = e.target.closest(".card-h"); if (!card || (!rz && !hd) || e.button > 0) return;
   e.preventDefault(); card.setPointerCapture(e.pointerId); card.classList.add("moving"); card.style.zIndex = ++Views.z;
   const rects = {}; g.querySelectorAll(".card").forEach((c) => { rects[c.dataset.cam] = { x: parseFloat(c.style.left) || c.offsetLeft, y: parseFloat(c.style.top) || c.offsetTop, w: parseFloat(c.style.width) || c.offsetWidth, h: parseFloat(c.style.height) || c.offsetHeight }; });
-  Views.drag = { rects, card, kind: rz ? "size" : "move", x0: e.clientX, y0: e.clientY, l: card.offsetLeft, t: card.offsetTop, w: card.offsetWidth, h: card.offsetHeight, moved: false };
+  const home = JSON.parse(JSON.stringify(rects)); Views.drag = { rects, home, card, kind: rz ? "size" : "move", x0: e.clientX, y0: e.clientY, l: card.offsetLeft, t: card.offsetTop, w: card.offsetWidth, h: card.offsetHeight, moved: false };
 });
 document.addEventListener("pointermove", (e) => {
   const d = Views.drag; if (!d) return; const dx = e.clientX - d.x0, dy = e.clientY - d.y0; if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
@@ -105,6 +106,11 @@ document.addEventListener("pointermove", (e) => {
   else { d.card.style.width = Math.max(150, Math.min(W - d.l, d.w + dx)) + "px"; d.card.style.height = Math.max(200, d.h + dy) + "px"; }
   if (Views.magnet) {
     const id = d.card.dataset.cam; d.rects[id] = { x: parseFloat(d.card.style.left) || d.card.offsetLeft, y: parseFloat(d.card.style.top) || d.card.offsetTop, w: parseFloat(d.card.style.width) || d.card.offsetWidth, h: parseFloat(d.card.style.height) || d.card.offsetHeight };
+    // ritorno: le schede spinte via tornano al loro posto di partenza appena lì c'è di nuovo spazio (dall'alto a sinistra)
+    Object.keys(d.home).filter((k) => k !== id).sort((a, b) => d.home[a].y - d.home[b].y || d.home[a].x - d.home[b].x).forEach((k) => {
+      const h = d.home[k], r = d.rects[k]; if (r.x === h.x && r.y === h.y) return; const cand = { x: h.x, y: h.y, w: r.w, h: r.h };
+      if (!Object.keys(d.rects).some((o) => o !== k && Views.hit(cand, d.rects[o]))) d.rects[k] = cand;
+    });
     Views.push(d.rects, id); let bottom = 0;
     for (const k in d.rects) { const r = d.rects[k], c = g.querySelector(`.card[data-cam="${k}"]`); bottom = Math.max(bottom, r.y + r.h); if (c && k !== id) { c.style.left = r.x + "px"; c.style.top = r.y + "px"; } }
     g.style.minHeight = Math.max(bottom + 24, 480) + "px";

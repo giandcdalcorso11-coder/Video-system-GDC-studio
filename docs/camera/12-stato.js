@@ -106,10 +106,10 @@ function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5
 /* anteprima locale a tutto campo: REC con tempo, zoom e qualità sopra l'immagine */
 /* adatta il riquadro all'immagine: stessa proporzione del video (verticale, orizzontale o dopo una rotazione o uno sblocco dello schermo) */
 // su iOS, dopo il ritorno in primo piano o un cambio di barra di Safari, il livello video può restare della misura vecchia (immagine piccola in un riquadro nero): spegnerlo e riaccenderlo lo costringe a ridisegnarsi
-function stageRepaint() { const v = $("vid"); if (!v) return; v.style.display = "none"; void v.offsetWidth; v.style.display = ""; }
+function stageRepaint(hard) { const v = $("vid"); if (!v) return; v.style.display = "none"; void v.offsetWidth; v.style.display = ""; if (hard && v.srcObject) { const s = v.srcObject; v.srcObject = null; v.srcObject = s; v.play().catch(() => {}); } } // hard: ricollega il flusso al video (la registrazione usa il flusso, non l'elemento: non si interrompe)
 function stageFit(why) {
   const v = $("vid"), st = $("stage"); if (!v || !st || !v.videoWidth || !v.videoHeight) return;
-  const ratio = v.videoWidth / v.videoHeight; if (why) { stageRepaint(); setTimeout(stageRepaint, 500); }
+  const ratio = v.videoWidth / v.videoHeight; if (why) { stageRepaint(); setTimeout(() => { stageRepaint(/ritorno/.test(why)); const q = v.getBoundingClientRect(), z = st.getBoundingClientRect(); dbg("info", `anteprima dopo il ridisegno: video ${Math.round(q.width)}×${Math.round(q.height)}, riquadro ${Math.round(z.width)}×${Math.round(z.height)}, finestra ${innerWidth}×${innerHeight}${recording ? ", in REC" : ""}`); }, 500); }
   if (Math.abs(ratio - (stageFit.r || 0)) < 0.002 && !why) return;
   stageFit.r = ratio; st.style.aspectRatio = String(ratio); st.style.maxWidth = `calc(64vh * ${ratio.toFixed(4)})`;
   dbg("info", `anteprima locale: video ${v.videoWidth}×${v.videoHeight} (proporzione ${ratio.toFixed(3)}), riquadro ${Math.round(st.clientWidth)}×${Math.round(st.clientHeight)}, finestra ${innerWidth}×${innerHeight}${why ? ", motivo: " + why : ""}`);
