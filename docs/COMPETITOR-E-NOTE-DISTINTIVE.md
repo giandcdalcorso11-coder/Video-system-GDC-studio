@@ -1,12 +1,12 @@
 # Competitor e note distintive — Video System GDC Studio
 
-**Versione:** 1 (bozza) · **Data della ricerca:** 24 novembre 2026
+**Versione:** 2 (bozza) · **Data della ricerca:** 24–25 novembre 2026 (v2: aggiunte le pagine ufficiali di Shot.video, Camerama e Blackmagic Camera, lette dagli screenshot dell'utente)
 **Stato:** bozza da riguardare. Ricerca fatta online in inglese; i prezzi e le funzioni vanno ricontrollati sulle pagine ufficiali prima di usarli per decidere. Dove una fonte è un blog o un sito che confronta prodotti, lo segno.
 
 ## 1. In breve
 
 - Il problema "più telefoni, un solo REC, i file tutti insieme" è già risolto da app native, per lo più **gratis**. Far pagare le funzioni base è difficile.
-- **Il concorrente più vicino non è un'app nativa ma Shot.video**: una web app dove scansioni un QR e il telefono diventa una camera, senza installare niente. Va studiato per primo.
+- **Il concorrente più vicino non è un'app nativa ma Shot.video**: una web app dove scansioni un QR e il telefono diventa una camera, senza installare niente. Ma il suo prodotto è diverso: ti restituisce **un video già montato dall'intelligenza artificiale**, pensato per "chi odia montare". Noi consegniamo le **clip originali in una cartella per chi monta in DaVinci Resolve**: sono due clienti diversi.
 - Il vantaggio più chiaro della nostra versione: **funziona dal browser, su iPhone, Android e PC, con i file che arrivano direttamente in una cartella del computer per DaVinci Resolve**. Nessun concorrente trovato mette insieme tutte e tre le cose.
 - Il limite più chiaro: nel browser non si controllano fuoco, esposizione, 4K garantito e slow-motion come in un'app nativa (vedi sezione 6).
 
@@ -16,21 +16,21 @@
 
 | Prodotto | Piattaforme | Regia e camere | Trasferimento file | Prezzo (dalle fonti) |
 |---|---|---|---|---|
-| **Blackmagic Camera** (2.0 e 3.0) | iPhone, iPad, Android | Un telefono o iPad controlla fino a 9 altri, anteprima di tutte, REC/STOP insieme, impostazioni (fuoco, zoom, fps, bilanciamento del bianco) per camera o per tutte | Dalla 3.0 (settembre 2025) il controller scarica i clip finiti dai telefoni; secondo le fonti conservano metadati e timecode e Resolve li sincronizza da solo | **Gratis** |
+| **Blackmagic Camera** (2.0 e 3.0) | iPhone, iPad, telefoni e tablet Android; come controller anche Mac | Un dispositivo (iPhone, iPad, Mac o telefono Android) fa da controller sulla **stessa rete**: anteprima di tutte le camere in un multiview, REC/STOP di tutte con un solo tocco, impostazioni (fuoco, zoom, fps, bilanciamento del bianco) per camera o per tutte; comando anche da Apple Watch e WearOS; API REST e Remote Camera Manager per salvare elenchi di camere; si riprende in 16:9 o in verticale | Dalla 3.0 (settembre 2025) il controller scarica i clip finiti dai telefoni; secondo le fonti conservano metadati e timecode e Resolve li sincronizza da solo. In alternativa si registra e carica direttamente su Blackmagic Cloud (file standard fino a 8K) per montare in Resolve con altri editor | **Gratis** |
 | **Apple Final Cut Camera + Live Multicam** | iPhone XS+ (iOS 17.4+), iPad | Fino a 4 dispositivi; la regia è **Final Cut Pro per iPad** (iPad con M1 o successivo) | In background verso l'iPad | Final Cut Camera gratis; Final Cut Pro per iPad in abbonamento (nel Regno Unito 4,99 £/mese o 49 £/anno al lancio; prezzo USA non verificato) |
 | **Unison (Multi Camera Recorder)** | iPhone, iPad, Mac | Un dispositivo "master" comanda gli altri, tutto da una schermata, senza account | Le clip tornano al master già sincronizzate | Gratis come camera; per fare da master serve **Unison Plus** (4,99 $/mese o 29,99 $/anno secondo l'App Store; la pagina dello sviluppatore dice ancora "gratis": contraddizione da chiarire) |
 | **MultiCameraSync** | solo iPhone | Un telefono comanda gli altri, con anteprima | non verificato | non verificato |
 | **SYNCAM / MultiCam (Amoura)** | iPhone, iPad | Rete locale, un tocco e tutti registrano, **senza cloud** | non verificato | non verificato |
 | **1Take Pro** | iPhone, iPad | Beta pubblica su TestFlight; allinea gli orologi via Wi-Fi, esce audio BWF | non verificato | non verificato; lo sviluppatore ammette stabilità non provata |
-| **Camerama** | iPhone, iPad (nessuna versione Android trovata) | Comanda più camere insieme, anche Canon, Sony, Fujifilm, GoPro via Bluetooth e Apple Watch | non verificato | Gratis con acquisti in-app |
+| **Camerama** | iPhone, iPad (nessuna versione Android trovata) | Scatta e riprende con più camere insieme, anche fotocamere Canon, Sony, Fujifilm, GoPro (le schermate mostrano iPhone, iPad, Sony RX100 e Canon R7 nello stesso elenco) e Apple Watch. Si rivolge a creator, fotografi, videografi di eventi, musicisti, giornalisti | non verificato | Gratis con acquisti in-app (App Store); il sito non mostra prezzi |
 
-**Cosa colpisce:** Blackmagic Camera fa già quasi tutto quello che facciamo noi, **gratis, su iOS e Android, ed è dello stesso produttore di DaVinci Resolve**. È il concorrente più forte per chi monta in Resolve e ha app native. Punti deboli: va installata su ogni telefono, vale per iPhone e Android ma con le due piattaforme non è chiaro se si possano mischiare nello stesso gruppo (le fonti non lo dicono), non risulta un ingresso da link o QR per ospiti.
+**Cosa colpisce:** Blackmagic Camera fa già quasi tutto quello che facciamo noi, **gratis, su iOS e Android, ed è dello stesso produttore di DaVinci Resolve**. È il concorrente più forte per chi monta in Resolve e ha app native. Punti deboli: va installata su ogni telefono; la pagina ufficiale parla di camere sulla **stessa rete** e non dice se iPhone e Android si possano mischiare nello stesso gruppo né se esiste un ingresso da link o QR per ospiti.
 
 ### B. Web app senza installazione
 
 | Prodotto | Come funziona | Prezzo | Note |
 |---|---|---|---|
-| **Shot.video** | Avvii la sessione dal browser del computer, scansioni un QR con ogni telefono (anche in Safari, niente app), registrano insieme; il computer registra con il suo schermo e la sua webcam. Poi un'IA fa un primo montaggio con tagli, zoom e B-roll | Piano gratis con 2 crediti video e 5 di B-roll; offerta Black Friday a 39, 79 o 159 $ il primo anno (per i primi 100); piani regolari non verificati | Il più vicino alla nostra idea. Una recensione consiglia di tenere la pagina aperta finché dice "Uploaded": le riprese partono dal browser e arrivano al servizio, **non su una cartella tua** |
+| **Shot.video** | Dalle pagine ufficiali: "I dispositivi entrano con un QR, registri una volta, l'IA fa il primo montaggio e puoi cambiare ogni inquadratura". Il computer registra lo schermo e fa da editor; telefoni e iPad entrano come camere dal browser. I telefoni **non devono essere nella stessa Wi-Fi** (passano da internet, anche con dati mobili). Ogni telefono salva sul dispositivo e carica man mano; se uno si chiude prima, il montaggio prosegue con le altre. Funziona anche con OBS (Virtual Camera). Montaggio IA: circa 1 minuto per una ripresa corta, al massimo 3 per la più lunga | Gratis: primi 2 video, senza carta. **Creator 19 $/mese** (20 crediti video, 25 B-roll), **Pro 39 $** (60 / 100), **Studio 79 $** (150 / 250); i crediti non usati si accumulano fino a 3 mesi; caricamenti propri e modifiche manuali gratis; annuale = 2 mesi gratis. Pacchetti: video 5 per 9 $, 10 per 16 $, 20 per 29 $; B-roll 100 per 9 $, 300 per 24 $, 750 per 49 $. Offerta Black Friday per i primi 100 | Il più vicino alla nostra idea come ingresso (QR, browser). **Il risultato è un solo file montato (16:9 o 9:16)** in uno spazio cloud privato, cancellabile; **non risulta l'esportazione delle clip originali né di una timeline per Resolve** (da chiedere). Numero massimo di camere non indicato |
 | **SplitCam** | Sul QR il telefono entra dal browser e fa da webcam | non verificato | Pensato per le dirette, non per registrare |
 | **Use My Phone** | Fino a 4 telefoni visti insieme sullo schermo | non verificato | Solo visione dal vivo, non registrazione |
 | **Playout.video** | Ospiti da qualsiasi browser | non verificato | Studio per dirette, non cattura multicamera |
@@ -56,17 +56,21 @@ Questi servono a chi fa dirette o interviste a distanza. Non competono su "le mi
 | Niente da installare sulle camere | ✔ | ✖ | ✖ | ✖ | ✔ |
 | iPhone e Android insieme | ✔ (Android da provare ancora) | ~ (stessa app su entrambi, mix non confermato) | ✖ solo Apple | ✖ solo Apple | ✔ |
 | Regia da PC (Edge/Chrome) | ✔ | ✖ (telefono o iPad) | ✖ (iPad) | ✖ (dispositivo Apple) | ✔ |
-| Ingresso da QR/link | ✔ | ? | ✖ (stesso Apple ID o codice) | ? | ✔ |
+| Ingresso da QR/link | ✔ | ? (non indicato) | ✖ (stesso Apple ID o codice) | ? | ✔ (QR) |
 | REC/STOP comune | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Anteprima di tutte le camere | ✔ | ✔ | ✔ | ✔ | ? |
 | Zoom/impostazioni da remoto | ~ (zoom e qualità; non fuoco/esposizione) | ✔ completo | ✔ | ✔ | ? |
 | File su **cartella del PC** senza cloud | ✔ | ~ (arrivano sul controller; poi a mano) | ✖ (iPad) | ✖ (master) | ✖ (servizio) |
-| Verifica e ripresa del trasferimento | ✔ (CRC32, riprende dal byte) | ? | ? | ? | ? |
-| Registrazione 9:16 | ✔ | ✔ | ✔ | ? | ? |
+| Verifica e ripresa del trasferimento | ✔ (CRC32, riprende dal byte) | ? | ? | ? | ~ (carica man mano; una caduta di Wi-Fi non costa nulla, dichiarato) |
+| Registrazione 9:16 | ✔ | ✔ | ✔ | ? | ✔ (file finale 16:9 o 9:16) |
 | 4K / slow-motion / ProRes | ✖ (4K a volte, non garantito) | ✔ | ✔ | ~ | ✖ |
 | Fuoco, esposizione, bilanciamento | ✖ | ✔ | ✔ | ~ | ✖ |
 | Funziona con schermo bloccato | ✖ (limite iOS Safari) | ✔ | ✔ | ✔ | ✖ |
-| Prezzo | in test | gratis | gratis + FCP iPad a pagamento | gratis / Plus | gratis limitato / a pagamento |
+| Funziona anche con telefoni in reti diverse | ✖ (i file viaggiano in diretta tra i dispositivi; da provare fuori dalla stessa rete) | ✖ (stessa rete o cavo) | ✖ | ✖ | ✔ |
+| Clip originali + montaggio in Resolve | ✔ (clip in cartella) | ✔ (con metadati e timecode) | ✔ | ✔ | ✖ non risulta (un solo file montato) |
+| Montaggio automatico con IA | ✖ | ✖ | ✖ | ✖ | ✔ |
+| Comando da Apple Watch | ✖ | ✔ (anche WearOS) | ? | ? | ✖ |
+| Prezzo | in test | gratis | gratis + FCP iPad a pagamento | gratis / Plus | gratis (2 video), poi da 19 a 79 $/mese |
 
 ## 4. Note distintive possibili (cosa abbiamo e gli altri no, o meno)
 
@@ -76,18 +80,21 @@ Questi servono a chi fa dirette o interviste a distanza. Non competono su "le mi
 4. **Pensata per i reel 9:16 e per DaVinci Resolve.** File con nome della camera e della sessione, nella cartella giusta. Blackmagic ci arriva da un'altra strada ed è più forte qui: va seguita.
 5. **Sicurezza e controllo.** Comandi firmati, conferma Accetta/Rifiuta di ogni camera, avviso quando una camera resta senza regia. Non l'ho trovato dichiarato dai concorrenti, ma non l'ho cercato a fondo.
 6. **Regia sul PC mentre il PC fa altro.** La regia sul computer continua a funzionare in secondo piano (provato in parte). Non ho verificato come si comportano gli altri in questa situazione.
-7. **Vista Personalizzata con Calamita** (finestre libere che si adattano): un dettaglio di interfaccia che nelle altre non ho trovato.
+7. **Rete locale = niente cloud e niente costi per file pesanti.** I video non passano da server: per chi gira in 4K nello stesso luogo è più rapido e non c'è spazio da pagare (il cloud costa per GB, vedi `COSTI-E-PRICING.md`).
+8. **Posizionamento diverso da Shot.video:** loro "per chi odia montare" (un file montato dall'IA, a crediti); noi "per chi monta in Resolve" (clip originali con nomi chiari). Non sono sostituti diretti, ma un utente può scegliere uno o l'altro.
+9. **Vista Personalizzata con Calamita** (finestre libere che si adattano): un dettaglio di interfaccia che nelle altre non ho trovato.
 
 ## 5. Dove siamo deboli o a rischio
 
 - **Blackmagic Camera è gratis, completa e di Blackmagic.** Se l'utente ha già installato app e monta in Resolve, il nostro vantaggio si riduce a "niente installazione" e "iPhone insieme ad altri".
 - **Limiti del browser:** niente controllo vero di fuoco ed esposizione, niente 4K o slow-motion garantiti, camera silenziata se lo schermo si blocca o la pagina va in secondo piano (verificato sui nostri iPhone).
-- **Shot.video fa già il caso "web + QR + montaggio assistito dall'IA".** Non sappiamo ancora come gestiscono l'esportazione verso Resolve né i prezzi regolari.
+- **Shot.video fa già il caso "web + QR" e in più funziona tra reti diverse e monta con l'IA.** Il nostro trasferimento diretto è un vantaggio (niente cloud) ma anche un limite: oggi va bene sulla stessa Wi-Fi, con un hotspot è molto più lento (3–6 Mbps nelle nostre prove).
+- **Blackmagic ha anche comando da Apple Watch e WearOS, API REST e multiview**: funzioni che noi non abbiamo.
 - **Prezzo:** la concorrenza gratuita rende difficile far pagare le funzioni base. Il valore da vendere è l'accesso senza installazione e il flusso di lavoro, non il REC sincronizzato in sé.
 
 ## 6. Cosa non ho potuto verificare
 
-- Le pagine di **shot.video** e **camerama.us** non erano raggiungibili dalla sessione di lavoro (blocco di rete): dati su Shot.video presi solo dall'elenco su Product Hunt e dalla pagina dell'offerta; export verso Resolve/Premiere, limiti e prezzi regolari mancanti.
+- Le pagine di **shot.video**, **camerama.us** e **blackmagicdesign.com** non erano raggiungibili dalla sessione: le ho lette dagli screenshot dell'utente (Shot.video: home, domande frequenti, prezzi; Camerama: "Who is Camerama for?"; Blackmagic Camera: presentazione, controlli, controllo remoto e multiview). Di Shot.video mancano: numero massimo di camere, risoluzione di registrazione, formati di esportazione e se si scaricano le clip originali. Di Camerama mancano funzioni dettagliate e prezzi.
 - Prezzi di Switcher, Riverside, Zencastr, StreamYard, Descript: cifre discordanti tra siti di confronto (spesso con link di affiliazione). Vanno presi dalle pagine ufficiali.
 - Trasferimento file e prezzi di MultiCameraSync, SYNCAM, 1Take Pro.
 - Se Blackmagic Camera permette di mischiare iPhone e Android nello stesso gruppo.
@@ -95,8 +102,8 @@ Questi servono a chi fa dirette o interviste a distanza. Non competono su "le mi
 
 ## 7. Prossimi passi consigliati
 
-1. **Provare a mano** Blackmagic Camera (con 2 iPhone e l'iPad), Unison e Shot.video (piano gratis) con lo stesso scenario delle nostre prove: 3 camere, REC comune, file nel PC. Annotare dove sono scomodi.
-2. **Rileggere le pagine ufficiali** di Shot.video e Camerama (abilitando i domini nella rete della sessione, o incollandomi il testo) per completare la tabella.
+1. **Provare a mano** Blackmagic Camera (con 2 iPhone e l'iPad), Unison e Shot.video (piano gratis: 2 video senza carta) con lo stesso scenario delle nostre prove: 3 camere, REC comune, file nel PC. Annotare dove sono scomodi.
+2. **Con la prova di Shot.video** verificare: si possono scaricare le clip originali? Esiste un'esportazione per Resolve/Premiere? Quante camere? Che qualità di registrazione? Come si comporta con riprese lunghe e rete lenta?
 3. **Parlare con 10–15 creator** che girano reel con più angolazioni: chiedere cosa usano, cosa li infastidisce, quanto pagherebbero.
 4. **Scegliere la frase distintiva** (una riga) dopo le prove, prima di fissare prezzi e piani (Step 11).
 
@@ -116,6 +123,7 @@ Questi servono a chi fa dirette o interviste a distanza. Non competono su "le mi
 - [Camerama su App Store](https://apps.apple.com/us/app/camerama/id6473783208)
 - [Shot.video su Product Hunt](https://www.producthunt.com/products/shot-video)
 - [Shot.video, offerta Black Friday](https://shot.video/black-friday)
+- Pagine ufficiali lette da screenshot dell'utente (25 novembre 2026): shot.video (home e domande frequenti), shot.video/pricing, camerama.us ("Who is Camerama for?"), blackmagicdesign.com/products/blackmagiccamera
 - [SplitCam: telefono come webcam](https://splitcam.com/phone-as-webcam)
 - [Switcher Studio, prezzi](https://www.switcherstudio.com/lp/pricing)
 - [Mevo, piano Pro](https://www.mevo.com/pages/pro)

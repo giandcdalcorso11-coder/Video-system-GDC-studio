@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 61
-**Ultimo aggiornamento:** 2026-11-24 22:10
+**Versione:** 62
+**Ultimo aggiornamento:** 2026-11-25 09:10
 
 ## Vision
 
@@ -197,7 +197,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 12 — Documento sui competitor e note distintive della webapp
 
-**Stato:** in corso (bozza 1 scritta in `docs/COMPETITOR-E-NOTE-DISTINTIVE.md`; da verificare Shot.video e Camerama, provare i concorrenti a mano, parlare con i creator)
+**Stato:** in corso (bozza 2 in `docs/COMPETITOR-E-NOTE-DISTINTIVE.md`, con le pagine ufficiali di Shot.video, Camerama e Blackmagic; da provare i concorrenti a mano e parlare con i creator)
 
 **Obiettivo:** un documento che confronta la mia webapp con i prodotti simili (registrazione multi-camera con telefoni, regie remote, app per riprese sincronizzate) e mette in evidenza le note distintive: cosa fa la mia e gli altri no, cosa fanno meglio gli altri, a chi si rivolge.
 
@@ -208,8 +208,19 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 **Note (cronologia dello step):**
 - [2026-11-24] Step aggiunto su richiesta dell'utente.
 - [2026-11-24] Bozza 1 del documento: concorrente più vicino Shot.video (web + QR, ma i file vanno al servizio); Blackmagic Camera gratis, iOS e Android, fino a 9 camere, dalla 3.0 scarica i clip sul controller; Final Cut Camera + Live Multicam (4 camere, serve Final Cut Pro per iPad a pagamento); Unison (master con abbonamento Plus). Note distintive: zero installazione, qualsiasi dispositivo, file in cartella del PC con verifica, 9:16 per Resolve. Pagine di shot.video e camerama.us non raggiungibili dalla sessione.
+- [2026-11-25] Bozza 2: lette dagli screenshot dell'utente le pagine ufficiali. Shot.video consegna un solo video montato dall'IA (16:9 o 9:16) da cloud privato, funziona anche tra reti diverse, piani 19/39/79 $ al mese a crediti, gratis i primi 2 video; non risulta l'esportazione delle clip originali. Posizionamento: loro "per chi odia montare", noi "per chi monta in Resolve". Camerama include anche fotocamere Canon/Sony. Blackmagic Camera: iPhone, iPad, Android e Mac come controller, stessa rete, multiview, comando da Apple Watch e WearOS, API REST, registrazione anche su Blackmagic Cloud fino a 8K.
 
 ## Storico sessioni
+
+### [2026-11-25 09:10] Competitor: pagine ufficiali lette (bozza 2)
+
+**Riepilogo:** Dagli screenshot inviati dall'utente ho completato le schede di Shot.video, Camerama e Blackmagic Camera nel documento sui competitor.
+
+**Cosa è stato fatto:** aggiornato `docs/COMPETITOR-E-NOTE-DISTINTIVE.md` alla versione 2: piani di Shot.video (Free, Creator 19 $, Pro 39 $, Studio 79 $ al mese con crediti), posizionamento diverso dal nostro (file montato dall'IA nel cloud contro clip originali in cartella per Resolve), nuove righe di confronto (telefoni in reti diverse, Apple Watch, clip originali, montaggio IA) e nuove note distintive. Prossimo passo: provare Shot.video, Blackmagic Camera e Unison a mano.
+
+**File consegnati/modificati:** docs/COMPETITOR-E-NOTE-DISTINTIVE.md, documento-sessione-video-system-gdc-studio.md
+
+---
 
 ### [2026-11-24 22:10] Ricerca sui competitor: bozza del documento
 
