@@ -7,6 +7,9 @@ async function startRec() {
     if (i.known && i.minLeft < 1) { lastErr = `Spazio insufficiente per registrare (${Math.round(i.avail / 1048576)} MB disponibili)`; dbg("error", "rec_start rifiutato: spazio insufficiente", { disponibileMB: Math.round(i.avail / 1048576), base: i.basis }); publish(); return; } }
   if (stream && stream.getAudioTracks().some((t) => t.readyState === "ended")) { dbg("warn", "il microfono si era interrotto (cuffie o altro audio?): riapro la camera prima di registrare"); closePreviews(); stream.getTracks().forEach((t) => { t.onended = null; try { t.stop(); } catch { /* ok */ } }); stream = null; }
   if (!stream) { dbg("info", "rec_start senza camera: provo ad aprirla"); try { await openCam(); } catch { return; } }
+  if (stream && stream.getTracks().some((t) => t.readyState === "live" && t.muted)) { // il sistema ha silenziato la camera (cuffie, altra app, blocco): registrare ora darebbe un file vuoto
+    dbg("warn", "rec_start: la camera è silenziata dal sistema: aspetto che torni disponibile prima di registrare"); setWant(true); lastErr = "La camera è silenziata dal sistema (cuffie o altra app): la ripresa parte da sola appena torna disponibile"; publish(); resumeAfterStall(); return;
+  }
   const mime = ["video/mp4;codecs=avc1", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
   const sid = "s" + Date.now().toString(36), start = Date.now();
   let mr; try { mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: Number(cfg.bps) }); } catch (e) { lastErr = "Registrazione non avviabile: " + e.message; dbg("error", `MediaRecorder non creato: ${e.name}: ${e.message}`); publish(); return; }

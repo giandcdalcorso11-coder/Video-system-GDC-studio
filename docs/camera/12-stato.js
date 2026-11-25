@@ -106,7 +106,9 @@ function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5
 /* anteprima locale a tutto campo: REC con tempo, zoom e qualità sopra l'immagine */
 /* adatta il riquadro all'immagine: stessa proporzione del video (verticale, orizzontale o dopo una rotazione o uno sblocco dello schermo) */
 // su iOS, dopo il ritorno in primo piano o un cambio di barra di Safari, il livello video può restare della misura vecchia (immagine piccola in un riquadro nero): spegnerlo e riaccenderlo lo costringe a ridisegnarsi
-function stageRepaint(hard) { const v = $("vid"); if (!v) return; v.style.display = "none"; void v.offsetWidth; v.style.display = ""; if (hard && v.srcObject) { const s = v.srcObject; v.srcObject = null; v.srcObject = s; v.play().catch(() => {}); } } // hard: ricollega il flusso al video (la registrazione usa il flusso, non l'elemento: non si interrompe)
+function stageRepaint(hard) { const v = $("vid"); if (!v) return; v.style.display = "none"; void v.offsetWidth; v.style.display = ""; if (hard && v.srcObject) stageReplace(v); }
+// sostituisce l'elemento video con uno nuovo collegato allo stesso flusso: iOS a volte lascia il vecchio disegnato piccolo in un riquadro nero anche se le misure sono giuste
+function stageReplace(o) { const n = o.cloneNode(false); n.muted = true; n.srcObject = o.srcObject; o.replaceWith(n); n.addEventListener("resize", () => stageFit("cambio dimensioni del video")); n.play().catch(() => {}); dbg("info", "anteprima: elemento video sostituito"); } // hard: ricollega il flusso al video (la registrazione usa il flusso, non l'elemento: non si interrompe)
 function stageFit(why) {
   const v = $("vid"), st = $("stage"); if (!v || !st || !v.videoWidth || !v.videoHeight) return;
   const ratio = v.videoWidth / v.videoHeight; if (why) { stageRepaint(); setTimeout(() => { stageRepaint(/ritorno/.test(why)); const q = v.getBoundingClientRect(), z = st.getBoundingClientRect(); dbg("info", `anteprima dopo il ridisegno: video ${Math.round(q.width)}×${Math.round(q.height)}, riquadro ${Math.round(z.width)}×${Math.round(z.height)}, finestra ${innerWidth}×${innerHeight}${recording ? ", in REC" : ""}`); }, 500); }
