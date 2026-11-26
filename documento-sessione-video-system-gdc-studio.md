@@ -1,7 +1,7 @@
 # Documento di Sessione — Video System GDC Studio
 
-**Versione:** 62
-**Ultimo aggiornamento:** 2026-11-25 09:10
+**Versione:** 63
+**Ultimo aggiornamento:** 2026-11-26 20:55
 
 ## Vision
 
@@ -165,7 +165,7 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 
 ### Step 11 — Uso pubblico: sessioni con QR e codice
 
-**Stato:** in corso (fatti: QR, conferma Accetta/Rifiuta, benvenuto della camera, numeri unici, chiave della regia, permesso REC dal telefono; mancano: home con scelta del ruolo, scelta del tipo di attività con nome e colore, codice a 8 caratteri, sessioni con scadenza)
+**Stato:** in corso (fatti: QR, conferma Accetta/Rifiuta, benvenuto della camera, numeri unici, chiave della regia, permesso REC dal telefono; dal 26 novembre anche la modalità **Pubblica (test)** nelle pagine di prova, con home, scelta del tipo di ripresa, nuova sessione con durata e approvazione, regia con schede camera e zoom, QR, schermata File e schermate della camera come nel mockup; mancano: codice a 8 caratteri, effetto vero dei tipi di attività, account Supabase dedicato, pagina di dettaglio camera nel nuovo stile, prova con persone esterne)
 
 **Obiettivo:** un percorso per terzi, separato dal link developer: pagina iniziale con scelta del ruolo, creazione di una sessione dalla regia con QR e codice, ingresso delle camere con nome e permessi, accettazione dalla regia, comandi essenziali, file; nessuno strumento da sviluppatore.
 
@@ -181,6 +181,8 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - **DA RICORDARE ALL'UTENTE:** prima del primo test esterno l'utente creerà un nuovo account Supabase dedicato (progetto per il pubblico) e va ricordato di farlo prima di aprire la sessione a persone esterne; con il nuovo account si decide anche dove vive la tabella dei codici a 8 caratteri.
 - **DA RICORDARE ALL'UTENTE (al passaggio al nuovo account Supabase):** (1) spostare tutto ciò che c'è in GDC-project 2 (`mjcnvpwjvwrucwjptgiu`: tabella `gdc_dev_logs` con le sue regole, trigger di pulizia e antiduplicati) nel nuovo progetto e aggiornare l'indirizzo e la chiave usati dalle pagine e nei link; (2) **NON eliminare GDC-project 2**, e **attenzione: ospita anche un'altra app** (tabelle `thumb_*`, funzioni `is_master`, `owns_client`, `owns_storage_path`, regole relative): non toccarle. Va rimosso solo ciò che ha creato questo progetto: tabella `gdc_dev_logs` (con la sua regola `gdc_dev_logs_insert`, indici, vincoli), funzioni `gdc_dev_logs_cleanup` e `gdc_dev_logs_dedupe`, trigger `gdc_dev_logs_cleanup_trg` e `gdc_dev_logs_dedupe_trg`; prima di cancellare mostrare l'elenco e avere conferma; farlo solo dopo aver verificato che il nuovo funziona e con conferma esplicita dell'utente prima di cancellare dati; (3) controllare anche GDC-project (`pnzabwfsgkvejnrtrjcp`, l'altra app) per essere sicuri che non siano rimasti resti di questo progetto (tabelle, regole, funzioni, canali), senza toccare ciò che appartiene all'altra app.
 - [2026-11-18] Nome della sessione e "Nuova sessione" (dashboard r32). Pricing: abbonamento Pro + one shot a ore (pass a blocchi, attivazione esplicita, mai perdere materiale alla scadenza, scadenza come dato della sessione); prezzi e primo pagante da decidere dopo test e clienti.
+
+- [2026-11-26] Modalità **Pubblica (test)** (pulsante accanto a Base e Avanzata, nelle stesse pagine; nome del prodotto "Video System GDC Studio"; senza profili, cloud e pagamenti; log tecnici accesi di default con avviso fisso). Prima versione con stile semplice, poi rifatta fedele al mockup su richiesta dell'utente (home, "Che cosa riprendi?" con anteprima, "Nuova sessione" con 4/12/24 ore e approvazione, regia con schede e zoom, accettazione, QR, File, camera Entra / Prepara / Ripresa). Dashboard r49, camera r50.
 
 ### Step 9 — Hardware opzionale
 
@@ -211,6 +213,34 @@ Stato dettagliato in `docs/PIPELINE.md`, risultati dei test in `docs/RISULTATI-T
 - [2026-11-25] Bozza 2: lette dagli screenshot dell'utente le pagine ufficiali. Shot.video consegna un solo video montato dall'IA (16:9 o 9:16) da cloud privato, funziona anche tra reti diverse, piani 19/39/79 $ al mese a crediti, gratis i primi 2 video; non risulta l'esportazione delle clip originali. Posizionamento: loro "per chi odia montare", noi "per chi monta in Resolve". Camerama include anche fotocamere Canon/Sony. Blackmagic Camera: iPhone, iPad, Android e Mac come controller, stessa rete, multiview, comando da Apple Watch e WearOS, API REST, registrazione anche su Blackmagic Cloud fino a 8K.
 
 ## Storico sessioni
+
+### [2026-11-26 20:55] Prove con 3 camere e PC come regia, correzioni, e modalità Pubblica (test)
+
+**Riepilogo:** Dopo le prove del 25 e 26 novembre (3 iPhone, iPad, PC) sono state corrette la scheda doppia sull'iPad, il file `_2` sull'iPhone XR, la Calamita e l'avvio con camera silenziata, e si è costruita la modalità Pubblica (test) con le schermate del mockup, usando lo stesso motore.
+
+**Cosa è stato fatto:**
+- **Bug: seconda scheda della camera sull'iPad.** Sintomo: uscendo e rientrando da Safari si apriva una seconda scheda della stessa camera, che non si ricollegava. Causa: la seconda copia scambiava per bloccata la registrazione in corso della prima e la "recuperava" mentre la prima scriveva ancora (file vuoti, errori "nessun dato", camera già in uso); perché Safari apra la seconda scheda non è accertato. Fix: una sola scheda per camera (concessione scritta ogni 2 s; la seconda si ferma con "Camera già aperta in un'altra scheda" e il pulsante "Usa questa scheda comunque", che ferma la prima e ne salva la registrazione) — camera r47; da verificare sul campo.
+- **Bug: doppione `_2` dall'iPhone XR.** Sintomo: stesso file arrivato due volte. Causa probabile: la regia chiudeva il canale subito dopo l'"ok" e l'XR lo perdeva, quindi non cancellava la clip e la regia la richiedeva. Fix: canale lasciato aperto 4 s dopo l'"ok" e nessuna nuova richiesta automatica per una clip già arrivata e verificata (r45); non si è ripresentato nelle prove successive.
+- **Barre di trasferimento doppie:** una barra per clip e richieste doppie ignorate (dashboard r43). La causa della doppia richiesta non era chiara senza i log della regia: da questa sessione i log della regia arrivano.
+- **Vista Personalizzata:** pulsante Calamita (le schede si scostano con movimento fluido) e ritorno delle schede spinte alla posizione di partenza quando c'è spazio (r42–r44).
+- **Cornice nera dell'anteprima su iPhone dopo il ritorno da Safari:** le misure risultavano giuste, quindi è un problema di disegno di iOS; al ritorno il video viene sostituito con un nuovo elemento (r44–r46). Non si è ripresentata nella prova del 26 novembre.
+- **AirPods:** su iPad collegate durante la ripresa non l'hanno interrotta; il giorno prima avevano silenziato audio e video insieme su iPad, XR e iPhone 15. Ora REC non parte se il sistema ha silenziato la camera: attende e riprende da sola (r46).
+- **Pagina camera su iPad vecchio (Air):** il messaggio "Browser non supportato" compare correttamente; non può fare da camera (manca MediaRecorder).
+- **Prova D (cartella che sparisce):** messaggio chiaro, nessun trasferimento avviato, ripresa dopo "Cambia cartella"; restano due file `.crswap` (scarti di Edge) da eliminare a mano.
+- **Competitor:** documento `docs/COMPETITOR-E-NOTE-DISTINTIVE.md` (bozza 2, con le pagine ufficiali di Shot.video, Camerama e Blackmagic lette dagli screenshot dell'utente).
+- **Modalità Pubblica (test):** terzo pulsante accanto a Base e Avanzata. Home, scelta del tipo di ripresa (4 tipi, locale, 5 colori, anteprima), nuova sessione (nome, durata 4/12/24 ore con scadenza applicata dalla regia, approvazione delle camere), regia con intestazione, schede camera con zoom, accettazione, QR, schermata File (cartella, interruttori, elenco clip con stato), camera Entra / Prepara questa camera / Ripresa. Nuove pagine `docs/pub.js`, `dashboard/18-pubblica.js`, `camera/17-pubblica.js`. Log tecnici accesi di default in tutte le modalità. Test 31 (scheda doppia), 32 e 33 (modalità Pubblica); suite a 446+ controlli.
+- **Errore di impostazione riconosciuto:** le prime due versioni della modalità Pubblica usavano uno stile semplificato e non il mockup; l'utente l'ha segnalato due volte e la grafica è stata rifatta fedele.
+- Verifiche rimaste da fare: prova sui video lunghi (regia in secondo piano per minuti), iPad come regia con "Misura memoria", time-lapse con trasferimento automatico, prova delle nuove schermate su dispositivi veri.
+
+**Decisioni prese:**
+- Contesto: aprire il test dell'esperienza d'uso senza avere ancora l'account Supabase dedicato. Decisione: modalità "Pubblica (test)" nelle stesse pagine (non un indirizzo nuovo), nome "Video System GDC Studio", versione senza profili, cloud e pagamenti; log sempre accesi di default in questa fase, con avviso fisso e consenso esplicito da rivedere per la versione vera. Alternative scartate: pagina `/app/` separata (due copie da mantenere). Da rivedere se: arrivano i primi utenti esterni (consenso ai log, account dedicato).
+- Decisione: il tipo di attività resta per ora un'etichetta; i valori di partenza veri dopo le prove. Il codice a 8 caratteri e le sessioni con scadenza lato camera si fanno con l'account dedicato.
+
+**File consegnati/modificati:** docs/pub.js (nuovo), docs/dev.js, docs/dashboard.html (r49), docs/camera.html (r50), docs/dashboard/18-pubblica.js (nuovo), 14-viste.js, 10-ingresso.js, 15-router-rec.js, 07-trasferimento.js, 14a-viste-camere.js; docs/camera/17-pubblica.js (nuovo), 02-registro.js, 03-identita.js, 07-fotocamera.js, 08-registrazione.js, 12-stato.js, 16-interfaccia.js; docs/xfer.js; tests/cases/16, 31, 32, 33; docs/COMPETITOR-E-NOTE-DISTINTIVE.md; documento di sessione.
+
+**Impatto su Vision/Pipeline:** Step 11 aggiornato (stato e nota del 26 novembre).
+
+---
 
 ### [2026-11-25 09:10] Competitor: pagine ufficiali lette (bozza 2)
 
