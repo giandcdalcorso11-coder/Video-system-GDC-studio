@@ -1,6 +1,7 @@
-/* Modalità Base / Avanzata + invio facoltativo dei log a Supabase (tabella gdc_dev_logs, sola scrittura).
+/* Modalità Base / Avanzata / Pubblica (test) + invio dei log a Supabase (tabella gdc_dev_logs, sola scrittura).
    Base: solo i comandi utili a tutti. Avanzata: impostazioni complete, test e registri (la usiamo noi per lo sviluppo).
-   L'invio dei log parte solo se è attiva la modalità Avanzata E l'interruttore "Invia i log a Claude". */
+   Pubblica (test): il percorso che vedrebbe un cliente (home, creazione della sessione, ingresso delle camere), senza strumenti da sviluppatore.
+   In questa fase di prove i log tecnici sono accesi di default in tutte le modalità; chi vuole li spegne con l'interruttore (visibile in Avanzata). */
 (function () {
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -15,8 +16,8 @@
   const SESS = `${String(d0.getFullYear()).slice(2)}${pad(d0.getMonth() + 1)}${pad(d0.getDate())}-${pad(d0.getHours())}${pad(d0.getMinutes())}-${Math.random().toString(36).slice(2, 6)}`;
 
   const forced = new URLSearchParams(location.search).get("dev") === "1"; // link di prova: invia i log tecnici anche in modalità Base
-  let cfg = null, mode = store.get("gdc.mode", "base") === "adv" ? "adv" : "base", sending = store.get("gdc.devsend", false) === true || forced;
-  const live = () => sending && (mode === "adv" || forced);
+  let cfg = null, mode = ["adv", "pub"].includes(store.get("gdc.mode", "base")) ? store.get("gdc.mode", "base") : "base", sending = store.get("gdc.devsend", true) !== false || forced;
+  const live = () => sending;
   const queue = []; let seq = 0, timer = 0, sent = 0, failed = 0, lastErr = "", backoff = 0, busy = false, started = false;
   const QMAX = 3000;
 
@@ -24,6 +25,8 @@
     if (document.getElementById("gdcDevCss")) return;
     const s = document.createElement("style"); s.id = "gdcDevCss";
     s.textContent = `body:not(.adv) .adv-only{display:none !important}
+body:not(.pub) .pub-only{display:none !important}
+body.pub .nopub{display:none !important}
 #gdcMode{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:6px 0}
 #gdcMode .seg{display:inline-flex;gap:3px;background:var(--panel-2,#222);padding:3px;border-radius:10px;border:1px solid var(--line,#444)}
 #gdcMode .seg button{border:0;background:transparent;min-height:32px;padding:5px 12px;border-radius:8px;color:var(--muted,#999);font-weight:600;margin:0;font:inherit}
@@ -36,10 +39,10 @@ body.adv #gdcMode label{display:inline-flex}
   }
 
   function apply() {
-    document.body.classList.toggle("adv", mode === "adv");
+    document.body.classList.toggle("adv", mode === "adv"); document.body.classList.toggle("pub", mode === "pub");
     document.querySelectorAll("#gdcMode [data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
     const cb = document.getElementById("gdcSend"); if (cb) cb.checked = sending;
-    status();
+    status(); try { document.dispatchEvent(new CustomEvent("gdcmode", { detail: mode })); } catch { /* ok */ }
   }
   function status() {
     const el = document.getElementById("gdcSendSt"); if (!el) return;
@@ -51,9 +54,10 @@ body.adv #gdcMode label{display:inline-flex}
   function mount(host) {
     css();
     const box = document.createElement("div"); box.id = "gdcMode";
-    box.innerHTML = `<span class="seg" role="group" aria-label="Modalità"><button data-mode="base" aria-pressed="false">Base</button><button data-mode="adv" aria-pressed="false">Avanzata</button></span>
+    box.innerHTML = `<span class="seg" role="group" aria-label="Modalità"><button data-mode="base" aria-pressed="false">Base</button><button data-mode="adv" aria-pressed="false">Avanzata</button><button data-mode="pub" aria-pressed="false">Pubblica (test)</button></span>
 <label><input type="checkbox" id="gdcSend"> Invia i log a Claude</label><span class="st" id="gdcSendSt"></span><span class="st adv-only" id="gdcVer"></span>`;
     host.appendChild(box);
+    { const n = document.createElement("div"); n.className = "st pub-only"; n.style.margin = "4px 0 8px"; n.textContent = "Prova: vengono inviati dati tecnici sul funzionamento (modello, browser, rete, errori). Nessuna foto, video o audio."; host.appendChild(n); }
     if (forced) { const n = document.createElement("div"); n.className = "st"; n.style.margin = "4px 0 8px"; n.textContent = "Modalità prova: vengono inviati log tecnici (modello, browser, rete, funzioni disponibili). Nessuna foto, video o audio."; host.appendChild(n); }
     box.addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (b) setMode(b.dataset.mode); });
     box.querySelector("#gdcSend").addEventListener("change", (e) => setSending(e.target.checked));
@@ -62,8 +66,8 @@ body.adv #gdcMode label{display:inline-flex}
   }
 
   function setMode(m) {
-    mode = m === "adv" ? "adv" : "base"; store.set("gdc.mode", mode); apply();
-    if (cfg && cfg.log) cfg.log("info", `modalità: ${mode === "adv" ? "avanzata" : "base"}`);
+    mode = m === "adv" || m === "pub" ? m : "base"; store.set("gdc.mode", mode); apply();
+    if (cfg && cfg.log) cfg.log("info", `modalità: ${mode === "adv" ? "avanzata" : mode === "pub" ? "pubblica (test)" : "base"}`);
     schedule();
   }
   function setSending(on) {

@@ -15,7 +15,7 @@ const Session = {
       try { await Promise.race([transport.q || Promise.resolve(), new Promise((r) => setTimeout(r, 2500))]); } catch { /* ok */ }
       await new Promise((r) => setTimeout(r, 1200)); dbg("info", "sessione", `avviso di chiusura inviato a ${cameras.length} camere sul canale vecchio`);
     }
-    this.cur = { name: String(name || "").replace(/[<>&"]/g, "").trim().slice(0, 60), start: Date.now() }; this.save();
+    this.cur = { name: String(name || "").replace(/[<>&"]/g, "").trim().slice(0, 60), start: Date.now(), ...(this.cur.activity ? { activity: this.cur.activity, venue: this.cur.venue || "", color: this.cur.color || "" } : {}) }; this.save();
     GDC_RT.Pair.save({ u: pairing.u, k: pairing.k, c: GDC_RT.Pair.newChannel() }); // senza chiavi: la regia ne crea di nuove al riavvio
     store.set(CAM_KEY, []); store.set("gdc.rejected", []);
     dbg("info", "sessione", `nuova sessione “${this.cur.name}”: nuovo canale, chiavi rifatte, elenco camere azzerato`, old);
