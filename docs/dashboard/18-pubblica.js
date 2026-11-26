@@ -9,14 +9,14 @@ const PubUI = {
   arrow: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3F4F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
   sync() {
     const on = !!window.GDC_PUB && GDC_PUB.active();
-    if (window.GDC_PUB) { GDC_PUB.applyTheme(on && REAL ? Session.cur.color : (on ? this.sel.color : "")); if (on) GDC_PUB.ensureCss(); }
-    if (on && REAL && Session.cur.until && Date.now() > Session.cur.until) { // sessione scaduta: si torna alla home
+    if (window.GDC_PUB) { GDC_PUB.applyTheme(on && this.live() ? Session.cur.color : (on ? this.sel.color : "")); if (on) GDC_PUB.ensureCss(); }
+    if (on && this.live() && Session.cur.until && Date.now() > Session.cur.until) { // sessione scaduta: si torna alla home
       store.set("gdc.pubNote", "La sessione è scaduta. Creane una nuova: i file già registrati restano sui telefoni."); store.set("gdc.session", null); try { GDC_RT.Pair.clear(); } catch { /* ok */ } dbg("info", "pubblica", "sessione scaduta"); location.reload(); return;
     }
     { const h = document.querySelector("header h1 a, h1 a"); if (h) h.textContent = on ? "Video System GDC Studio" : "GDC Multicam"; document.title = on ? "Video System GDC Studio" : "GDC Multicam"; }
-    { const now = on && REAL; if (this.lastSess !== undefined && this.lastSess !== now && typeof route === "function") { this.lastSess = now; setTimeout(() => route(), 0); } this.lastSess = now; }
+    { const now = on && this.live(); if (this.lastSess !== undefined && this.lastSess !== now && typeof route === "function") { this.lastSess = now; setTimeout(() => route(), 0); } this.lastSess = now; }
     let el = document.getElementById("pubHome");
-    if (!on || REAL) { if (el) el.remove(); this.bar(on && REAL); return; }
+    if (!on || this.live()) { if (el) el.remove(); this.bar(on && this.live()); return; }
     this.bar(false); if (!el) { el = document.createElement("div"); el.id = "pubHome"; document.body.appendChild(el); this.step = "home"; this.note = store.get("gdc.pubNote", "") || ""; store.set("gdc.pubNote", ""); }
     this.render(el);
   },
@@ -67,7 +67,7 @@ const PubUI = {
     const s = this.sel, clean = (v) => String(v || "").replace(/[<>&"]/g, "").trim().slice(0, 60), d = new Date(), now = Date.now();
     const name = clean(s.name) || (clean(s.venue) ? "" : `Sessione del ${d.getDate()}/${d.getMonth() + 1}`);
     GDC_RT.Pair.save({ u: GDC_PUB.CFG.u, k: GDC_PUB.CFG.k, c: GDC_RT.Pair.newChannel() });
-    store.set("gdc.session", { name, start: now, until: now + s.hours * 3600000, activity: s.preset, venue: clean(s.venue), color: s.color });
+    store.set("gdc.session", { name, start: now, until: now + s.hours * 3600000, activity: s.preset, venue: clean(s.venue), color: s.color, pub: true });
     store.set("gdc.approve", !!s.approve); store.set("gdc.qrOpen", true); store.set(CAM_KEY, []); store.set("gdc.rejected", []); store.set("gdc.addOpenNext", true);
     dbg("info", "pubblica", `sessione creata: “${name}”`, { tipo: s.preset, colore: s.color, locale: clean(s.venue), ore: s.hours, approvazione: !!s.approve });
     location.reload();
@@ -76,7 +76,8 @@ const PubUI = {
 
 /* ===== Regia con la sessione aperta (mockup "Sessione"): intestazione, schede camera, QR, riga dei file ===== */
 Object.assign(PubUI, {
-  sessionOn() { return !!window.GDC_PUB && GDC_PUB.active() && REAL; },
+  live() { return REAL && !!(Session.cur && Session.cur.pub); },
+  sessionOn() { return !!window.GDC_PUB && GDC_PUB.active() && this.live(); },
   head() {
     const s = Session.cur, e = GDC_PUB.esc, tp = (GDC_PUB.PRESETS.find((p) => p.id === s.activity) || {}).name;
     return `<div class="ps-r1">${GDC_PUB.LOGO}<b class="pb-h">${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="ps-chip">${e(s.name)}</span>` : ""}${tp ? `<span class="ps-chip">${e(tp)}</span>` : ""}<span class="grow"></span><span class="ps-until" id="pubUntil"></span><button class="ps-ghost" id="pubNewSess">Nuova sessione</button><span class="ps-pill"><i id="pubDot"></i><span id="pubCnt">0 camere collegate</span></span><span class="ps-timer" id="pubTimer">00:00</span></div>`;

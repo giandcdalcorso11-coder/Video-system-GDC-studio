@@ -35,6 +35,12 @@ export async function run() {
     await p.evaluate(() => { location.hash = "#/file"; });
     t.check("'Impostazioni dei file' porta alla schermata File con 'Dove salvare le riprese' e l'elenco clip", await t.until(() => ev(() => /Dove salvare le riprese/.test(document.getElementById("view").textContent) && !!document.getElementById("pfClips") && /Riprese/.test(document.getElementById("pfClips").textContent) && !!document.querySelector('[data-xf="del"]')), 5000));
     await p.evaluate(() => { location.hash = "#/"; });
+    // regia con un abbinamento vecchio (prove di prima): la home della Pubblica compare lo stesso
+    { const q = await t.ctx.newPage(); q.on("pageerror", (e) => t.errs.push("pubblica vecchio abbinamento: " + e.message));
+      await q.goto(`${t.base}/dashboard.html?mock=1`); await q.evaluate(() => { localStorage.setItem("gdc.pair", JSON.stringify({ u: "https://x.supabase.co", k: "sb_publishable_x", c: "gdc1.abcdefghijklmnop" })); localStorage.setItem("gdc.session", JSON.stringify({ name: "Vecchia", start: Date.now() })); localStorage.setItem("gdc.mode", JSON.stringify("pub")); });
+      await q.goto(`${t.base}/dashboard.html`); await t.until(() => q.evaluate(() => typeof PubUI !== "undefined" && !!GDC_DEV));
+      t.check("con un abbinamento di prove precedenti la Pubblica mostra comunque la scelta Regia / Camera", await t.until(() => q.evaluate(() => !!document.getElementById("pubRegia") && !!document.getElementById("pubCamera")), 8000));
+      await q.close(); }
     // tornando a Base la home sparisce
     await p.evaluate(() => GDC_DEV.setMode("base"));
     t.check("tornando a Base il corpo non è più in modalità pub", await p.evaluate(() => !document.body.classList.contains("pub")));
