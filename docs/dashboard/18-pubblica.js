@@ -19,12 +19,24 @@ const PubUI = {
     this.bar(false); if (!el) { el = document.createElement("div"); el.id = "pubHome"; document.body.appendChild(el); this.step = "home"; this.note = store.get("gdc.pubNote", "") || ""; store.set("gdc.pubNote", ""); }
     this.render(el);
   },
+  filesOpen: false,
+  files() { // riga con cartella, trasferimento automatico e scorciatoia, sotto la griglia (solo nella pagina principale)
+    const f = document.getElementById("pubFilesBar"); if (!f) return; const xg = document.getElementById("xferGlobal"), e = GDC_PUB.esc;
+    f.hidden = !xg; if (!xg) return; xg.classList.toggle("open", this.filesOpen);
+    const dest = typeof Dest !== "undefined" ? (Dest.mode === "folder" && Dest.handle ? `Cartella: <b>${e(Dest.handle.name)}</b>` : Dest.mode === "folder" ? "Cartella: <b>da scegliere</b>" : "File: <b>su questo dispositivo</b>") : "";
+    const auto = typeof Xfer !== "undefined" && Xfer.auto && !Xfer.hold ? "attivo" : "spento";
+    f.querySelector(".st").innerHTML = `${dest} · Trasferimento automatico: <b>${auto}</b> · Segna un momento: tasto <b>M</b>`;
+    f.querySelector("button").textContent = this.filesOpen ? "Chiudi impostazioni" : "Impostazioni dei file";
+  },
   bar(show) {
-    let b = document.getElementById("pubSessBar");
-    if (!show) { if (b) b.remove(); clearInterval(this._t); return; }
+    let b = document.getElementById("pubSessBar"), fb = document.getElementById("pubFilesBar");
+    if (!show) { if (b) b.remove(); if (fb) fb.remove(); clearInterval(this._t); clearInterval(this._f); return; }
+    if (!fb) { fb = document.createElement("div"); fb.id = "pubFilesBar"; fb.innerHTML = `<span class="st"></span><button id="pubFilesBtn">Impostazioni dei file</button>`; const v = document.getElementById("view"); if (v && v.parentNode) v.parentNode.insertBefore(fb, v.nextSibling); fb.querySelector("button").onclick = () => { this.filesOpen = !this.filesOpen; this.files(); }; }
+    clearInterval(this._f); this._f = setInterval(() => this.files(), 1500); this.files();
     if (!b) { b = document.createElement("div"); b.id = "pubSessBar"; const v = document.getElementById("view"); if (v && v.parentNode) v.parentNode.insertBefore(b, v); else return; }
     const paint = () => { const s = Session.cur, e = GDC_PUB.esc, left = s.until ? Math.max(0, s.until - Date.now()) : 0, h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000), tp = (GDC_PUB.PRESETS.find((p) => p.id === s.activity) || {}).name;
-      b.innerHTML = `<span class="dot"></span><b>${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="m">${e(s.name)}</span>` : ""}${tp ? `<span class="m">· ${e(tp)}</span>` : ""}${s.until ? `<span class="m" style="margin-left:auto">Valida ancora ${h ? h + " h " : ""}${m} min</span>` : ""}`; };
+      b.innerHTML = `<span class="dot"></span><b>${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="m">${e(s.name)}</span>` : ""}${tp ? `<span class="m">· ${e(tp)}</span>` : ""}${s.until ? `<span class="m" style="margin-left:auto">Valida ancora ${h ? h + " h " : ""}${m} min</span>` : `<span style="margin-left:auto"></span>`}<button class="nb" id="pubNewSess">Nuova sessione</button>`;
+      const nb = b.querySelector("#pubNewSess"); if (nb) nb.onclick = () => { const x = document.getElementById("sessNewHome"); if (x) x.click(); else location.hash = "#/"; }; };
     paint(); clearInterval(this._t); this._t = setInterval(paint, 30000);
   },
   render(el) {

@@ -78,6 +78,20 @@ body.pub .panel,body.pub .card{border-radius:18px}
 #pubSessBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;margin:0 0 12px;border-radius:14px;background:#171A1F;border:1px solid #2C313A;font-size:14px}
 #pubSessBar .dot{width:12px;height:12px;border-radius:50%;background:var(--session,#3DDC97);flex:none}
 #pubSessBar b{font-family:'Space Grotesk',sans-serif;font-size:16px} #pubSessBar .m{color:#A9B0BB}
+/* regia con la sessione aperta (mockup "Sessione"): meno strumenti, impostazioni dei file riassunte in una riga */
+body.pub #permPanel,body.pub #marksPanel,body.pub #sum,body.pub #sessRow,body.pub #preflight,body.pub footer{display:none !important}
+body.pub header.top{background:#171A1F;border:1px solid #2C313A;border-radius:18px;padding:14px 18px}
+body.pub header.top h1{font-size:19px;letter-spacing:-.2px} body.pub header.top .sub{display:none}
+body.pub .timer{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px}
+body.pub #xferGlobal:not(.open){display:none}
+body.pub #xferLive{border-radius:16px}
+body.pub .grid .card{border-radius:20px}
+body.pub .grid .add{border-radius:20px;border-color:#2C313A;color:#A9B0BB}
+body.pub .viewbar .seg3 button[aria-pressed="true"],body.pub #gdcMode .seg button[aria-pressed="true"]{background:#F3F4F6;color:#0E1013}
+#pubSessBar .nb{margin-left:8px;background:none;border:1px solid #2C313A;color:#F3F4F6;border-radius:10px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:34px}
+#pubFilesBar{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;padding:12px 16px;margin:16px 0 0;border-radius:16px;background:#171A1F;border:1px solid #2C313A;font-size:14px;color:#A9B0BB}
+#pubFilesBar b{color:#F3F4F6;font-weight:600} #pubFilesBar .st{flex:1}
+#pubFilesBar button{background:none;border:1px solid #2C313A;color:#F3F4F6;border-radius:10px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:34px;margin:0}
 @media (max-width:900px){#pubHome .pb-hero{grid-template-columns:1fr;gap:28px;min-height:0;padding-top:12px}#pubHome .pb-cols{grid-template-columns:1fr;gap:24px}#pubHome .pb-prev{display:none}#pubHome .pb-types{grid-template-columns:1fr}}`;
   function ensureCss() {
     if (document.getElementById("pubCss")) return;
