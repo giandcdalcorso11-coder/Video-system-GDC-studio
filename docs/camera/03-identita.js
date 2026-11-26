@@ -7,6 +7,17 @@ const idSrc = (() => {
   return { id: "cam-" + Math.random().toString(36).slice(2, 8), src: "nuova" };
 })();
 const ID = idSrc.id; store.set("gdc.camId", ID); setCookie("gdc_camid", ID);
+/* una sola scheda per camera: su iPad, uscendo e rientrando da Safari, può aprirsi una seconda scheda con la stessa camera mentre la prima registra ancora.
+   "Concessione" scritta ogni 2 s da chi è attivo; una seconda scheda la trova fresca e si ferma invece di rubare la camera e "recuperare" la registrazione in corso */
+const INST = Math.random().toString(36).slice(2, 8); let CAM_DUP = false;
+const Lease = {
+  k: "gdc.cam.lease." + ID,
+  read() { try { return JSON.parse(localStorage.getItem(this.k) || "null"); } catch { return null; } },
+  write() { try { localStorage.setItem(this.k, JSON.stringify({ i: INST, t: Date.now(), rec: (typeof recording !== "undefined" && recording) ? recording.sid : "", h: document.hidden ? 1 : 0 })); } catch { /* ok */ } },
+  other() { const l = this.read(); return l && l.i !== INST && Date.now() - l.t < 120000 ? l : null; },
+  mine() { const l = this.read(); return !l || l.i === INST; },
+  release() { try { if (this.mine()) localStorage.removeItem(this.k); } catch { /* ok */ } },
+};
 const FP = (() => { const s = [navigator.userAgent, screen.width, screen.height, devicePixelRatio, navigator.hardwareConcurrency, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|"); let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16); })();
 const FIRST = !store.get("gdc.camCfg", null) && !store.get("gdc.welcomed", false) && !new URLSearchParams(location.search).get("name");
 let welcomePending = false;

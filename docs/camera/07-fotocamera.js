@@ -12,6 +12,7 @@ const AudioDiag = {
     dbg("error", "DIAGNOSI AUDIO: la traccia audio è terminata da sola", info);
   } };
 async function openCam() {
+  if (CAM_DUP) throw new Error("camera aperta in un'altra scheda");
   if (stream) stream.getTracks().forEach((t) => t.stop());
   { const want = store.get("gdc.audioSess", ""); if (want && navigator.audioSession) { try { navigator.audioSession.type = want; dbg("info", `sessione audio impostata: ${AudioDiag.as()}`); } catch (e) { dbg("warn", `sessione audio non impostabile: ${e.message}`); } } }
   const [w, h] = RES[cfg.res] || RES["1080p"], base = { video: { facingMode: cfg.facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } } }, t0 = performance.now();
@@ -44,6 +45,7 @@ async function wakeOn() {
 function wakeOff() { try { wl && wl.release(); } catch { /* ok */ } wl = null; }
 let opening = false;
 async function autoOpen(why) {
+  if (CAM_DUP) return;
   if (!cfg.autoCam || stream || opening || recording || !pairing || welcomePending) return; opening = true; dbg("info", `avvio automatico della camera (${why})`);
   try { await openCam(); dbg("info", "avvio automatico riuscito"); }
   catch (e) { lastErr = e.name === "NotAllowedError" ? "Camera non avviata: tocca “Avvia camera” (serve il permesso o un tocco)" : lastErr; dbg("warn", `avvio automatico non riuscito: ${e.name}: ${e.message}`); publish(); }

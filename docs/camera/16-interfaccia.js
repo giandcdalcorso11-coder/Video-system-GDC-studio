@@ -42,12 +42,21 @@ async function start() {
   $("pairBox").hidden = !!pairing; { const end = store.get("gdc.ended", null); if (!pairing && end) { $("pairEnded").hidden = false; $("pairEnded").textContent = end.msg; } else { $("pairEnded").hidden = true; if (pairing && end) store.set("gdc.ended", null); } }
   $("welcome").hidden = !welcomePending; $("main").hidden = !pairing || welcomePending; $("statPanel").hidden = !pairing || welcomePending; $("dbgPanel").hidden = false;
   syncForm(); renderStat();
+  { const force = Number(store.get("gdc.leaseForce", 0)) > Date.now() - 15000, o = Lease.other();
+    if (o && !force) { CAM_DUP = true; $("dupBox").hidden = false; $("welcome").hidden = true; $("main").hidden = true; $("statPanel").hidden = true; $("pairBox").hidden = true; dbg("error", `questa camera è già aperta in un'altra scheda (ultimo segno ${Math.round((Date.now() - o.t) / 1000)} s fa${o.rec ? ", sta registrando " + o.rec : ""}${o.h ? ", in secondo piano" : ""}): mi fermo`); return; }
+    store.set("gdc.leaseForce", 0); Lease.write(); }
+  setInterval(() => { if (CAM_DUP) return; if (!Lease.mine()) { superseded(); return; } Lease.write(); }, 2000);
   await db.selfTest(); await loadSessions(); recoverOrphans();
   spaceTick(); setInterval(spaceTick, 8000);
   if (!pairing) return;
   if (welcomePending) { dbg("info", "prima apertura: mostro la schermata di benvenuto (nome e permessi)"); return; }
   await goOnline();
 }
+function superseded() { // un'altra scheda ha preso la camera con "Usa questa scheda comunque"
+  CAM_DUP = true; dbg("error", "un'altra scheda ha preso il controllo di questa camera: mi fermo"); try { if (recording) stopRec(); } catch { /* ok */ } try { stopCam(); } catch { /* ok */ } try { rt && rt.close(); } catch { /* ok */ }
+  $("dupBox").hidden = false; $("dupTxt").textContent = "Un'altra scheda ha preso il controllo di questa camera: questa si è fermata (una registrazione in corso è stata salvata). Chiudi questa scheda."; $("dupBtn").hidden = true; $("main").hidden = true; $("statPanel").hidden = true;
+}
+$("dupBtn").onclick = () => { store.set("gdc.leaseForce", Date.now()); try { localStorage.removeItem(Lease.k); } catch { /* ok */ } location.reload(); };
 let netBad = 0, regiaPresente = false, regiaVista = Date.now(), orphanShown = false;
 /* nessuna regia sul canale: succede se la sessione è cambiata mentre questo telefono era spento, o se la regia è chiusa.
    Dopo 90 s (con il collegamento attivo) lo dico chiaramente; la camera non si scollega da sola: lo decide chi la usa */
