@@ -44,6 +44,7 @@ const Join = {
   link() { const l = GDC_RT.Pair.link("camera.html", pairing); return new URLSearchParams(location.search).get("dev") === "1" ? l.replace("#", "?dev=1#") : l; },
   panel() {
     if (!REAL) return "";
+    if (typeof PubUI !== "undefined" && PubUI.sessionOn()) return PubUI.qrPanel();
     return `<section class="panel" id="addPhone"><div class="row"><h2 style="margin:0">Aggiungi un telefono</h2><button id="qrBtn">${this.qrOpen ? "Nascondi QR" : "Mostra QR"}</button></div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px"><div style="flex:1;min-width:200px"><label for="sessName" class="muted" style="font-size:13px">Nome della sessione</label><input id="sessName" type="text" maxlength="60" placeholder="Per esempio: Set di domenica" value="${esc(Session.cur.name)}" style="width:100%"></div></div>
       <div class="muted" style="margin:4px 0 0;font-size:13px">Con “Nuova sessione” il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR. Le clip restano sui telefoni.</div>

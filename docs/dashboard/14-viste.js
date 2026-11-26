@@ -12,7 +12,7 @@ function mergeCams() {
 }
 function showHome() {
   Preview.stopAll();
-  $("#view").innerHTML = `
+  $("#view").innerHTML = (typeof PubUI !== "undefined" && PubUI.sessionOn()) ? PubUI.home() : `
     ${mergeBanner()}
     ${staleBanner()}
     ${Views.modal()}

@@ -3,6 +3,7 @@
 function route() {
   curDetail = null;
   dbg("info", "ui", `vista: ${location.hash || "#/"}`);
+  if (location.hash === "#/file" && typeof PubUI !== "undefined" && PubUI.sessionOn()) { PubUI.showFile(); window.scrollTo(0, 0); return; }
   const m = location.hash.match(/^#\/cam\/(.+)$/);
   if (m && camById(m[1])) showDetail(m[1]); else showHome();
   window.scrollTo(0, 0);

@@ -14,30 +14,16 @@ const PubUI = {
       store.set("gdc.pubNote", "La sessione è scaduta. Creane una nuova: i file già registrati restano sui telefoni."); store.set("gdc.session", null); try { GDC_RT.Pair.clear(); } catch { /* ok */ } dbg("info", "pubblica", "sessione scaduta"); location.reload(); return;
     }
     { const h = document.querySelector("header h1 a, h1 a"); if (h) h.textContent = on ? "Video System GDC Studio" : "GDC Multicam"; document.title = on ? "Video System GDC Studio" : "GDC Multicam"; }
+    { const now = on && REAL; if (this.lastSess !== undefined && this.lastSess !== now && typeof route === "function") { this.lastSess = now; setTimeout(() => route(), 0); } this.lastSess = now; }
     let el = document.getElementById("pubHome");
     if (!on || REAL) { if (el) el.remove(); this.bar(on && REAL); return; }
     this.bar(false); if (!el) { el = document.createElement("div"); el.id = "pubHome"; document.body.appendChild(el); this.step = "home"; this.note = store.get("gdc.pubNote", "") || ""; store.set("gdc.pubNote", ""); }
     this.render(el);
   },
   filesOpen: false,
-  files() { // riga con cartella, trasferimento automatico e scorciatoia, sotto la griglia (solo nella pagina principale)
-    const f = document.getElementById("pubFilesBar"); if (!f) return; const xg = document.getElementById("xferGlobal"), e = GDC_PUB.esc;
-    f.hidden = !xg; if (!xg) return; xg.classList.toggle("open", this.filesOpen);
-    const dest = typeof Dest !== "undefined" ? (Dest.mode === "folder" && Dest.handle ? `Cartella: <b>${e(Dest.handle.name)}</b>` : Dest.mode === "folder" ? "Cartella: <b>da scegliere</b>" : "File: <b>su questo dispositivo</b>") : "";
-    const auto = typeof Xfer !== "undefined" && Xfer.auto && !Xfer.hold ? "attivo" : "spento";
-    f.querySelector(".st").innerHTML = `${dest} · Trasferimento automatico: <b>${auto}</b> · Segna un momento: tasto <b>M</b>`;
-    f.querySelector("button").textContent = this.filesOpen ? "Chiudi impostazioni" : "Impostazioni dei file";
-  },
-  bar(show) {
-    let b = document.getElementById("pubSessBar"), fb = document.getElementById("pubFilesBar");
-    if (!show) { if (b) b.remove(); if (fb) fb.remove(); clearInterval(this._t); clearInterval(this._f); return; }
-    if (!fb) { fb = document.createElement("div"); fb.id = "pubFilesBar"; fb.innerHTML = `<span class="st"></span><button id="pubFilesBtn">Impostazioni dei file</button>`; const v = document.getElementById("view"); if (v && v.parentNode) v.parentNode.insertBefore(fb, v.nextSibling); fb.querySelector("button").onclick = () => { this.filesOpen = !this.filesOpen; this.files(); }; }
-    clearInterval(this._f); this._f = setInterval(() => this.files(), 1500); this.files();
-    if (!b) { b = document.createElement("div"); b.id = "pubSessBar"; const v = document.getElementById("view"); if (v && v.parentNode) v.parentNode.insertBefore(b, v); else return; }
-    const paint = () => { const s = Session.cur, e = GDC_PUB.esc, left = s.until ? Math.max(0, s.until - Date.now()) : 0, h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000), tp = (GDC_PUB.PRESETS.find((p) => p.id === s.activity) || {}).name;
-      b.innerHTML = `<span class="dot"></span><b>${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="m">${e(s.name)}</span>` : ""}${tp ? `<span class="m">· ${e(tp)}</span>` : ""}${s.until ? `<span class="m" style="margin-left:auto">Valida ancora ${h ? h + " h " : ""}${m} min</span>` : `<span style="margin-left:auto"></span>`}<button class="nb" id="pubNewSess">Nuova sessione</button>`;
-      const nb = b.querySelector("#pubNewSess"); if (nb) nb.onclick = () => { const x = document.getElementById("sessNewHome"); if (x) x.click(); else location.hash = "#/"; }; };
-    paint(); clearInterval(this._t); this._t = setInterval(paint, 30000);
+  bar(show) { // nella regia in Pubblica il selettore delle modalità passa sotto la vista (serve a noi per tornare in Avanzata)
+    const host = document.getElementById("modeHost"), v = document.getElementById("view"); if (!host || !v || !v.parentNode) return;
+    if (show) { if (host.previousElementSibling !== v) v.parentNode.insertBefore(host, v.nextSibling); } else if (host.nextElementSibling !== v) v.parentNode.insertBefore(host, v);
   },
   render(el) {
     const e = GDC_PUB.esc, s = this.sel, P = GDC_PUB;
@@ -87,5 +73,129 @@ const PubUI = {
     location.reload();
   },
 };
+
+/* ===== Regia con la sessione aperta (mockup "Sessione"): intestazione, schede camera, QR, riga dei file ===== */
+Object.assign(PubUI, {
+  sessionOn() { return !!window.GDC_PUB && GDC_PUB.active() && REAL; },
+  head() {
+    const s = Session.cur, e = GDC_PUB.esc, tp = (GDC_PUB.PRESETS.find((p) => p.id === s.activity) || {}).name;
+    return `<div class="ps-r1">${GDC_PUB.LOGO}<b class="pb-h">${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="ps-chip">${e(s.name)}</span>` : ""}${tp ? `<span class="ps-chip">${e(tp)}</span>` : ""}<span class="grow"></span><span class="ps-until" id="pubUntil"></span><button class="ps-ghost" id="pubNewSess">Nuova sessione</button><span class="ps-pill"><i id="pubDot"></i><span id="pubCnt">0 camere collegate</span></span><span class="ps-timer" id="pubTimer">00:00</span></div>`;
+  },
+  card(c) {
+    const id = c.id;
+    return `<article class="card click pcard" data-cam="${id}" data-bind="card" data-go="${id}">
+      <div class="card-h"><b data-bind="pubName" data-cam="${id}"></b><span class="ps-st" data-bind="pubSt" data-cam="${id}"></span></div>
+      <div class="card-b">${previewHtml(id, "mini")}</div>
+      <div class="ps-meta"><span data-bind="pubDev" data-cam="${id}"></span><span data-bind="pubBat" data-cam="${id}"></span></div>
+      <div class="ps-zoom"><div><span>Zoom</span><b data-bind="pubZv" data-cam="${id}">—</b></div><input type="range" class="ps-zs" data-bind="pubZs" data-cam="${id}" data-pz="${id}" min="1" max="5" step="0.1" value="1" aria-label="Zoom"></div>
+      <div class="card-f"><button class="ps-rec" data-bind="pubRec" data-cam="${id}" data-act="rec_start">● REC</button><button class="ghost ps-det" data-go="${id}">Dettagli</button></div>
+    </article>`;
+  },
+  home() {
+    const bar = Views.bar().replace('</div><div id="vwChips"', '<button id="pubStop" class="ps-b" disabled>■ STOP tutte</button><button id="pubRec" class="ps-b rec" disabled>● REC tutte</button></div><div id="vwChips"');
+    return `${mergeBanner()}${staleBanner()}${Views.modal()}
+      <div class="ps"><div class="ps-head">${this.head()}${bar}</div>
+      <section class="panel" id="preflight" hidden></section><section class="panel" id="xferLive" hidden></section>
+      <section class="grid" id="homeGrid">${cameras.map((c) => this.card(c)).join("")}
+        <button class="add" id="addDev">+ Aggiungi dispositivo<small class="muted" style="display:block;font-weight:400">QR o codice · la camera chiede di entrare e tu confermi</small></button></section>
+      <div id="pubFilesBar"><span class="st"></span><button id="pubFilesBtn">Impostazioni dei file</button></div>
+      <section class="panel" id="xferGlobal" style="margin-top:12px"></section></div>`;
+  },
+  qrPanel() {
+    const e = GDC_PUB.esc, s = Session.cur, left = s.until ? Math.max(0, s.until - Date.now()) : 0, h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000);
+    return `<section class="panel ps-qr" id="addPhone"><div class="ps-qrbox"><div id="qrBox"><div id="qrImg" class="ps-qrimg"></div></div>
+      <div class="ps-qrtx"><b class="pb-h" style="font-size:20px">Il telefono inquadra il QR</b><p class="muted">Apri la <b>fotocamera</b> del telefono, inquadra il QR e tocca il link che compare. La pagina si apre già collegata a questa regia. Funziona con iPhone e Android.</p>
+      ${s.until ? `<div class="ps-chip" style="align-self:flex-start">Valida ancora ${h ? h + " h " : ""}${m} min</div>` : ""}
+      <div class="ps-wait"><i></i> IN ATTESA di nuove camere</div>
+      <button class="ps-ghost" id="qrCopy" style="align-self:flex-start">Copia il link</button>
+      <div class="muted" style="font-size:13px">${Join.approve ? "Ogni camera nuova compare qui con Accetta e Rifiuta." : "Chi apre il link entra subito, senza chiedere."}</div></div></div></section>`;
+  },
+  files() {
+    const f = document.getElementById("pubFilesBar"); if (!f) return; const xg = document.getElementById("xferGlobal"), e = GDC_PUB.esc;
+    if (xg) xg.classList.toggle("open", this.filesOpen);
+    const dest = typeof Dest !== "undefined" ? (Dest.mode === "folder" && Dest.handle ? `Cartella: <b>${e(Dest.handle.name)}</b>` : Dest.mode === "folder" ? "Cartella: <b>da scegliere</b>" : "File: <b>su questo dispositivo</b>") : "";
+    const auto = typeof Xfer !== "undefined" && Xfer.auto && !Xfer.hold ? "attivo" : "spento";
+    f.querySelector(".st").innerHTML = `${dest} · Trasferimento automatico: <b>${auto}</b> · Segna un momento: tasto <b>M</b>`;
+    f.querySelector("button").textContent = this.filesOpen ? "Chiudi impostazioni" : "Impostazioni dei file";
+  },
+  tick() {
+    if (!this.sessionOn()) return; const on = cameras.filter((c) => state[c.id] && state[c.id].online).length, cnt = document.getElementById("pubCnt");
+    if (cnt) { cnt.textContent = `${on} ${on === 1 ? "camera collegata" : "camere collegate"}`; const d = document.getElementById("pubDot"); if (d) d.style.background = on ? "#3DDC97" : "#2C313A"; }
+    const t = document.getElementById("pubTimer"), g = document.getElementById("globalTimer"); if (t && g) t.textContent = g.textContent;
+    const r = document.getElementById("pubRec"), sa = document.getElementById("pubStop"); if (r) r.disabled = $("#recAll").disabled; if (sa) sa.disabled = $("#stopAll").disabled;
+    const u = document.getElementById("pubUntil"), s = Session.cur; if (u) { const left = s.until ? Math.max(0, s.until - Date.now()) : 0; u.textContent = s.until ? `Valida ancora ${Math.floor(left / 3600000) ? Math.floor(left / 3600000) + " h " : ""}${Math.floor((left % 3600000) / 60000)} min` : ""; }
+    this.files();
+  },
+});
+Object.assign(BIND, {
+  pubName: (st, c, el) => { el.textContent = labelOf(c.id) || c.name || "Camera"; },
+  pubSt: (st, c, el) => { const rec = !!st.rec, tl = !!(st.tl && st.tl.stage); el.className = "ps-st " + (!st.online ? "off" : rec || tl ? "rec" : "ok"); el.innerHTML = `<i></i>${!st.online ? "Offline" : rec ? "REC " + fmtTime(Date.now() - st.recStart) : tl ? "Time-lapse" : "Pronta"}`; },
+  pubDev: (st, c, el) => { el.textContent = [c.name, c.device].filter(Boolean).join(" · ") || "Telefono"; },
+  pubBat: (st, c, el) => { const b = st.online && st.battery != null ? `Batt. ${Math.round(st.battery)}%${st.charging ? " ⚡" : ""}` : ""; const sp = !st.online ? "" : st.space && st.space.known ? `~${st.space.minLeft} min` : st.freeGb != null ? Math.round(st.freeGb) + " GB" : ""; el.textContent = [b, sp].filter(Boolean).join(" · "); },
+  pubZv: (st, c, el) => { const z = st.zoom; el.textContent = st.online && st.camReady && z && z.cur != null ? Number(z.cur).toFixed(1).replace(".", ",") + "×" : "—"; },
+  pubZs: (st, c, el) => { const z = st.zoom, ok = !!(st.online && st.camReady && z && z.native); el.disabled = !ok; if (ok) { el.min = z.min; el.max = z.max; if (!zDrag && document.activeElement !== el && z.cur != null) el.value = z.cur; } },
+  pubRec: (st, c, el) => { const busy = Mode.busy(st) || !!st.tl; el.dataset.act = busy ? "rec_stop" : "rec_start"; el.className = "ps-rec" + (busy ? " on" : ""); el.textContent = busy ? "■ STOP" : "● REC"; el.disabled = !st.online || (st.tl && !Mode.busy(st) && false); },
+});
+document.addEventListener("click", (e) => {
+  if (!PubUI.sessionOn()) return;
+  if (e.target.closest("#pubRec")) { $("#recAll").click(); return; }
+  if (e.target.closest("#pubStop")) { $("#stopAll").click(); return; }
+  if (e.target.closest("#pubFilesBtn")) { location.hash = "#/file"; return; }
+  if (e.target.closest("#pubNewSess")) { const x = document.getElementById("sessNewHome"); if (x) x.click(); else { const n = prompt("Nuova sessione. Il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR (le clip restano sui telefoni).\n\nScrivi il nome della nuova sessione, oppure lascia vuoto:", ""); if (n !== null) Session.begin(n); } }
+});
+document.addEventListener("input", (e) => { const z = e.target.closest && e.target.closest("[data-pz]"); if (!z || !PubUI.sessionOn()) return; zDrag = true; const id = z.dataset.pz; z.previousElementSibling && 0; const v = z.parentNode.querySelector("[data-bind=pubZv]"); if (v) v.textContent = Number(z.value).toFixed(1).replace(".", ",") + "×"; if (!z._t) z._t = setTimeout(() => { z._t = 0; command(id, { cmd: "zoom", z: Number(z.value) }); }, 100); });
+document.addEventListener("change", (e) => { const z = e.target.closest && e.target.closest("[data-pz]"); if (z) { zDrag = false; command(z.dataset.pz, { cmd: "zoom", z: Number(z.value) }); } });
+document.addEventListener("click", (e) => { if (e.target.closest && e.target.closest(".ps-zs")) e.stopPropagation(); }, true);
+setInterval(() => PubUI.tick(), 500);
+
+/* ===== Schermata "File" (mockup): dove salvare le riprese e stato delle clip ===== */
+Object.assign(PubUI, {
+  fileRows() {
+    const seen = new Set(), rows = [];
+    [...Xfer.jobs.values()].filter((j) => !j.test).sort((a, b) => b.at - a.at).forEach((j) => { const k = j.camId + "|" + (j.sid || j.id); if (seen.has(k)) return; seen.add(k); rows.push({ camId: j.camId, sid: j.sid, name: j.fname || j.name, job: j, bytes: j.size || 0 }); });
+    cameras.forEach((c) => ((state[c.id] && state[c.id].clips) || []).forEach((k) => { if (!k.id || seen.has(c.id + "|" + k.id)) return; seen.add(c.id + "|" + k.id); rows.push({ camId: c.id, sid: k.id, name: k.file, clip: k, bytes: (k.mb || 0) * 1048576 }); }));
+    return rows;
+  },
+  rowHtml(r) {
+    const e = GDC_PUB.esc, j = r.job, cam = camById(r.camId), who = cam ? labelOf(cam.id) || cam.name : "";
+    let right = "", sub = "", bar = "";
+    if (j && j.state === "ok") { right = `<span class="ok">✓ Arrivato e verificato</span>`; sub = j.where === "memoria" && !j.saved ? "In memoria: tocca Salva" : j.where === "memoria" ? "Salvato" : "Salvato nella cartella"; if (j.where === "memoria" && !j.saved) right += ` <button class="ps-ghost" data-xf="save" data-xid="${j.id}">Salva</button>`; }
+    else if (j && (j.state === "in corso" || j.state === "attesa" || j.state === "interrotto")) { const pct = j.size ? Math.min(100, Math.round(j.got / j.size * 100)) : 0, left = j.speed > 0 && j.size > j.got ? Math.round((j.size - j.got) / j.speed) : 0; right = j.state === "attesa" ? "In attesa" : `${pct}%`; sub = j.state === "interrotto" ? e(j.note || "interrotto") : j.state === "attesa" ? "Parte appena c'è posto" : `${j.speed ? (j.speed * 8 / 1e6).toFixed(1) + " Mbps" : ""}${left ? " · circa " + (left >= 60 ? Math.round(left / 60) + " min" : left + " s") : ""}`; bar = `<div class="pf-bar"><i style="width:${pct}%"></i></div>`; }
+    else if (j && j.state === "errore") { right = `<span class="bad">${e(j.error || "non riuscito")}</span> <button class="ps-ghost" data-xf="resume" data-xid="${j.id}">Riprendi</button>`; }
+    else { right = r.clip && r.clip.status === "pronta" ? `<button class="ps-ghost" data-xf="go" data-sid="${e(r.sid)}">Trasferisci</button>` : e((r.clip && r.clip.status) || ""); sub = r.clip && r.clip.status === "pronta" ? "Sul telefono" : ""; }
+    return `<div class="pf-row" data-cam="${e(r.camId)}"><div class="pf-n"><b>${e(r.name)}</b><span>${e(who)}${sub ? " · " + sub : ""}</span>${bar}</div><div class="pf-r"><span>${r.bytes ? fmtMB(r.bytes) : ""}</span><div>${right}</div></div></div>`;
+  },
+  fileClips() {
+    const rows = this.fileRows(), tot = rows.reduce((a, r) => a + r.bytes, 0), busy = Xfer.active().length, ready = rows.filter((r) => !r.job && r.clip && r.clip.status === "pronta").length;
+    return `<div class="pf-h"><h2 class="pb-h">Riprese</h2><span class="m">${rows.length} ${rows.length === 1 ? "clip" : "clip"}${tot ? " · " + fmtMB(tot) : ""}</span><span class="grow"></span><button class="pf-all" data-xf="allcams" ${ready && !Xfer.queueRun ? "" : "disabled"}>Trasferisci tutte${ready ? " (" + ready + ")" : ""}</button></div>
+      ${rows.length ? rows.map((r) => this.rowHtml(r)).join("") : `<div class="pf-empty">Nessuna ripresa ancora. Le clip compaiono qui appena fermi la registrazione.</div>`}
+      ${busy ? `<div class="pb-pro">Trasferimento in corso: non chiudere questa pagina e lascia le camere aperte.</div>` : ""}`;
+  },
+  fileTop() {
+    const e = GDC_PUB.esc, s = Session.cur, dh = Dest.health;
+    return `<div class="pf-h2"><h2 class="pb-h">Dove salvare le riprese</h2></div>
+      <div class="pf-opts">${FS ? `<label class="pf-opt${Dest.mode === "folder" ? " on" : ""}"><input type="radio" name="pfd" data-xm="folder" ${Dest.mode === "folder" ? "checked" : ""}><div><b>Cartella di questo computer</b><span>${Dest.handle ? e(Dest.handle.name) : "Nessuna cartella scelta"}</span></div>${Dest.mode === "folder" ? `<button class="ps-ghost" data-xf="pick" type="button">${Dest.handle ? "Cambia cartella" : "Scegli cartella"}</button>` : ""}</label>` : ""}
+        <label class="pf-opt${Dest.mode === "device" ? " on" : ""}"><input type="radio" name="pfd" data-xm="device" ${Dest.mode === "device" ? "checked" : ""}><div><b>Questo dispositivo</b><span>Su iPad: il file arriva in memoria, poi tocchi Salva e scegli File o Foto.</span></div></label></div>
+      ${Dest.mode === "folder" && Dest.handle && dh ? `<div class="pf-health ${dh.ok ? "ok" : "bad"}">${dh.ok ? "✓ raggiungibile e scrivibile" : e(dh.msg)}${dh.ok ? "" : ' <button class="ps-ghost" data-xf="chk">Verifica cartella</button>'}</div>` : ""}
+      <label class="pf-sw"><input type="checkbox" data-xf="del" ${Xfer.delAfter ? "checked" : ""}><span>Elimina dal telefono solo dopo che il file è arrivato e verificato</span></label>
+      <label class="pf-sw"><input type="checkbox" data-xf="auto" ${Xfer.auto && !Xfer.hold ? "checked" : ""} ${Dest.mode === "folder" && Dest.handle && !Xfer.hold ? "" : "disabled"}><span>Trasferisci da solo ogni clip appena fermo la registrazione</span></label>
+      <label class="pf-sw"><input type="checkbox" data-xf="hold" ${Xfer.hold ? "checked" : ""}><span>Tieni i file sui telefoni: non trasferire durante la sessione<small>Utile con una rete debole o con l'iPad come regia.</small></span></label>`;
+  },
+  showFile() {
+    Preview.stopAll(); const e = GDC_PUB.esc, s = Session.cur;
+    $("#view").innerHTML = `<div class="ps pf"><div class="ps-head"><div class="ps-r1"><a class="pf-back" href="#/">‹ Camere</a>${GDC_PUB.LOGO}<b class="pb-h">${e(s.venue || s.name || "Sessione")}</b><span class="ps-chip">File</span><span class="grow"></span></div></div>
+      <div id="pfTop">${this.fileTop()}</div><div id="pfClips" class="pf-clips">${this.fileClips()}</div></div>`;
+    this._sigT = this.fileSigTop(); this._sigC = this.fileSigClips(); curDetail = null;
+  },
+  fileSigTop() { return JSON.stringify([Dest.mode, Dest.handle && Dest.handle.name, Dest.health && Dest.health.ok, Dest.health && Dest.health.msg, Xfer.delAfter, Xfer.auto, Xfer.hold, FS]); },
+  fileSigClips() { return JSON.stringify([this.fileRows().map((r) => [r.camId, r.sid, r.name, r.job && [r.job.state, Math.round((r.job.got || 0) / 65536), r.job.saved, r.job.error, r.job.note], r.clip && r.clip.status]), Xfer.queueRun, Xfer.active().length]); },
+  fileTick() {
+    if (location.hash !== "#/file" || !this.sessionOn()) return; const t = document.getElementById("pfTop"), c = document.getElementById("pfClips"); if (!t || !c) return;
+    const st = this.fileSigTop(), sc = this.fileSigClips();
+    if (st !== this._sigT && !t.contains(document.activeElement)) { this._sigT = st; t.innerHTML = this.fileTop(); }
+    if (sc !== this._sigC) { this._sigC = sc; c.innerHTML = this.fileClips(); }
+  },
+});
+setInterval(() => PubUI.fileTick(), 500);
 document.addEventListener("gdcmode", () => PubUI.sync());
-PubUI.sync();
+PubUI.sync(); if (PubUI.sessionOn()) route(); // la prima vista era già stata disegnata prima del caricamento di questo file
