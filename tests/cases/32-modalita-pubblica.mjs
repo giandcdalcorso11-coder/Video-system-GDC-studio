@@ -12,13 +12,17 @@ export async function run() {
     t.check("scegliendo Pubblica compare la home con 'Sono la regia' e 'Sono una camera'", await ev(() => !!document.getElementById("pubHome") && !!document.getElementById("pubRegia") && !!document.getElementById("pubCamera")));
     t.check("il corpo della pagina ha la modalità pub e non mostra strumenti da sviluppatore", await ev(() => document.body.classList.contains("pub") && !document.body.classList.contains("adv")));
     await p.click("#pubRegia");
-    t.check("'Sono la regia' porta alla scelta del tipo di ripresa (4 tipi, nome, locale, colori)", await ev(() => document.querySelectorAll("[name=pubPreset]").length === 4 && !!document.getElementById("pubName") && !!document.getElementById("pubVenue") && document.querySelectorAll("[data-col]").length === 5));
-    await p.fill("#pubName", "Partita di prova"); await p.fill("#pubVenue", "Campo A"); await p.check('[name=pubPreset][value="sport"]'); await p.click('[data-col="verde"]');
+    t.check("'Sono la regia' porta a 'Che cosa riprendi?' (passo 1 di 2: 4 tipi, locale, 5 colori, anteprima)", await ev(() => document.querySelectorAll("[data-pre]").length === 4 && !!document.getElementById("pubVenue") && document.querySelectorAll("[data-col]").length === 5 && !!document.getElementById("pubPrevName") && /PASSO 1 DI 2/.test(document.getElementById("pubHome").textContent)));
+    await p.click('[data-pre="sport"]'); await p.fill("#pubVenue", "Campo A"); await p.click('[data-col="verde"]');
+    t.check("l'anteprima segue il nome del locale", await ev(() => document.getElementById("pubPrevName").textContent === "Campo A"));
+    await p.click("#pubNext");
+    t.check("il passo 2 è 'Nuova sessione' con durata (4, 12, 24 ore) e approvazione", await ev(() => /PASSO 2 DI 2/.test(document.getElementById("pubHome").textContent) && document.querySelectorAll("[data-h]").length === 3 && !!document.getElementById("pubAppr")));
+    await p.fill("#pubName", "Partita di prova"); await p.click('[data-h="4"]'); await p.click("#pubAppr");
     await Promise.all([p.waitForEvent("load", { timeout: 20000 }).catch(() => {}), p.click("#pubGo")]);
     t.check("dopo 'Crea la sessione' la regia è collegata (sessione reale) e la home sparisce", await t.until(() => ev(() => typeof REAL !== "undefined" && REAL === true && !document.getElementById("pubHome")), 20000));
-    t.check("la sessione porta nome, tipo, locale e colore", await ev(() => Session.cur.name === "Partita di prova" && Session.cur.activity === "sport" && Session.cur.venue === "Campo A" && Session.cur.color === "verde"));
+    t.check("la sessione porta nome, tipo, locale e colore", await ev(() => Session.cur.name === "Partita di prova" && Session.cur.activity === "sport" && Session.cur.venue === "Campo A" && Session.cur.color === "verde" && Session.cur.until - Session.cur.start === 4 * 3600000 && store.get("gdc.approve", true) === false));
     t.check("si apre da solo il QR per far entrare le camere", await t.until(() => ev(() => { const m = document.getElementById("addModal"); return !!m && !m.hidden; }), 10000));
-    t.check("la modalità resta Pubblica dopo il ricaricamento e il colore scelto è applicato", await ev(() => document.body.classList.contains("pub") && document.documentElement.style.getPropertyValue("--accent").trim() === "#12875a"));
+    t.check("la modalità resta Pubblica dopo il ricaricamento e il colore scelto è applicato", await ev(() => document.body.classList.contains("pub") && document.documentElement.style.getPropertyValue("--session").trim() === "#3DDC97" && !!document.getElementById("pubSessBar") && /Campo A/.test(document.getElementById("pubSessBar").textContent) && getComputedStyle(document.body).backgroundColor === "rgb(14, 16, 19)"));
     // camera
     await p.evaluate(() => localStorage.removeItem("gdc.pair")); // in prova regia e camera condividono lo stesso browser: la camera deve partire senza abbinamento
     const c = await t.ctx.newPage(); c.on("pageerror", (e) => t.errs.push("pubblica camera: " + e.message));
