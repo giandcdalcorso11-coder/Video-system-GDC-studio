@@ -13,8 +13,9 @@ const INST = Math.random().toString(36).slice(2, 8); let CAM_DUP = false;
 const Lease = {
   k: "gdc.cam.lease." + ID,
   read() { try { return JSON.parse(localStorage.getItem(this.k) || "null"); } catch { return null; } },
-  write() { try { localStorage.setItem(this.k, JSON.stringify({ i: INST, t: Date.now(), rec: (typeof recording !== "undefined" && recording) ? recording.sid : "", h: document.hidden ? 1 : 0 })); } catch { /* ok */ } },
-  other() { const l = this.read(); return l && l.i !== INST && Date.now() - l.t < 120000 ? l : null; },
+  write() { try { localStorage.setItem(this.k, JSON.stringify({ i: INST, t: Date.now(), c: Lease.ch(), rec: (typeof recording !== "undefined" && recording) ? recording.sid : "", h: document.hidden ? 1 : 0 })); } catch { /* ok */ } },
+  ch() { try { return (typeof pairing !== "undefined" && pairing && pairing.c) || ""; } catch { return ""; } }, // canale della sessione: una scheda di una sessione vecchia non blocca quella della sessione nuova
+  other() { const l = this.read(), mine = this.ch(); return l && l.i !== INST && Date.now() - l.t < 120000 && !(mine && l.c !== mine) ? l : null; },
   mine() { const l = this.read(); return !l || l.i === INST; },
   release() { try { if (this.mine()) localStorage.removeItem(this.k); } catch { /* ok */ } },
 };

@@ -108,7 +108,24 @@ function publish() { if (joinState === "no" && Date.now() - (publish.t || 0) < 5
 // su iOS, dopo il ritorno in primo piano o un cambio di barra di Safari, il livello video può restare della misura vecchia (immagine piccola in un riquadro nero): spegnerlo e riaccenderlo lo costringe a ridisegnarsi
 function stageRepaint(hard) { const v = $("vid"); if (!v) return; v.style.display = "none"; void v.offsetWidth; v.style.display = ""; if (hard && v.srcObject) stageReplace(v); }
 // sostituisce l'elemento video con uno nuovo collegato allo stesso flusso: iOS a volte lascia il vecchio disegnato piccolo in un riquadro nero anche se le misure sono giuste
-function stageReplace(o) { const n = o.cloneNode(false); n.muted = true; n.srcObject = o.srcObject; o.replaceWith(n); n.addEventListener("resize", () => stageFit("cambio dimensioni del video")); n.play().catch(() => {}); dbg("info", "anteprima: elemento video sostituito"); } // hard: ricollega il flusso al video (la registrazione usa il flusso, non l'elemento: non si interrompe)
+function stageReplace(o) { const n = o.cloneNode(false); n.muted = true; n.srcObject = o.srcObject; o.replaceWith(n); n.addEventListener("resize", () => stageFit("cambio dimensioni del video")); n.play().catch((e) => dbg("warn", `anteprima: play dopo la sostituzione: ${e.name}`)); dbg("info", "anteprima: elemento video sostituito"); stageVerify(); } // hard: ricollega il flusso al video (la registrazione usa il flusso, non l'elemento: non si interrompe)
+/* se dopo il ritorno in primo piano l'anteprima resta nera (il video non ha dimensioni), provo in ordine: nuovo flusso con le stesse tracce, poi riapro la camera (se non sta registrando) */
+let stageChk = 0;
+function stageVerify() {
+  clearTimeout(stageChk); const t0 = Date.now();
+  const step = (n) => { stageChk = setTimeout(async () => {
+    const v = $("vid"); if (!v || !stream || document.hidden) return;
+    if (v.videoWidth > 0) { if (n > 1) dbg("info", `anteprima tornata visibile al tentativo ${n}`); return; }
+    const tr = stream.getVideoTracks()[0], info = { tentativo: n, readyState: v.readyState, paused: v.paused, traccia: tr ? tr.readyState + (tr.muted ? "+muta" : "") : "assente", dopo_ms: Date.now() - t0 };
+    if (n === 1) { dbg("warn", "anteprima ancora nera: ricollego un nuovo flusso con le stesse tracce", info); try { v.srcObject = new MediaStream(stream.getTracks()); await v.play(); } catch (e) { dbg("warn", `anteprima: play nuovo flusso: ${e.name}`); } step(2); }
+    else if (n === 2) {
+      if (recording || tl || opening || CAM_DUP) { dbg("warn", "anteprima ancora nera durante la registrazione: non riapro la camera", info); step(3); return; }
+      dbg("warn", "anteprima ancora nera: riapro la camera", info); opening = true; try { await openCam(); dbg("info", "camera riaperta per l'anteprima nera"); } catch (e) { dbg("error", `riapertura per l'anteprima nera non riuscita: ${e.name}`); } opening = false;
+      for (const k of Object.keys(pcs)) { try { await startPreview(k, pcs[k].q); } catch { /* ok */ } } step(3);
+    } else if (n === 3) dbg(v.videoWidth > 0 ? "info" : "error", v.videoWidth > 0 ? "anteprima tornata visibile" : "anteprima ancora nera dopo tutti i tentativi", info);
+  }, n === 1 ? 1500 : 2500); };
+  step(1);
+}
 function stageFit(why) {
   const v = $("vid"), st = $("stage"); if (!v || !st || !v.videoWidth || !v.videoHeight) return;
   const ratio = v.videoWidth / v.videoHeight; if (why) { stageRepaint(); setTimeout(() => { stageRepaint(/ritorno/.test(why)); const q = v.getBoundingClientRect(), z = st.getBoundingClientRect(); dbg("info", `anteprima dopo il ridisegno: video ${Math.round(q.width)}×${Math.round(q.height)}, riquadro ${Math.round(z.width)}×${Math.round(z.height)}, finestra ${innerWidth}×${innerHeight}${recording ? ", in REC" : ""}`); }, 500); }
