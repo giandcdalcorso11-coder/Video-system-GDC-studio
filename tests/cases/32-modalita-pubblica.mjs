@@ -39,7 +39,11 @@ export async function run() {
     { const q = await t.ctx.newPage(); q.on("pageerror", (e) => t.errs.push("pubblica vecchio abbinamento: " + e.message));
       await q.goto(`${t.base}/dashboard.html?mock=1`); await q.evaluate(() => { localStorage.setItem("gdc.pair", JSON.stringify({ u: "https://x.supabase.co", k: "sb_publishable_x", c: "gdc1.abcdefghijklmnop" })); localStorage.setItem("gdc.session", JSON.stringify({ name: "Vecchia", start: Date.now() })); localStorage.setItem("gdc.mode", JSON.stringify("pub")); });
       await q.goto(`${t.base}/dashboard.html`); await t.until(() => q.evaluate(() => typeof PubUI !== "undefined" && !!GDC_DEV));
-      t.check("con un abbinamento di prove precedenti la Pubblica mostra comunque la scelta Regia / Camera", await t.until(() => q.evaluate(() => !!document.getElementById("pubRegia") && !!document.getElementById("pubCamera")), 8000));
+      t.check("all'apertura la Pubblica non parte da sola: si vede il selettore di modalità", await q.evaluate(() => !document.getElementById("pubHome") && !!document.querySelector('#gdcMode [data-mode="pub"]')));
+      await q.click('#gdcMode [data-mode="pub"]');
+      t.check("con un abbinamento di prove precedenti, scegliendo Pubblica compare la scelta Regia / Camera", await t.until(() => q.evaluate(() => !!document.getElementById("pubRegia") && !!document.getElementById("pubCamera")), 8000));
+      await q.click("#pubExit");
+      t.check("'Esci dalla prova' torna al selettore di modalità", await q.evaluate(() => !document.getElementById("pubHome") && !document.body.classList.contains("pub")));
       await q.close(); }
     // tornando a Base la home sparisce
     await p.evaluate(() => GDC_DEV.setMode("base"));

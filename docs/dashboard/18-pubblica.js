@@ -5,7 +5,7 @@
 const PubUI = {
   step: "home", sel: { preset: "generico", color: "verde", venue: "", name: "", hours: 12, approve: true },
   note: "",
-  top(nome, back) { const P = GDC_PUB; return `<div class="pb-top${back ? " line" : ""}">${P.LOGO}<span class="nm">Video System GDC Studio${nome ? ` <span>· ${nome}</span>` : ""}</span>${back ? `<button class="pb-back" id="pubBack">${back}</button>` : ""}</div>`; },
+  top(nome, back) { const P = GDC_PUB; return `<div class="pb-top${back ? " line" : ""}">${P.LOGO}<span class="nm">Video System GDC Studio${nome ? ` <span>· ${nome}</span>` : ""}</span>${back ? `<button class="pb-back" id="pubBack">${back}</button>` : `<button class="pb-back" id="pubExit">Esci dalla prova</button>`}</div>`; },
   arrow: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3F4F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`,
   sync() {
     const on = !!window.GDC_PUB && GDC_PUB.active();
@@ -33,6 +33,7 @@ const PubUI = {
         <button class="pb-card" id="pubRegia"><div class="tx"><span class="tg" style="color:#3DDC97">REGIA</span><span class="tt">Comando le camere</span><span class="ds">Da iPad, computer o telefono: crei la sessione e comandi REC, zoom e file.</span></div>${this.arrow}</button>
         <button class="pb-card" id="pubCamera"><div class="tx"><span class="tg" style="color:#FFB84D">CAMERA</span><span class="tt">Questo telefono riprende</span><span class="ds">Scansioni il QR della regia e il telefono è pronto a registrare.</span></div>${this.arrow}</button>
         <span class="pb-note">Senza account. I video restano sui tuoi dispositivi.<br>Modalità di prova: vengono inviati dati tecnici sul funzionamento (modello, browser, rete, errori). Nessuna foto, video o audio.</span></div></div></div>`;
+      el.querySelector("#pubExit").onclick = () => GDC_DEV.setMode("base");
       el.querySelector("#pubRegia").onclick = () => { this.step = "tipo"; this.render(el); el.scrollTop = 0; };
       el.querySelector("#pubCamera").onclick = () => { dbg("info", "pubblica", "scelta: camera"); location.href = "camera.html"; };
     } else if (this.step === "tipo") {

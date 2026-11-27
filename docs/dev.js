@@ -16,7 +16,9 @@
   const SESS = `${String(d0.getFullYear()).slice(2)}${pad(d0.getMonth() + 1)}${pad(d0.getDate())}-${pad(d0.getHours())}${pad(d0.getMinutes())}-${Math.random().toString(36).slice(2, 6)}`;
 
   const forced = new URLSearchParams(location.search).get("dev") === "1"; // link di prova: invia i log tecnici anche in modalità Base
-  let cfg = null, mode = ["adv", "pub"].includes(store.get("gdc.mode", "base")) ? store.get("gdc.mode", "base") : "base", sending = store.get("gdc.devsend", true) !== false || forced;
+  const pubLive = (() => { try { const x = JSON.parse(localStorage.getItem("gdc.session") || "null"); return !!(x && x.pub && localStorage.getItem("gdc.pair")); } catch { return false; } })();
+  let cfg = null, mode = ["adv", "pub"].includes(store.get("gdc.mode", "base")) ? store.get("gdc.mode", "base") : "base"; if (mode === "pub" && !pubLive && !/camera\.html/.test(location.pathname)) mode = "base";
+  let sending = store.get("gdc.devsend", true) !== false || forced; // la Pubblica riparte solo con una sessione pubblica aperta: altrimenti si apre dal selettore
   const live = () => sending;
   const queue = []; let seq = 0, timer = 0, sent = 0, failed = 0, lastErr = "", backoff = 0, busy = false, started = false;
   const QMAX = 3000;
