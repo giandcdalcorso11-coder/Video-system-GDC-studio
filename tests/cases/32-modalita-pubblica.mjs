@@ -25,6 +25,11 @@ export async function run() {
     t.check("la modalità resta Pubblica dopo il ricaricamento e il colore scelto è applicato", await ev(() => document.body.classList.contains("pub") && document.documentElement.style.getPropertyValue("--session").trim() === "#3DDC97" && !!document.querySelector(".ps-head") && /Campo A/.test(document.querySelector(".ps-head").textContent) && getComputedStyle(document.body).backgroundColor === "rgb(14, 16, 19)"));
     t.check("la regia in Pubblica nasconde gli strumenti da sviluppatore e mostra la riga dei file", await t.until(() => ev(() => !document.getElementById("permPanel") && !document.getElementById("sum") && getComputedStyle(document.querySelector("header.top")).display === "none" && /Trasferimento automatico/.test(document.getElementById("pubFilesBar").textContent) && !!document.getElementById("pubNewSess") && !!document.getElementById("pubRec") && !!document.getElementById("pubStop") && /0 camere collegate/.test(document.getElementById("pubCnt").textContent)), 5000));
     t.check("nella sessione c'è 'Esci dalla sessione'", await ev(() => !!document.getElementById("pubLeave")));
+    { const z = await t.ctx.newPage(); z.on("dialog", (d) => d.accept()); z.on("pageerror", (e) => t.errs.push("esci: " + e.message));
+      await z.goto(`${t.base}/dashboard.html`); await t.until(() => z.evaluate(() => typeof PubUI !== "undefined" && !!document.getElementById("pubLeave")), 15000);
+      await z.click("#pubLeave"); await z.waitForLoadState("load").catch(() => {});
+      t.check("'Esci dalla sessione' riporta alla home Regia / Camera della Pubblica (non a Base)", await t.until(() => z.evaluate(() => document.body.classList.contains("pub") && !!document.getElementById("pubRegia") && !!document.getElementById("pubCamera")), 15000));
+      await z.close(); }
     // camera
     await p.evaluate(() => localStorage.removeItem("gdc.pair")); // in prova regia e camera condividono lo stesso browser: la camera deve partire senza abbinamento
     const c = await t.ctx.newPage(); c.on("pageerror", (e) => t.errs.push("pubblica camera: " + e.message));

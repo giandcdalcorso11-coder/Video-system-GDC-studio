@@ -11,7 +11,7 @@ const PubUI = {
     const on = !!window.GDC_PUB && GDC_PUB.active();
     if (window.GDC_PUB) { GDC_PUB.applyTheme(on && this.live() ? Session.cur.color : (on ? this.sel.color : "")); if (on) GDC_PUB.ensureCss(); }
     if (on && this.live() && Session.cur.until && Date.now() > Session.cur.until) { // sessione scaduta: si torna alla home
-      store.set("gdc.pubNote", "La sessione è scaduta. Creane una nuova: i file già registrati restano sui telefoni."); store.set("gdc.session", null); try { GDC_RT.Pair.clear(); } catch { /* ok */ } dbg("info", "pubblica", "sessione scaduta"); location.reload(); return;
+      store.set("gdc.pubNote", "La sessione è scaduta. Creane una nuova: i file già registrati restano sui telefoni."); store.set("gdc.session", null); localStorage.setItem("gdc.pubHome", "1"); try { GDC_RT.Pair.clear(); } catch { /* ok */ } dbg("info", "pubblica", "sessione scaduta"); location.reload(); return;
     }
     { const h = document.querySelector("header h1 a, h1 a"); if (h) h.textContent = on ? "Video System GDC Studio" : "GDC Multicam"; document.title = on ? "Video System GDC Studio" : "GDC Multicam"; }
     { const now = on && this.live(); if (this.lastSess !== undefined && this.lastSess !== now && typeof route === "function") { this.lastSess = now; setTimeout(() => route(), 0); } this.lastSess = now; }
@@ -143,7 +143,11 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("#pubRec")) { $("#recAll").click(); return; }
   if (e.target.closest("#pubStop")) { $("#stopAll").click(); return; }
   if (e.target.closest("#pubFilesBtn")) { location.hash = "#/file"; return; }
-  if (e.target.closest("#pubLeave")) { dbg("info", "pubblica", "uscita dalla modalità: torno al selettore (la sessione resta aperta)"); GDC_DEV.setMode("base"); return; }
+  if (e.target.closest("#pubLeave")) {
+    if (!confirm("Esci dalla sessione? Le camere collegate si scollegano. Le clip già registrate restano sui telefoni.")) return;
+    dbg("info", "pubblica", "uscita dalla sessione: torno alla home della modalità Pubblica");
+    store.set("gdc.pubNote", ""); store.set("gdc.session", null); localStorage.setItem("gdc.pubHome", "1"); try { GDC_RT.Pair.clear(); } catch { /* ok */ } location.reload(); return;
+  }
   if (e.target.closest("#pubNewSess")) { const x = document.getElementById("sessNewHome"); if (x) x.click(); else { const n = prompt("Nuova sessione. Il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR (le clip restano sui telefoni).\n\nScrivi il nome della nuova sessione, oppure lascia vuoto:", ""); if (n !== null) Session.begin(n); } }
 });
 document.addEventListener("input", (e) => { const z = e.target.closest && e.target.closest("[data-pz]"); if (!z || !PubUI.sessionOn()) return; zDrag = true; const id = z.dataset.pz; z.previousElementSibling && 0; const v = z.parentNode.querySelector("[data-bind=pubZv]"); if (v) v.textContent = Number(z.value).toFixed(1).replace(".", ",") + "×"; if (!z._t) z._t = setTimeout(() => { z._t = 0; command(id, { cmd: "zoom", z: Number(z.value) }); }, 100); });
