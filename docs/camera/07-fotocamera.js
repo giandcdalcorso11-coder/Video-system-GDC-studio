@@ -52,3 +52,23 @@ async function autoOpen(why) {
   opening = false;
 }
 function stopCam() { dbg("info", "ferma camera"); wakeOff(); setWant(false); if (recording) stopRec(); if (tl && tl.stage === "shooting") tlStop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; $("vid").srcObject = null; $("camStop").disabled = true; $("recBtn").disabled = true; closePreviews(); publish(); }
+
+/* sveglia, chiamata o altra app: iOS silenzia la cattura e a volte NON la riattiva da solo quando l'interruzione finisce.
+   Se la pagina è tornata visibile e una traccia resta silenziata per 4 s, riapro la camera e rimetto in piedi le anteprime verso la regia. */
+const MuteWatch = { since: 0, lastReopen: 0, busy: false };
+setInterval(async () => {
+  try {
+    const ts = stream ? stream.getTracks() : [], muted = ts.length && ts.some((t) => t.readyState === "live" && t.muted);
+    if (!muted || document.hidden) { MuteWatch.since = 0; return; }
+    if (!MuteWatch.since) { MuteWatch.since = Date.now(); return; }
+    if (Date.now() - MuteWatch.since < 4000 || MuteWatch.busy || opening || recording || tl || CAM_DUP || Date.now() - MuteWatch.lastReopen < 15000) return;
+    MuteWatch.busy = true; MuteWatch.lastReopen = Date.now(); opening = true;
+    const prev = Object.keys(pcs).map((k) => [k, pcs[k].q]);
+    dbg("warn", `camera ancora silenziata dopo ${Math.round((Date.now() - MuteWatch.since) / 1000)} s dal ritorno in primo piano: la riapro`, { anteprimeDaRiaprire: prev.length });
+    try { await openCam(); dbg("info", "camera riaperta dopo il silenzio del sistema"); lastErr = lastErr.startsWith("La camera è silenziata") ? "" : lastErr; }
+    catch (e) { dbg("error", `riapertura dopo il silenzio non riuscita: ${e.name}: ${e.message}`); }
+    opening = false; MuteWatch.since = 0;
+    for (const [k, q] of prev) { try { await startPreview(k, q); } catch (e) { dbg("warn", `anteprima per ${k} non riaperta: ${e.message}`); } }
+    publish();
+  } catch (e) { dbg("warn", `controllo silenzio: ${e.message}`); opening = false; } finally { MuteWatch.busy = false; }
+}, 1000);

@@ -25,7 +25,7 @@ async function applyPreviewParams(pc, q) {
 async function startPreview(dashId, q) {
   if (!stream || !rt) { lastErr = "Anteprima: avvia prima la camera"; dbg("warn", "preview_start senza camera"); publish(); return; }
   try { clearInterval(pcs[dashId]?.statT); pcs[dashId]?.pc.close(); } catch { /* ok */ }
-  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [], statT: 0 }; AudioDiag.previewAt = Date.now(); dbg("info", `anteprima ${q || "full"} verso ${dashId}: creo la connessione WebRTC`);
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }); pcs[dashId] = { pc, pending: [], statT: 0, q }; AudioDiag.previewAt = Date.now(); dbg("info", `anteprima ${q || "full"} verso ${dashId}: creo la connessione WebRTC`);
   pc.onconnectionstatechange = () => { dbg("info", `WebRTC connessione: ${pc.connectionState}`); if (pc.connectionState === "connected") { const e = pcs[dashId]; if (e) { clearInterval(e.statT); e.statT = setInterval(() => rtcStats(pc, "10s"), 10000); setTimeout(() => rtcStats(pc, "avvio"), 2500); } } };
   pc.oniceconnectionstatechange = () => dbg("info", `WebRTC ICE: ${pc.iceConnectionState}`); pc.onsignalingstatechange = () => dbg("info", `WebRTC signaling: ${pc.signalingState}`); pc.onicegatheringstatechange = () => dbg("info", `WebRTC raccolta ICE: ${pc.iceGatheringState}`);
   stream.getVideoTracks().forEach((t) => pc.addTrack(t, stream));

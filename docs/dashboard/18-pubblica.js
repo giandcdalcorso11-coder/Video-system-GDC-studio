@@ -81,7 +81,7 @@ Object.assign(PubUI, {
   sessionOn() { return !!window.GDC_PUB && GDC_PUB.active() && this.live(); },
   head() {
     const s = Session.cur, e = GDC_PUB.esc, tp = (GDC_PUB.PRESETS.find((p) => p.id === s.activity) || {}).name;
-    return `<div class="ps-r1">${GDC_PUB.LOGO}<b class="pb-h">${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="ps-chip">${e(s.name)}</span>` : ""}${tp ? `<span class="ps-chip">${e(tp)}</span>` : ""}<span class="grow"></span><span class="ps-until" id="pubUntil"></span><button class="ps-ghost" id="pubNewSess">Nuova sessione</button><span class="ps-pill"><i id="pubDot"></i><span id="pubCnt">0 camere collegate</span></span><span class="ps-timer" id="pubTimer">00:00</span></div>`;
+    return `<div class="ps-r1">${GDC_PUB.LOGO}<b class="pb-h">${e(s.venue || s.name || "Sessione")}</b>${s.venue && s.name ? `<span class="ps-chip">${e(s.name)}</span>` : ""}${tp ? `<span class="ps-chip">${e(tp)}</span>` : ""}<span class="grow"></span><span class="ps-until" id="pubUntil"></span><button class="ps-ghost" id="pubNewSess">Nuova sessione</button><button class="ps-ghost" id="pubLeave">Esci dalla sessione</button><span class="ps-pill"><i id="pubDot"></i><span id="pubCnt">0 camere collegate</span></span><span class="ps-timer" id="pubTimer">00:00</span></div>`;
   },
   card(c) {
     const id = c.id;
@@ -143,6 +143,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("#pubRec")) { $("#recAll").click(); return; }
   if (e.target.closest("#pubStop")) { $("#stopAll").click(); return; }
   if (e.target.closest("#pubFilesBtn")) { location.hash = "#/file"; return; }
+  if (e.target.closest("#pubLeave")) { dbg("info", "pubblica", "uscita dalla modalità: torno al selettore (la sessione resta aperta)"); GDC_DEV.setMode("base"); return; }
   if (e.target.closest("#pubNewSess")) { const x = document.getElementById("sessNewHome"); if (x) x.click(); else { const n = prompt("Nuova sessione. Il QR cambia: i telefoni collegati ora dovranno rientrare con il nuovo QR (le clip restano sui telefoni).\n\nScrivi il nome della nuova sessione, oppure lascia vuoto:", ""); if (n !== null) Session.begin(n); } }
 });
 document.addEventListener("input", (e) => { const z = e.target.closest && e.target.closest("[data-pz]"); if (!z || !PubUI.sessionOn()) return; zDrag = true; const id = z.dataset.pz; z.previousElementSibling && 0; const v = z.parentNode.querySelector("[data-bind=pubZv]"); if (v) v.textContent = Number(z.value).toFixed(1).replace(".", ",") + "×"; if (!z._t) z._t = setTimeout(() => { z._t = 0; command(id, { cmd: "zoom", z: Number(z.value) }); }, 100); });
